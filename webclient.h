@@ -152,16 +152,10 @@ class webclient : boost::noncopyable {
         input_params.erase(param.first);
       }
 
-      // Store URL encoded key
-      std::string key = param.first;
-      std::string urlencoded_key = urlEncode((char*) key.c_str());
-      params_str.append(urlencoded_key);
-
+      // Store URL encoded key and value.
+      params_str.append(urlEncode(param.first));
       params_str.append("=");
-
-      // Store URL encoded value.
-      std::string urlencoded_value = urlEncode((char*) value.c_str());
-      params_str.append(urlencoded_value);
+      params_str.append(urlEncode(value));
 
       params_str.append("&");
     }
@@ -362,7 +356,7 @@ class webclient : boost::noncopyable {
       } else {
         escaped.append("%");
         char buf[3];
-        sprintf(buf, "%.2X", (unsigned char) s[i]);
+        snprintf(buf, sizeof(buf), "%.2X", (unsigned char) s[i]);
         escaped.append(buf);
       }
     }
@@ -370,7 +364,7 @@ class webclient : boost::noncopyable {
     return escaped;
   }
 
-  static std::string getLocation(pugi::xml_document &doc) {
+  static std::string getLocation(const pugi::xml_document &doc) {
     pugi::xpath_node tool = doc.select_single_node(
                                     "/html/head/meta[@name = 'location']");
     return tool.node().empty() ? "" : tool.node().attribute("content").value();
