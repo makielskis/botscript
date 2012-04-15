@@ -18,31 +18,51 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef WEBCLIENT_H_
+#define WEBCLIENT_H_
+
 #include <string>
 #include <map>
 #include <strstream>
 #include <utility>
 #include <vector>
+#include <exception>
 
 #include "boost/utility.hpp"
 #include "boost/foreach.hpp"
 #include "boost/thread.hpp"
 #include "tidy/tidy.h"
 #include "tidy/buffio.h"
-
-#include "./pugixml/pugixml.hpp"
+#include "pugixml/pugixml.hpp"
 
 #include "./http.h"
-
-#ifndef WEBCLIENT_H_
-#define WEBCLIENT_H_
 
 #define MAX_REDIRECTS 3
 
 namespace botscript {
 
+class element_not_found_exception : public std::exception {
+ public:
+  element_not_found_exception(const std::string& what)
+    : error(what) {
+  }
+
+  ~element_not_found_exception() throw() {
+  }
+
+  virtual const char* what() const throw() {
+    return error.c_str();
+  }
+
+ private:
+  std::string error;
+};
+
 class webclient : boost::noncopyable {
  public:
+  webclient() : headers_(randomHeaders()) {
+  }
+
   webclient(const std::map<std::string, std::string>& headers,
             const std::string& proxy_host, const std::string& proxy_port)
     : proxy_host_(proxy_host),
@@ -50,8 +70,23 @@ class webclient : boost::noncopyable {
       headers_(headers) {
   }
 
+  void proxy(const std::string host, const std::string port) {
+    boost::lock_guard<boost::mutex> lock(mutex);
+    proxy_host_ = host;
+    proxy_port_ = port;
+  }
+
+  std::string proxy_host() const {
+    return proxy_host_;
+  }
+
+  std::string proxy_port() const {
+    return proxy_port_;
+  }
+
   std::string request(std::string url, const int method,
-                      const void* content, const size_t content_length) {
+                      const void* content, const size_t content_length)
+  throw(std::ios_base::failure) {
     // Lock complete request because of cookies r/w access.
     boost::lock_guard<boost::mutex> lock(mutex);
 
@@ -101,14 +136,14 @@ class webclient : boost::noncopyable {
 
   std::string submit(const std::string& xpath, const std::string& page,
                      std::map<std::string, std::string> input_params,
-                     const std::string& action) {
+                     const std::string& action)
+  throw(element_not_found_exception, std::ios_base::failure) {
     // Determine XML element from given XPath.
     pugi::xml_document doc;
     doc.load(page.c_str());
     pugi::xml_node form = doc.select_single_node(xpath.c_str()).node();
     if (form.empty()) {
-      // throw std::exception("element does not exist");
-      return "";
+      throw element_not_found_exception("element does not exist");
     }
 
     // Store submit element.
@@ -118,8 +153,7 @@ class webclient : boost::noncopyable {
       // Node is not a form, so it has to be a submit element.
       if (std::strcmp(form.attribute("type").value(), "submit") != 0) {
         // Neither a form nor a submit? We're out.
-        // throw std::exception("element is not a form/submit");
-        return "";
+        throw element_not_found_exception("element is not a form/submit");
       }
 
       // The node is the submit element. Find corresponding form element.
@@ -128,8 +162,7 @@ class webclient : boost::noncopyable {
 
         if (form == form.root()) {
           // Root reached, no form found.
-          // throw std::exception("submit element not in a form");
-          return "";
+          throw element_not_found_exception("submit element not in a form");
         }
       }
     }
@@ -162,8 +195,7 @@ class webclient : boost::noncopyable {
 
     // Check if all input parameters were found.
     if (!input_params.empty()) {
-      // throw std::exception("parameters did not match");
-      return "";
+      throw element_not_found_exception("parameters did not match");
     }
 
     // Remove last '&'.
@@ -189,6 +221,20 @@ class webclient : boost::noncopyable {
   }
 
  private:
+  std::map<std::string, std::string> randomHeaders() {
+    std::map<std::string, std::string> headers;
+    headers["User-Agent"]      = "Mozilla/5.0 (Windows; U; Windows NT 6.1; de;"\
+                                 "rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8";
+    headers["Accept"]          = "text/html,image/*,application/xhtml+xml,"\
+                                 "application/xml;q=0.9,*/*;q=0.8";
+    headers["Accept-Language"] = "de-de,de;q=0.8,en-us;q=0.5,en;q=0.3";
+    headers["Accept-Encoding"] = "gzip,deflate";
+    headers["Accept-Charset"]  = "ISO-8859-1,utf-8;q=0.7,*;q=0.7";
+    headers["Keep-Alive"]      = "115";
+    headers["Connection"]      = "keep-alive";
+    return headers;
+  }
+
   void storeCookies(const std::map<std::string, std::string>& cookies) {
       if (cookies.size() == 0) {
         return;
@@ -370,13 +416,13 @@ class webclient : boost::noncopyable {
     return tool.node().empty() ? "" : tool.node().attribute("content").value();
   }
 
-  std::string getLocation(const std::string& page) {
+  static std::string getLocation(const std::string& page) {
     pugi::xml_document doc;
     doc.load(page.c_str());
     return getLocation(doc);
   }
 
-  std::string getBaseURL(const std::string& page) {
+  static std::string getBaseURL(const std::string& page) {
       std::string url = getLocation(page);
       if (url.empty()) {
         return url;

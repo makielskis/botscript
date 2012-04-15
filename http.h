@@ -90,7 +90,8 @@ class http_source {
     finishTransfer();
   }
 
-  std::streamsize read(char_type* s, std::streamsize n) {
+  std::streamsize read(char_type* s, std::streamsize n)
+  throw(std::ios_base::failure) {
     if (transfer_finished_) {
       return 0;
     }
@@ -175,7 +176,8 @@ class http_source {
   }
 
   void handleResolve(const boost::system::error_code& ec,
-          boost::asio::ip::tcp::resolver::iterator endpoint_iterator) {
+          boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
+  throw(std::ios_base::failure) {
     if (!ec) {
       // Start the timeout timer.
       timeout_timer_.expires_from_now(boost::posix_time::seconds(1));
@@ -191,7 +193,8 @@ class http_source {
     }
   }
 
-  void handleConnect(const boost::system::error_code& ec) {
+  void handleConnect(const boost::system::error_code& ec)
+  throw(std::ios_base::failure) {
     if (!ec) {
       // Start the timeout timer assuming that the minimum transfer rate
       // is at least 1kb per second
@@ -207,7 +210,8 @@ class http_source {
     }
   }
 
-  void handleWrite(const boost::system::error_code& ec) {
+  void handleWrite(const boost::system::error_code& ec)
+  throw(std::ios_base::failure) {
     if (!ec) {
       // Read the status line (with timeout).
       timeout_timer_.expires_from_now(boost::posix_time::seconds(1));
@@ -219,7 +223,8 @@ class http_source {
     }
   }
 
-  void handleReadStatusLine(const boost::system::error_code& ec) {
+  void handleReadStatusLine(const boost::system::error_code& ec)
+  throw(std::ios_base::failure) {
     if (!ec) {
       // Check the status line
       std::istream response_stream(&response_buffer_);
@@ -238,7 +243,8 @@ class http_source {
     }
   }
 
-  void handleReadHeaders(const boost::system::error_code& ec) {
+  void handleReadHeaders(const boost::system::error_code& ec)
+  throw(std::ios_base::failure) {
     if (!ec) {
       std::istream response_stream(&response_buffer_);
       std::string header;
@@ -270,7 +276,8 @@ class http_source {
   }
 
   void handleRead(const boost::system::error_code& ec,
-                  std::size_t bytes_transferred) {
+                  std::size_t bytes_transferred)
+  throw(std::ios_base::failure) {
     if (!ec) {
       // Stop if we transferred enough bytes.
       if (response_content_.size() >= requested_bytes_) {
@@ -316,7 +323,8 @@ class http_source {
   }
 
   void handleReadChunkSize(const boost::system::error_code& ec,
-                           std::size_t bytes_transferred) {
+                           std::size_t bytes_transferred)
+  throw(std::ios_base::failure) {
     if (response_content_.size() >= requested_bytes_) {
       return;
     }
@@ -407,7 +415,8 @@ class http_source {
   }
 
   void handleReadChunked(const boost::system::error_code& ec,
-                         std::size_t bytes_transferred) {
+                         std::size_t bytes_transferred)
+  throw(std::ios_base::failure) {
     if (!ec) {
       // Read until the end of the chunk size declaration.
       boost::asio::async_read_until(socket_, response_buffer_,
