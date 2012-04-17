@@ -297,7 +297,7 @@ class http_source {
       }
 
       // Read incoming bytes if any.
-      size_t to_transfer = std::min(content_length_,
+      size_t to_transfer = std::min((size_t)content_length_,
                                     requested_bytes_ - bytes_transferred_);
 
       if (to_transfer == 0) {
@@ -480,9 +480,9 @@ class http_source {
   bool transfer_encoding_chunked_;
   int content_length_;
   std::string response_location_;
-  int bytes_transferred_;
+  size_t bytes_transferred_;
   std::vector<char> response_content_;
-  int requested_bytes_;
+  size_t requested_bytes_;
   bool transfer_finished_;
 };
 

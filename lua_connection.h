@@ -21,224 +21,84 @@
 #ifndef LUA_CONNECTION_H_
 #define LUA_CONNECTION_H_
 
-#include <map>
-#include <string>
-#include <map>
-
 extern "C" {
-#include "lua.h"
-#include "lualib.h"
-#include "lauxlib.h"
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 }
 
+#include <map>
+#include <string>
+
+#include "boost/thread.hpp"
+
+#include "./webclient.h"
 #include "./bot.h"
-
-namespace botscript {
-
-namespace lua {
+#include "./exceptions/lua_exception.h"
+#include "./exceptions/bad_login_exception.h"
 
 #define BOT_IDENTIFER "bot_identifier"
 #define BOT_MODULE "bot_module"
 
-std::map<std::string, botscript::bot*> bots = std::map<std::string, botscript::bot*>();
+namespace botscript {
 
-class bad_login_exception : public std::exception {
-};
+class bot;
 
-class lua_exception : public std::exception {
+class lua_connection {
  public:
-  lua_exception(const std::string& what)
-    : error(what) {
-  }
+  static void luaStringTableToMap(lua_State* state, int stack_index,
+                           std::map<std::string, std::string>* map);
 
-  ~lua_exception() throw() {
-  }
+  static bool loadServerList(const std::string script,
+                             std::map<std::string, std::string>* servers);
 
-  virtual const char* what() const throw() {
-    return error.c_str();
-  }
+  static void loadScript(lua_State* state, std::string script_path)
+  throw(lua_exception);
+
+  static void callFunction(lua_State* state,
+                           int nargs, int nresults, int errfunc)
+  throw(lua_exception);
+
+  static void executeScript(std::string script_path, lua_State* state)
+  throw(lua_exception);
+
+  static lua_State* newState()
+  throw(lua_exception);
+
+  static lua_State* newState(std::string module_name, bot* bot)
+  throw(lua_exception);
+
+  static lua_State* login(bot* bot,
+                          const std::string& username,
+                          const std::string& password,
+                          const std::string& package)
+  throw(lua_exception, bad_login_exception);
+
+  static bot* getBot(lua_State* state);
+  static webclient* getWebClient(lua_State* state);
+  static void remove(const std::string identifier);
+
+  static void log(lua_State* state, int log_level);
+  static int doRequest(lua_State* state, bool path);
+
+  static int m_request(lua_State* state);
+  static int m_request_path(lua_State* state);
+  static int m_post_request(lua_State* state);
+  static int m_submit_form(lua_State* state);
+  static int m_get_by_xpath(lua_State* state);
+  static int m_get_by_regex(lua_State* state);
+  static int m_get_all_by_regex(lua_State* state);
+  static int m_get_location(lua_State* state);
+  static int m_log(lua_State* state);
+  static int m_log_error(lua_State* state);
+  static int m_set_status(lua_State* state);
 
  private:
-  std::string error;
+  static std::map<std::string, bot*> bots_;
+  static boost::mutex bots_mutex_;
+  static webclient* webclient_;
 };
 
-botscript::bot* getBot(lua_State* state) {
-  lua_getglobal(state, BOT_IDENTIFER);
-  const char* identifier = luaL_checkstring(state, -1);
-
-  // Check for errors.
-  if (identifier == NULL || bots.find(identifier) == bots.end()) {
-    std::string error = "could not get the associated bot for ";
-    error += identifier;
-    luaL_error(state, "%s", error.c_str());
-    return NULL;
-  }
-
-  botscript::bot* bot = bots[identifier];
-  lua_pop(state, 1);
-  return bot;
-}
-
-void luaStringTableToMap(lua_State* state, int stack_index,
-                         std::map<std::string, std::string>* map) {
-  // Check - check - double check!
-  if (!lua_istable(state, stack_index)) {
-    return;
-  }
-
-  // Push the first key (nil).
-  lua_pushnil(state);
-
-  // Iterate keys.
-  while (lua_next(state, stack_index) != 0) {
-    const char* key = luaL_checkstring(state, -2);
-    const char* value = luaL_checkstring(state, -1);
-    (*map)[key] = value;
-
-    // Pop the value, key stays for lua_next.
-    lua_pop(state, 1);
-  }
-}
-
-bool loadServerList(const std::string script,
-                    std::map<std::string, std::string>* servers) {
-  // Initialize lua_State.
-  lua_State* state = lua_open();
-  if (NULL == state) {
-    return false;
-  }
-  luaL_openlibs(state);
-
-  // Execute script.
-  if (0 != luaL_dofile(state, script.c_str())) {
-    return false;
-  }
-
-  // Read servers list.
-  lua_getglobal(state, "servers");
-  luaStringTableToMap(state, 1, servers);
-
-  // Free resources.
-  lua_close(state);
-
-  return true;
-}
-
-void loadScript(lua_State* state, std::string script_path) throw (lua_exception) {
-  int ret = 0;
-  if (0 != (ret = luaL_loadfile(state, script_path.c_str()))) {
-    std::string error;
-    switch (ret) {
-      case LUA_ERRFILE: error = std::string("could not open ") + script_path;
-	      break;
-      case LUA_ERRSYNTAX: error = "syntax error";
-	      break;
-      case LUA_ERRMEM: error = "out of memory";
-	      break;
-    }
-    throw lua_exception(error);
-  }
-}
-
-void callFunction(lua_State* state,
-                  int nargs, int nresults, int errfunc)
-throw (lua_exception) {
-    int ret;
-    if (0 != (ret = lua_pcall(state, nargs, nresults, errfunc))) {
-      std::string error;
-
-      const char* s = lua_tostring(state, -1);
-
-      if (s == NULL) {
-        switch (ret) {
-          case LUA_ERRRUN: error = "runtime error"; break;
-          case LUA_ERRMEM: error = "out of memory"; break;
-          case LUA_ERRERR: error = "error handling error"; break;
-        }
-      } else {
-        error = s;
-      }
-
-      throw lua_exception(error);
-    }
-}
-
-void executeScript(std::string script_path, lua_State* state)
-throw (lua_exception) {
-	loadScript(state, script_path);
-	callFunction(state, 0, LUA_MULTRET, 0);
-}
-
-lua_State* newState() throw (lua_exception) {
-	// Create new script state.
-	lua_State* state = lua_open();
-	if (state == NULL) {
-		throw lua_exception("script initialization: out of memory");
-	}
-
-/*
-	// Register botscript functions.
-	lua_register(state, "m_request", m_request);
-	lua_register(state, "m_request_path", m_request_path);
-	lua_register(state, "m_post_request", m_post_request);
-	lua_register(state, "m_submit_form", m_submit_form);
-	lua_register(state, "m_submit_form_path", m_submit_form_path);
-	lua_register(state, "m_get_by_xpath", m_get_by_xpath);
-	lua_register(state, "m_get_by_regex", m_get_by_regex);
-	lua_register(state, "m_get_all_by_regex", m_get_all_by_regex);
-	lua_register(state, "m_log", m_log);
-	lua_register(state, "m_log_error", m_log_error);
-	lua_register(state, "m_set_status", m_set_status);
-*/
-
-	// Load libraries.
-	luaL_openlibs(state);
-
-	return state;
-}
-
-lua_State* newState(std::string module_name, botscript::bot* bot)
-throw (lua_exception) {
-  // Open a new lua_State* with m_ and libraries already loaded.
-  lua_State* state = newState();
-
-  // Set bot identifier.
-  bots[bot->identifier()] = bot;
-  lua_pushstring(state, bot->identifier().c_str());
-  lua_setglobal(state, BOT_IDENTIFER);
-
-  // Set module name.
-  lua_pushstring(state, module_name.c_str());
-  lua_setglobal(state, BOT_MODULE);
-
-  return state;
-}
-
-lua_State* login(botscript::bot* bot,
-                 const std::string& username,
-                 const std::string& password,
-                 const std::string& package)
-throw (lua_exception, bad_login_exception) {
-  // Load login script.
-  lua_State* state = newState("base", bot);
-  executeScript(package + "/base.lua", state);
-
-  // Tell Lua to call the login function.
-  lua_getglobal(state, "login");
-  lua_pushstring(state, username.c_str());
-  lua_pushstring(state, password.c_str());
-
-  // Call login function.
-  callFunction(state, 2, 1, 0);
-
-  // Get result, free resources and return.
-  if (!lua_toboolean(state, -1)) {
-    throw bad_login_exception();
-  }
-
-  return state;
-}
-
-} }  // namespace botscript, lua
+}  // namespace botscript
 
 #endif  // LUA_CONNECTION_H_

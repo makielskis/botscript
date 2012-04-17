@@ -27,90 +27,24 @@
 #include <vector>
 #include <map>
 
+#include "boost/thread.hpp"
 #include "boost/utility.hpp"
 #include "boost/filesystem.hpp"
+#include "boost/shared_ptr.hpp"
 
-#include "./lua_connection.h"
 #include "./webclient.h"
+#include "./lua_connection.h"
+#include "./exceptions/lua_exception.h"
+#include "./exceptions/bad_login_exception.h"
 
 namespace botscript {
 
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
+class bot;
 class module;
-class log_msg;
-class bad_login_exception;
 
-class bot : boost::noncopyable {
- public:
-  bot(const std::string& username, const std::string password,
-      const std::string& package, const std::string server)
-    : username_(username),
-      password_(password),
-      package_(package),
-      server_(server) {
-    identifier_ = createIdentifier(username, package, server);
-  }
-
-  static std::string createIdentifier(const std::string& username,
-                                      const std::string& package,
-                                      const std::string& server) {
-    // Load servers from package.
-    std::string server_list = package + "/servers.lua";
-    if (!CONTAINS(server_lists_, server_list)) {
-      lua::loadServerList(server_list, &servers_);
-      server_lists_.push_back(server_list);
-    }
-
-    // Create identifier.
-    std::string identifier = package + "_";
-    if (servers_.find(server) == servers_.end()) {
-      identifier += server;
-    } else {
-      identifier += servers_[server];
-    }
-    identifier += "_";
-    identifier += username;
-
-    return identifier;
-  }
-
-  std::string identifier() const {
-    return identifier_;
-  }
-
- private:
-  void loadModules(const std::string& package) {
-  }
-
-  webclient wc_;
-  std::string username_;
-  std::string password_;
-  std::string package_;
-  std::string server_;
-  std::string identifier_;
-  std::set<module> modules;
-  std::vector<log_msg> log_msgs;
-  std::map<std::string, std::string> status;
-
-  static std::vector<std::string> server_lists_;
-  static std::map<std::string, std::string> servers_;
-};
-
-// Initialization of the static bot class attributes.
-std::map<std::string, std::string>bot::servers_ =
-        std::map<std::string, std::string>();
-std::vector<std::string> bot::server_lists_ = std::vector<std::string>();
-
-class module : boost::noncopyable {
- public:
-  module(const std::string& script, bot* bot, lua_State* main_state) {
-    boost::filesystem::path p(script);
-    //  std::cout << p.file_string() << "\n";
-  }
-
- private:
-};
+typedef boost::shared_ptr<module> module_ptr;
 
 class log_msg {
  public:
@@ -136,6 +70,54 @@ class log_msg {
   int64_t timestamp_;
   int type_;
   std::string message_;
+};
+
+class module : boost::noncopyable {
+ public:
+  module(const std::string& script, bot* bot, lua_State* main_state) {
+    boost::filesystem::path p(script);
+    std::cout << "loading module: " << p.filename() << "\n";
+  }
+
+ private:
+};
+
+class bot : boost::noncopyable {
+ public:
+  bot(const std::string& username, const std::string password,
+      const std::string& package, const std::string server)
+  throw(lua_exception, bad_login_exception);
+
+  ~bot();
+
+  static std::string createIdentifier(const std::string& username,
+                                      const std::string& package,
+                                      const std::string& server);
+
+  void execute(std::string, std::string) { return; }
+
+  std::string identifier() const { return identifier_; }
+  botscript::webclient* webclient() { return &webclient_; }
+  std::string server() const { return server_; }
+  void log(log_msg msg) const { std::cout << msg.message() << "\n"; }
+
+ private:
+  void loadModules();
+
+  botscript::webclient webclient_;
+  std::string username_;
+  std::string password_;
+  std::string package_;
+  std::string server_;
+  std::string identifier_;
+  lua_State* lua_state_;
+  std::set<module_ptr> modules_;
+  std::vector<log_msg> log_msgs_;
+  std::map<std::string, std::string> status_;
+
+  static boost::mutex server_mutex_;
+  static std::vector<std::string> server_lists_;
+  static std::map<std::string, std::string> servers_;
 };
 
 }  // namespace botscript

@@ -23,7 +23,7 @@
 
 #include <string>
 #include <map>
-#include <strstream>
+#include <sstream>
 #include <utility>
 #include <vector>
 #include <exception>
@@ -43,7 +43,7 @@ namespace botscript {
 
 class element_not_found_exception : public std::exception {
  public:
-  element_not_found_exception(const std::string& what)
+  explicit element_not_found_exception(const std::string& what)
     : error(what) {
   }
 
@@ -82,6 +82,17 @@ class webclient : boost::noncopyable {
 
   std::string proxy_port() const {
     return proxy_port_;
+  }
+
+  std::string request_get(std::string url)
+  throw(std::ios_base::failure) {
+    return request(url, botscript::http_source::GET, NULL, 0);
+  }
+
+  std::string request_post(std::string url,
+                           const void* content, const size_t content_length)
+  throw(std::ios_base::failure) {
+    return request(url, botscript::http_source::POST, content, content_length);
   }
 
   std::string request(std::string url, const int method,
@@ -435,10 +446,10 @@ class webclient : boost::noncopyable {
   }
 
   boost::mutex mutex;
-  std::map<std::string, std::string> headers_;
-  std::map<std::string, std::string> cookies_;
   std::string proxy_host_;
   std::string proxy_port_;
+  std::map<std::string, std::string> headers_;
+  std::map<std::string, std::string> cookies_;
 };
 
 }  // namespace botscript
