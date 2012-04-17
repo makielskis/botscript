@@ -22,6 +22,8 @@
 #include <vector>
 #include <string>
 
+#include "boost/algorithm/string/predicate.hpp"
+
 #include "./bot.h"
 
 #include "./lua_connection.h"
@@ -83,8 +85,11 @@ void bot::loadModules()  {
     for (directory_iterator i = directory_iterator(package_);
          i != directory_iterator(); ++i) {
       std::string path = i->path().relative_path().generic_string();
-      module_ptr new_module = module_ptr(new module(path, this, lua_state_));
-      modules_.insert(new_module);
+      if (!boost::algorithm::ends_with(path, "servers.lua") &&
+          !boost::algorithm::ends_with(path, "base.lua")) {
+        module_ptr new_module = module_ptr(new module(path, this, lua_state_));
+        modules_.insert(new_module);
+      }
     }
   }
 }

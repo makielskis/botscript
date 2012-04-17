@@ -32,6 +32,7 @@
 #include "boost/filesystem.hpp"
 #include "boost/shared_ptr.hpp"
 
+#include "./module.h"
 #include "./webclient.h"
 #include "./lua_connection.h"
 #include "./exceptions/lua_exception.h"
@@ -41,9 +42,7 @@ namespace botscript {
 
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
-class bot;
 class module;
-
 typedef boost::shared_ptr<module> module_ptr;
 
 class log_msg {
@@ -70,16 +69,6 @@ class log_msg {
   int64_t timestamp_;
   int type_;
   std::string message_;
-};
-
-class module : boost::noncopyable {
- public:
-  module(const std::string& script, bot* bot, lua_State* main_state) {
-    boost::filesystem::path p(script);
-    std::cout << "loading module: " << p.filename() << "\n";
-  }
-
- private:
 };
 
 class bot : boost::noncopyable {
