@@ -23,6 +23,7 @@
 #include <string>
 
 #include "boost/algorithm/string/predicate.hpp"
+#include "boost/foreach.hpp"
 
 #include "./bot.h"
 
@@ -36,7 +37,8 @@ std::vector<std::string> bot::server_lists_;
 boost::mutex bot::server_mutex_;
 
 bot::bot(const std::string& username, const std::string password,
-         const std::string& package, const std::string server)
+         const std::string& package, const std::string server,
+         boost::asio::io_service* io_service)
 throw(lua_exception, bad_login_exception)
   : username_(username),
     password_(password),
@@ -45,17 +47,26 @@ throw(lua_exception, bad_login_exception)
     lua_state_(NULL) {
   identifier_ = createIdentifier(username, package, server);
   lua_state_ = lua_connection::login(this, username_, password_, package_);
-  loadModules();
+  loadModules(io_service);
 }
 
 bot::~bot() {
   lua_connection::remove(identifier_);
   lua_close(lua_state_);
+  BOOST_FOREACH(module* module, modules_) {
+    delete module;
+  }
+}
+
+void bot::execute(const std::string& command, const std::string& argument) {
+  BOOST_FOREACH(module* module, modules_) {
+    module->execute(command, argument);
+  }
 }
 
 std::string bot::createIdentifier(const std::string& username,
-                                    const std::string& package,
-                                    const std::string& server) {
+                                  const std::string& package,
+                                  const std::string& server) {
   // Lock because of server list r/w access.
   boost::lock_guard<boost::mutex> lock(server_mutex_);
 
@@ -79,7 +90,7 @@ std::string bot::createIdentifier(const std::string& username,
   return identifier;
 }
 
-void bot::loadModules()  {
+void bot::loadModules(boost::asio::io_service* io_service)  {
   using namespace boost::filesystem;
   if (is_directory(package_)) {
     for (directory_iterator i = directory_iterator(package_);
@@ -87,11 +98,27 @@ void bot::loadModules()  {
       std::string path = i->path().relative_path().generic_string();
       if (!boost::algorithm::ends_with(path, "servers.lua") &&
           !boost::algorithm::ends_with(path, "base.lua")) {
-        module_ptr new_module = module_ptr(new module(path, this, lua_state_));
-        modules_.insert(new_module);
+        modules_.insert(new module(path, this, lua_state_, io_service));
       }
     }
   }
+}
+
+void bot::log(int type, const std::string& source, const std::string& message) {
+  std::cout << "[" << source << "] " << message << "\n";
+}
+
+std::string bot::status(const std::string key) {
+  // Lock because of status map r/w access.
+  boost::lock_guard<boost::mutex> lock(status_mutex_);
+  std::map<std::string, std::string>::const_iterator i = status_.find(key);
+  return (i == status_.end()) ? "" : i->second;
+}
+
+void bot::status(const std::string key, const std::string value) {
+  // Lock because of status map r/w access.
+  boost::lock_guard<boost::mutex> lock(status_mutex_);
+  status_[key] = value;
 }
 
 }  // namespace botscript

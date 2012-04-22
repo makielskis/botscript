@@ -74,6 +74,15 @@ class lua_connection {
                           const std::string& package)
   throw(lua_exception, bad_login_exception);
 
+  static void get_status(lua_State* state, const std::string& var,
+                  std::map<std::string, std::string>* status)
+  throw(lua_exception);
+
+  static void set_status(lua_State* state, const std::string& var,
+                         const std::string& key, const std::string& value);                             
+
+  static void new_environment(lua_State* state);
+
   static bot* getBot(lua_State* state);
   static webclient* getWebClient(lua_State* state);
   static void remove(const std::string identifier);

@@ -31,6 +31,7 @@
 #include "boost/utility.hpp"
 #include "boost/filesystem.hpp"
 #include "boost/shared_ptr.hpp"
+#include "boost/asio/io_service.hpp"
 
 #include "./module.h"
 #include "./webclient.h"
@@ -43,7 +44,6 @@ namespace botscript {
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
 class module;
-typedef boost::shared_ptr<module> module_ptr;
 
 class log_msg {
  public:
@@ -73,8 +73,11 @@ class log_msg {
 
 class bot : boost::noncopyable {
  public:
+  enum { INFO, ERROR };
+
   bot(const std::string& username, const std::string password,
-      const std::string& package, const std::string server)
+      const std::string& package, const std::string server,
+      boost::asio::io_service* io_service)
   throw(lua_exception, bad_login_exception);
 
   ~bot();
@@ -83,15 +86,21 @@ class bot : boost::noncopyable {
                                       const std::string& package,
                                       const std::string& server);
 
-  void execute(std::string, std::string) { return; }
+  void execute(const std::string& command, const std::string& argument);
 
   std::string identifier() const { return identifier_; }
   botscript::webclient* webclient() { return &webclient_; }
   std::string server() const { return server_; }
-  void log(log_msg msg) const { std::cout << msg.message() << "\n"; }
+
+  int random_wait(int min, int max) { return min; }
+
+  void log(int type, const std::string& source, const std::string& message);
+
+  std::string status(const std::string key);
+  void status(const std::string key, const std::string value);
 
  private:
-  void loadModules();
+  void loadModules(boost::asio::io_service* io_service);
 
   botscript::webclient webclient_;
   std::string username_;
@@ -100,9 +109,10 @@ class bot : boost::noncopyable {
   std::string server_;
   std::string identifier_;
   lua_State* lua_state_;
-  std::set<module_ptr> modules_;
+  std::set<module*> modules_;
   std::vector<log_msg> log_msgs_;
   std::map<std::string, std::string> status_;
+  boost::mutex status_mutex_;
 
   static boost::mutex server_mutex_;
   static std::vector<std::string> server_lists_;

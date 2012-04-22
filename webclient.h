@@ -34,6 +34,7 @@
 #include "tidy/tidy.h"
 #include "tidy/buffio.h"
 #include "pugixml/pugixml.hpp"
+#include "boost/algorithm/string/predicate.hpp"
 
 #include "./http.h"
 
@@ -137,7 +138,9 @@ class webclient : boost::noncopyable {
           response = response.substr(0, head_start + 6) + location_metatag
                      + response.substr(head_start + 7, response.length());
         }
-        response = tidy(response);
+        if (!boost::ends_with(location, ".xml")) {
+          response = tidy(response);
+        }
         return response;
       }
 
@@ -152,9 +155,15 @@ class webclient : boost::noncopyable {
     // Determine XML element from given XPath.
     pugi::xml_document doc;
     doc.load(page.c_str());
-    pugi::xml_node form = doc.select_single_node(xpath.c_str()).node();
-    if (form.empty()) {
-      throw element_not_found_exception("element does not exist");
+    pugi::xml_node form;
+
+    try {
+      form = doc.select_single_node(xpath.c_str()).node();
+      if (form.empty()) {
+        throw element_not_found_exception("element does not exist");
+      }
+    } catch(pugi::xpath_exception& e) {
+      throw element_not_found_exception("invalid xpath");
     }
 
     // Store submit element.

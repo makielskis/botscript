@@ -22,8 +22,12 @@
 #define MODULE_H_
 
 #include <string>
+#include <map>
 
 #include "boost/utility.hpp"
+#include "boost/asio/io_service.hpp"
+#include "boost/asio/basic_deadline_timer.hpp"
+#include "boost/thread.hpp"
 
 #include "./bot.h"
 #include "./lua_connection.h"
@@ -34,9 +38,26 @@ class bot;
 
 class module : boost::noncopyable {
  public:
-  module(const std::string& script, bot* bot, lua_State* main_state);
+  module(const std::string& script, bot* bot, lua_State* main_state,
+         boost::asio::io_service* io_service);
+  ~module();
+
+  void applyStatus();
+  void run();
+  void execute(const std::string& command, const std::string& argument);
 
  private:
+  bot* bot_;
+  std::map<std::string, std::string> status_;
+  std::string module_name_;
+  std::string lua_run_;
+  std::string lua_status_;
+  std::string lua_active_status_;
+  lua_State* lua_state_;
+  boost::asio::io_service* io_service_;
+  boost::asio::deadline_timer timer_;
+  boost::mutex status_mutex_;
+  bool stopping_;
 };
 
 }  // namespace botscript

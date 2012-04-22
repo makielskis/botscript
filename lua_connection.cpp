@@ -201,6 +201,57 @@ throw(lua_exception, bad_login_exception) {
   return state;
 }
 
+void lua_connection::get_status(lua_State* state, const std::string& var,
+                                std::map<std::string, std::string>* status)
+throw(lua_exception) {
+	// Clear stack.
+	lua_pop(state, lua_gettop(state));
+
+	// Get and check state.
+	lua_getglobal(state, var.c_str());
+	if (!lua_istable(state, 1)) {
+		// Recreate.
+		lua_newtable(state);
+		lua_setglobal(state, var.c_str());
+
+		// Clear stack.
+		lua_pop(state, lua_gettop(state));
+
+		// Get table.
+		lua_getglobal(state, var.c_str());
+	}
+
+  // Read table.
+	luaStringTableToMap(state, 1, status);
+}
+
+void lua_connection::set_status(lua_State* state,
+                                const std::string& var,
+                                const std::string& key,
+                                const std::string& value) {
+  // Get and check state.
+  lua_getglobal(state, var.c_str());
+  if (!lua_istable(state, -1)) {
+    throw lua_exception("module status is not a table");
+  }
+
+  // Set new value.
+  lua_pushstring(state, key.c_str());
+  lua_pushstring(state, value.c_str());
+  lua_settable(state, -3);
+}
+
+void lua_connection::new_environment(lua_State* state) {
+  lua_pushthread(state);
+  lua_newtable(state);
+  lua_pushvalue(state, LUA_GLOBALSINDEX);
+  lua_setfield(state, -2, "__index");
+  lua_pushvalue(state, -1);
+  lua_setmetatable(state, -2);
+  lua_setfenv(state, -2);
+  lua_pop(state, 1);
+}
+
 bot* lua_connection::getBot(lua_State* state) {
   // Lock because of bots map r/w access.
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
@@ -246,7 +297,7 @@ void lua_connection::log(lua_State* state, int log_level) {
 
   // Get and log message
   std::string message = luaL_checkstring(state, 1);
-  bot->log(log_msg(0, log_level, message));
+  bot->log(log_level, module, message);
 }
 
 int lua_connection::doRequest(lua_State* state, bool path) {
