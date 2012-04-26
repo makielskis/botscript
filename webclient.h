@@ -144,6 +144,11 @@ class webclient : boost::noncopyable {
         return response;
       }
 
+      // Fix relative location declaration.
+      if (!boost::starts_with(url, "http:")) {
+        url = "http://" + host + url;
+      }
+
       redirect_count++;
     }
   }
@@ -162,7 +167,7 @@ class webclient : boost::noncopyable {
       if (form.empty()) {
         throw element_not_found_exception("element does not exist");
       }
-    } catch(pugi::xpath_exception& e) {
+    } catch(const pugi::xpath_exception& e) {
       throw element_not_found_exception("invalid xpath");
     }
 

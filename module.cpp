@@ -22,6 +22,7 @@
 
 #include <string>
 #include <sstream>
+#include <utility>
 
 #include "boost/filesystem.hpp"
 #include "boost/algorithm/string/predicate.hpp"
@@ -41,7 +42,8 @@ module::module(const std::string& script, bot* bot, lua_State* main_state,
       lua_state_(NULL),
       io_service_(io_service),
       timer_(*io_service),
-      stopping_(false) {
+      stopping_(false),
+      online_(true) {
   // Discover module name.
   using boost::filesystem::path;
   std::string filename = path(script).filename().generic_string();
@@ -76,7 +78,7 @@ void module::applyStatus() {
     BOOST_FOREACH(str_pair s, status_) {
       try {
         lua_connection::set_status(lua_state_, lua_status_, s.first, s.second);
-      } catch (lua_exception& e) {
+      } catch(const lua_exception& e) {
         std::stringstream msg;
         msg << "could not set status " << s.first << " = " << s.second;
         bot_->log(bot::INFO, module_name_, msg.str());
@@ -89,6 +91,14 @@ void module::applyStatus() {
 }
 
 void module::run() {
+  if (!online_) {
+    // Quit when module is offline.
+    return;
+  }
+
+  // Lock to prevent shutdown while execution.
+  boost::lock_guard<boost::mutex> lock(run_mutex_);
+
   // Check active status.
   if (stopping_ || bot_->status(lua_active_status_) != "1") {
     stopping_ = false;
@@ -124,7 +134,7 @@ void module::run() {
     }
 
     // Determine and log the sleep time.
-    int sleep = (n1 == -1) ? n0 : bot_->random_wait(n1, n0);
+    int sleep = (n1 == -1) ? n0 : bot_->randomWait(n1, n0);
     std::stringstream msg;
     msg << "sleeping " << sleep << "s";
     bot_->log(bot::INFO, module_name_, msg.str());
@@ -132,7 +142,7 @@ void module::run() {
     // Start the timer.
     timer_.expires_from_now(boost::posix_time::seconds(sleep));
     timer_.async_wait(boost::bind(&module::run, this));
-  } catch (lua_exception& e) {
+  } catch(const lua_exception& e) {
     // Log error.
     bot_->log(bot::ERROR, module_name_, e.what());
     bot_->log(bot::ERROR, module_name_, "restarting in 10s");
@@ -144,8 +154,9 @@ void module::run() {
 }
 
 void module::execute(const std::string& command, const std::string& argument) {
-  if (!boost::starts_with(command, module_name_ + "_set_")) {
+  if (!boost::starts_with(command, module_name_ + "_set_") || !online_) {
     // Don't handle commands for other modules.
+    // Don't handle commands when we're offline.
     return;
   }
 
@@ -189,4 +200,18 @@ void module::execute(const std::string& command, const std::string& argument) {
     }
   }
 }
+
+void module::shutdown() {
+  // Lock to not disturb the run function.
+  boost::lock_guard<boost::mutex> lock(run_mutex_);
+
+  // Set module status to offline.
+  online_ = false;
+
+  // Cancel all asynchronous operations.
+  timer_.cancel();
+  stopping_ = true;
+  bot_->status(lua_active_status_, "0");
+}
+
 }  // namespace botscript

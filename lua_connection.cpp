@@ -55,7 +55,7 @@ void lua_connection::luaStringTableToMap(lua_State* state, int stack_index,
 bool lua_connection::loadServerList(const std::string script,
         std::map<std::string, std::string>* servers) {
   // Initialize lua_State.
-  lua_State* state = lua_open();
+  lua_State* state = luaL_newstate();
   if (NULL == state) {
     return false;
   }
@@ -86,7 +86,7 @@ throw(lua_exception) {
         error = std::string("could not open ") + script_path;
         break;
       case LUA_ERRSYNTAX:
-        error = "syntax error";
+        error = std::string("syntax error ") + lua_tostring(state,-1);
         break;
       case LUA_ERRMEM:
         error = "out of memory";
@@ -127,7 +127,7 @@ throw(lua_exception) {
 
 lua_State* lua_connection::newState() throw(lua_exception) {
   // Create new script state.
-  lua_State* state = lua_open();
+  lua_State* state = luaL_newstate();
   if (state == NULL) {
     throw lua_exception("script initialization: out of memory");
   }
@@ -187,7 +187,7 @@ throw(lua_exception, bad_login_exception) {
   try {
     // Call login function.
     callFunction(state, 2, 1, 0);
-  } catch(lua_exception& e) {
+  } catch(const lua_exception& e) {
     lua_close(state);
     throw(e);
   }
@@ -204,25 +204,25 @@ throw(lua_exception, bad_login_exception) {
 void lua_connection::get_status(lua_State* state, const std::string& var,
                                 std::map<std::string, std::string>* status)
 throw(lua_exception) {
-	// Clear stack.
-	lua_pop(state, lua_gettop(state));
+  // Clear stack.
+  lua_pop(state, lua_gettop(state));
 
-	// Get and check state.
-	lua_getglobal(state, var.c_str());
-	if (!lua_istable(state, 1)) {
-		// Recreate.
-		lua_newtable(state);
-		lua_setglobal(state, var.c_str());
+  // Get and check state.
+  lua_getglobal(state, var.c_str());
+  if (!lua_istable(state, 1)) {
+    // Recreate.
+    lua_newtable(state);
+    lua_setglobal(state, var.c_str());
 
-		// Clear stack.
-		lua_pop(state, lua_gettop(state));
+    // Clear stack.
+    lua_pop(state, lua_gettop(state));
 
-		// Get table.
-		lua_getglobal(state, var.c_str());
-	}
+    // Get table.
+    lua_getglobal(state, var.c_str());
+  }
 
   // Read table.
-	luaStringTableToMap(state, 1, status);
+  luaStringTableToMap(state, 1, status);
 }
 
 void lua_connection::set_status(lua_State* state,
@@ -239,17 +239,6 @@ void lua_connection::set_status(lua_State* state,
   lua_pushstring(state, key.c_str());
   lua_pushstring(state, value.c_str());
   lua_settable(state, -3);
-}
-
-void lua_connection::new_environment(lua_State* state) {
-  lua_pushthread(state);
-  lua_newtable(state);
-  lua_pushvalue(state, LUA_GLOBALSINDEX);
-  lua_setfield(state, -2, "__index");
-  lua_pushvalue(state, -1);
-  lua_setmetatable(state, -2);
-  lua_setfenv(state, -2);
-  lua_pop(state, 1);
 }
 
 bot* lua_connection::getBot(lua_State* state) {
@@ -312,7 +301,7 @@ int lua_connection::doRequest(lua_State* state, bool path) {
     } else {
       response = getWebClient(state)->request_get(url);
     }
-  } catch(std::ios_base::failure& e) {
+  } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "%s", e.what());
   }
 
@@ -337,9 +326,8 @@ int lua_connection::m_post_request(lua_State* state) {
   std::string response;
   try {
     response = getWebClient(state)->request_post(url,
-                                                 (char*) data.c_str(),
-                                                 data.length());
-  } catch (std::ios_base::failure& e) {
+            reinterpret_cast<const char*>(data.c_str()), data.length());
+  } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "%s", e.what());
   }
   lua_pushstring(state, response.c_str());
@@ -373,9 +361,9 @@ int lua_connection::m_submit_form(lua_State* state) {
       bot* bot = getBot(state);
       webclient* wc = bot->webclient();
       response = wc->submit(xpath, content, parameters, action);
-  } catch (std::ios_base::failure& e) {
+  } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "%s", e.what());
-  } catch (element_not_found_exception& e) {
+  } catch(const element_not_found_exception& e) {
     return luaL_error(state, "%s", e.what());
   }
 
@@ -393,10 +381,10 @@ int lua_connection::m_get_by_xpath(lua_State* state) {
   std::string value;
   try {
     pugi::xml_document doc;
-    doc.load(str.c_str());
+    pugi::xml_parse_result result = doc.load(str.c_str());
     pugi::xpath_query query(xpath);
     value = query.evaluate_string(doc);
-  } catch (pugi::xpath_exception& e) {
+  } catch(const pugi::xpath_exception& e) {
     std::string error = xpath;
     error += " is not a valid xpath";
     return luaL_error(state, "%s", error.c_str());
@@ -419,7 +407,7 @@ int lua_connection::m_get_by_regex(lua_State* state) {
     boost::match_results<std::string::const_iterator> what;
     boost::regex_search(str, what, r);
     match = what.size() > 1 ? what[1].str().c_str() : "";
-  } catch (boost::regex_error& e) {
+  } catch(const boost::regex_error& e) {
     std::string error = regex;
     error += " is not a valid regex";
     return luaL_error(state, "%s", error.c_str());
@@ -447,13 +435,13 @@ int lua_connection::m_get_all_by_regex(lua_State* state) {
     std::string::const_iterator start = str.begin();
     std::string::const_iterator end = str.end();
     boost::regex r(regex);
-    
+
     // Search:
     while (boost::regex_search(start, end, what, r, flags)) {
       // Push match index:
       // the index for this match in the result table
       lua_pushnumber(state, matchIndex++);
-      
+
       // Build group table.
       lua_newtable(state);
       for (unsigned i = 1; i <= what.size(); i++) {
@@ -461,7 +449,7 @@ int lua_connection::m_get_all_by_regex(lua_State* state) {
         lua_pushstring(state, what[i].str().c_str());
         lua_rawset(state, -3);
       }
-      
+
       // Insert match to the result table.
       lua_rawset(state, -3);
 
@@ -470,9 +458,9 @@ int lua_connection::m_get_all_by_regex(lua_State* state) {
       flags |= boost::match_prev_avail;
       flags |= boost::match_not_bob;
     }
-    
+
     return 1;
-  } catch (boost::regex_error& e) {
+  } catch(const boost::regex_error& e) {
     std::string error = regex;
     error += " is not a valid regex";
     return luaL_error(state, "%s", error.c_str());

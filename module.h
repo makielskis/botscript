@@ -42,6 +42,9 @@ class module : boost::noncopyable {
          boost::asio::io_service* io_service);
   ~module();
 
+  std::string name() { return module_name_; }
+
+  void shutdown();
   void applyStatus();
   void run();
   void execute(const std::string& command, const std::string& argument);
@@ -57,9 +60,11 @@ class module : boost::noncopyable {
   boost::asio::io_service* io_service_;
   boost::asio::deadline_timer timer_;
   boost::mutex status_mutex_;
+  boost::mutex run_mutex_;
   bool stopping_;
+  bool online_;
 };
 
 }  // namespace botscript
 
-#endif
+#endif  // MODULE_H_

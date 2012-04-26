@@ -25,6 +25,7 @@
 #include <string>
 #include <set>
 #include <vector>
+#include <list>
 #include <map>
 
 #include "boost/thread.hpp"
@@ -41,35 +42,11 @@
 
 namespace botscript {
 
+#define MAX_LOG_SIZE 50
+
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
 class module;
-
-class log_msg {
- public:
-  log_msg(int64_t timestamp, int type, const std::string& message)
-    : timestamp_(timestamp),
-      type_(type),
-      message_(message) {
-  }
-
-  int64_t timestamp() const {
-    return timestamp_;
-  }
-
-  int type() const {
-    return type_;
-  }
-
-  std::string message() const {
-    return message_;
-  }
-
- private:
-  int64_t timestamp_;
-  int type_;
-  std::string message_;
-};
 
 class bot : boost::noncopyable {
  public:
@@ -77,22 +54,29 @@ class bot : boost::noncopyable {
 
   bot(const std::string& username, const std::string password,
       const std::string& package, const std::string server,
+      const std::string& proxy_host, const std::string& proxy_port,
       boost::asio::io_service* io_service)
   throw(lua_exception, bad_login_exception);
 
   ~bot();
 
+  static bot* load(const std::string& config,
+                   boost::asio::io_service* io_service);
+
   static std::string createIdentifier(const std::string& username,
                                       const std::string& package,
                                       const std::string& server);
+
+  std::string configuration();
 
   void execute(const std::string& command, const std::string& argument);
 
   std::string identifier() const { return identifier_; }
   botscript::webclient* webclient() { return &webclient_; }
   std::string server() const { return server_; }
+  double wait_time_factor() { return wait_time_factor_; }
 
-  int random_wait(int min, int max) { return min; }
+  int randomWait(int min, int max);
 
   void log(int type, const std::string& source, const std::string& message);
 
@@ -108,9 +92,11 @@ class bot : boost::noncopyable {
   std::string package_;
   std::string server_;
   std::string identifier_;
+  double wait_time_factor_;
   lua_State* lua_state_;
   std::set<module*> modules_;
-  std::vector<log_msg> log_msgs_;
+  std::list<std::string> log_msgs_;
+  static boost::mutex log_mutex_;
   std::map<std::string, std::string> status_;
   boost::mutex status_mutex_;
 

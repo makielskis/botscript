@@ -107,7 +107,7 @@ class http_source {
                                     boost::system::error_code(), 0));
     }
     int timeout = ceil(n / static_cast<double>(1024));
-    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
+    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout + 5));
     io_service_->run();
 
     // Copy from buffer to stream.
@@ -180,7 +180,7 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Start the timeout timer.
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(1));
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(5));
       timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
                                             boost::asio::placeholders::error));
 
@@ -199,7 +199,7 @@ class http_source {
       // Start the timeout timer assuming that the minimum transfer rate
       // is at least 1kb per second
       int timeout = ceil(request_buffer_.size() / static_cast<double>(1024));
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout + 3));
 
       // Write request.
       boost::asio::async_write(socket_, request_buffer_,
@@ -214,7 +214,7 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Read the status line (with timeout).
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(1));
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(3));
       boost::asio::async_read_until(socket_, response_buffer_, "\r\n",
               boost::bind(&http_source::handleReadStatusLine, this,
                           boost::asio::placeholders::error));
@@ -234,7 +234,7 @@ class http_source {
       response_stream.ignore(128, '\n');
 
       // Read response headers (with timeout).
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(1));
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(3));
       boost::asio::async_read_until(socket_, response_buffer_, "\r\n\r\n",
               boost::bind(&http_source::handleReadHeaders, this,
                           boost::asio::placeholders::error));

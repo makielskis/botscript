@@ -21,11 +21,9 @@
 #ifndef LUA_CONNECTION_H_
 #define LUA_CONNECTION_H_
 
-extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-}
 
 #include <map>
 #include <string>
@@ -79,7 +77,7 @@ class lua_connection {
   throw(lua_exception);
 
   static void set_status(lua_State* state, const std::string& var,
-                         const std::string& key, const std::string& value);                             
+                         const std::string& key, const std::string& value);
 
   static void new_environment(lua_State* state);
 
