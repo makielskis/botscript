@@ -248,6 +248,11 @@ void bot::execute(const std::string& command, const std::string& argument) {
   }
 
   if (command == "base_set_proxy") {
+    if (argument.empty()) {
+      webclient_.proxy("", "");
+      log(INFO, "base", "proxy reset");
+      return;
+    }
     std::vector<std::string> proxy_split;
     boost::split(proxy_split, argument, boost::is_any_of(":"));
     if (proxy_split.size() != 2) {

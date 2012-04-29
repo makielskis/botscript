@@ -6,7 +6,8 @@ Botscript is a library thats main target is to make life easier when programming
  It comes with a handy python API that can be used to build
  nifty user interfaces or other services around botscript.
 
-Botscript makes heavy use of the Boost C++ extensions. Other external libraries used are: Lua 5.2, pugixml 1.0 and HTML Tidy.
+Botscript makes heavy use of the Boost C++ extensions.
+ Other external libraries used are: Lua 5.2, pugixml 1.0 and HTML Tidy.
 
 Build external libraries
 ------------------------
