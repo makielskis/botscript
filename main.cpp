@@ -36,18 +36,18 @@
 #include "bot.h"
 
 int main(int argc, char* argv[]) {
+  std::cout << botscript::bot::loadPackages("packages");
+  std::cout << botscript::bot::loadPackages("packages");
+  std::cout << botscript::bot::loadPackages("packages");
+  std::cout << botscript::bot::loadPackages("packages");
+  return 0;
+}
+
+/*
+int main(int argc, char* argv[]) {
   if (argc != 2) {
     std::cout << "usage: " << argv[0] << " config.json\n";
-  }
-
-  boost::asio::io_service io_service;
-  boost::shared_ptr<boost::asio::io_service::work> work(
-      new boost::asio::io_service::work(io_service));
-
-  boost::thread_group threads;
-  for(unsigned int i = 0; i < 1; ++i) {
-    threads.create_thread(
-        boost::bind(&boost::asio::io_service::run, &io_service));
+    return 1;
   }
 
   std::stringstream config;
@@ -55,8 +55,8 @@ int main(int argc, char* argv[]) {
   boost::iostreams::copy(f, config);
 
   try {
-    botscript::bot* bot = botscript::bot::load(config.str(), &io_service);
-    boost::this_thread::sleep(boost::posix_time::hours(24 * 365));
+    botscript::bot* bot = new botscript::bot(config.str());
+    boost::this_thread::sleep(boost::posix_time::seconds(24));
     delete bot;
   } catch(botscript::bad_login_exception& e) {
     std::cout << "bad login: " << e.what() << "\n";
@@ -64,13 +64,9 @@ int main(int argc, char* argv[]) {
     std::cout << "lua error: " << e.what() << "\n";
   }
 
-  work.reset();
-  io_service.stop();
-  threads.interrupt_all();
-  threads.join_all();
-
   return 0;
 }
+*/
 
 /*
 int main(void) {

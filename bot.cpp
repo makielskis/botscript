@@ -18,6 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "./bot.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -25,17 +27,18 @@
 #include <map>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <iostream>
+#include <sstream>
 #include <set>
 
 #include "boost/algorithm/string/predicate.hpp"
 #include "boost/algorithm/string.hpp"
 #include "boost/foreach.hpp"
+#include "boost/filesystem.hpp"
 
 #include "rapidjson/document.h"
-
-#include "./bot.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 #include "./lua_connection.h"
 
@@ -54,46 +57,40 @@ std::vector<std::string> bot::server_lists_;
 boost::mutex bot::server_mutex_;
 boost::mutex bot::log_mutex_;
 
-bot::bot(const std::string& username, const std::string password,
-         const std::string& package, const std::string server,
-         const std::string& proxy_host, const std::string& proxy_port,
-         boost::asio::io_service* io_service)
+int bot::bot_count_ = 0;
+boost::mutex bot::init_mutex_;
+boost::asio::io_service* bot::io_service_ = NULL;
+boost::asio::io_service::work* bot::work_ = NULL;
+boost::thread_group* bot::worker_threads_ = NULL;
+
+bot::bot(const std::string& username, const std::string& password,
+         const std::string& package, const std::string& server,
+         const std::string& proxy_host, const std::string& proxy_port)
 throw(lua_exception, bad_login_exception)
   : username_(username),
     password_(password),
     package_(package),
     server_(server),
+    wait_time_factor_(1),
     lua_state_(NULL) {
-  if (!proxy_host.empty()) {
-    webclient_.proxy(proxy_host, proxy_port);
-  }
-  identifier_ = createIdentifier(username, package, server);
-  lua_state_ = lua_connection::login(this, username_, password_, package_);
-  loadModules(io_service);
+  status_["base_wait_time_factor"] = "1";
+  init(proxy_host, proxy_port);
 }
 
-bot::~bot() {
-  lua_connection::remove(identifier_);
-  lua_close(lua_state_);
-  BOOST_FOREACH(module* module, modules_) {
-    module->shutdown();
-    delete module;
-  }
-}
-
-bot* bot::load(const std::string& config, boost::asio::io_service* io_service) {
-  bot* bot = NULL;
+bot::bot(const std::string& configuration)
+throw(lua_exception, bad_login_exception)
+  : lua_state_(NULL) {
   rapidjson::Document document;
-  if (document.Parse<0>(config.c_str()).HasParseError()) {
+  if (document.Parse<0>(configuration.c_str()).HasParseError()) {
     // Configuration is not valid JSON. Return null.
-    return NULL;
+    // TODO(felix) throw error
   }
 
   // Read basic configuration values.
-  std::string username = document["username"].GetString();
-  std::string password = document["password"].GetString();
-  std::string package = document["package"].GetString();
-  std::string server = document["server"].GetString();
+  username_ = document["username"].GetString();
+  password_ = document["password"].GetString();
+  package_ = document["package"].GetString();
+  server_ = document["server"].GetString();
   std::string wait_time_factor = document["wait_time_factor"].GetString();
 
   // Read proxy settings.
@@ -107,9 +104,8 @@ bot* bot::load(const std::string& config, boost::asio::io_service* io_service) {
   }
 
   // Create bot.
-  bot = new botscript::bot(username, password, package, server,
-                           proxy_host, proxy_port, io_service);
-  bot->execute("base_set_wait_time_factor", wait_time_factor);
+  init(proxy_host, proxy_port);
+  execute("base_set_wait_time_factor", wait_time_factor);
 
   // Load module configuration.
   const rapidjson::Value& a = document["modules"];
@@ -123,25 +119,71 @@ bot* bot::load(const std::string& config, boost::asio::io_service* io_service) {
         continue;
       }
       std::string value = it->value.GetString();
-      bot->execute(module + "_set_" + name, value);
+      execute(module + "_set_" + name, value);
     }
     std::string active = m["active"].GetString();
     if (active == "1") {
-      bot->execute(module + "_set_active", "1");
+      execute(module + "_set_active", "1");
     }
   }
-
-  return bot;
 }
 
-std::string bot::configuration() {
+void bot::init(const std::string& proxy_host, const std::string& proxy_port)
+throw(lua_exception, bad_login_exception) {
+  if (bot_count_ == 0) {
+    boost::lock_guard<boost::mutex> lock(init_mutex_);
+    if (bot_count_ == 0) {
+      // If this is the first bot: initialize io service.
+      io_service_ = new boost::asio::io_service();
+      work_ = new boost::asio::io_service::work(*io_service_);
+      worker_threads_ = new boost::thread_group();
+      for(unsigned int i = 0; i < 1; ++i) {
+        worker_threads_->create_thread(
+                boost::bind(&boost::asio::io_service::run, io_service_));
+      }
+    }
+  }
+  bot_count_++;
+  if (!proxy_host.empty()) {
+    webclient_.proxy(proxy_host, proxy_port);
+  }
+  identifier_ = createIdentifier(username_, package_, server_);
+  lua_state_ = lua_connection::login(this, username_, password_, package_);
+  loadModules(io_service_);
+}
+
+bot::~bot() {
+  lua_connection::remove(identifier_);
+  lua_close(lua_state_);
+  BOOST_FOREACH(module* module, modules_) {
+    module->shutdown();
+    delete module;
+  }
+
+  bot_count_--;
+  if (bot_count_ == 0) {
+    // If this was the last bot: de-initialize the io service.
+    boost::lock_guard<boost::mutex> lock(init_mutex_);
+    if (bot_count_ == 0) {
+      delete work_;
+      io_service_->stop();
+      worker_threads_->join_all();
+      delete io_service_;
+      delete worker_threads_;
+    }
+  }
+}
+
+std::string bot::configuration(bool with_password) {
   // Lock for status r/w access.
   boost::lock_guard<boost::mutex> lock(status_mutex_);
 
   // Write basic configuration values.
   std::stringstream config;
   config << "{\"username\":\"" << username_ << "\",";
-  config << "\"password\":\"" << password_ << "\",";
+  if (with_password) {
+    config << "\"password\":\"" << password_ << "\",";
+  }
   config << "\"package\":\"" << package_ << "\",";
   config << "\"server\":\"" << server_ << "\",";
   if (!webclient_.proxy_host().empty()) {
@@ -150,7 +192,7 @@ std::string bot::configuration() {
   } else {
     config << "\"proxy\":\"\",";
   }
-  config << "\"wait_time_factor\":\"" << status_["wait_time_factor"] << "\",";
+  config << "\"wait_time_factor\":\"" << status_["base_wait_time_factor"] << "\",";
 
   // Write module configuration values.
   config << "\"modules\":[";
@@ -158,8 +200,8 @@ std::string bot::configuration() {
     module* module = *i;
     std::string module_name = module->name();
     config << "{\"name\":\"" << module_name << "\"";
-    typedef std::map<std::string, std::string>::iterator map_iter;
-    for (map_iter j = status_.begin(); j != status_.end(); ++j) {
+    typedef std::map<std::string, std::string>::iterator str_map_iter;
+    for (str_map_iter j = status_.begin(); j != status_.end(); ++j) {
       if (boost::algorithm::starts_with(j->first, module_name)) {
         config << ",\"" << j->first.substr(module_name.length() + 1) << "\":";
         config << "\"" << j->second << "\"";
@@ -186,7 +228,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
     wait_time_factor_ = atof(new_wait_time_factor.c_str());
     char buf[5];
     snprintf(buf, sizeof(buf), "%.2f", wait_time_factor_);
-    status("wait_time_factor", buf);
+    status("base_wait_time_factor", buf);
     log(INFO, "base", std::string("set wait time factor to ") + buf);
     return;
   }
@@ -221,7 +263,8 @@ std::string bot::createIdentifier(const std::string& username,
   }
 
   // Create identifier.
-  std::string identifier = package + "_";
+  std::string p = boost::filesystem::path(package).filename().string();
+  std::string identifier = p + "_";
   if (servers_.find(server) == servers_.end()) {
     identifier += server;
   } else {
@@ -231,6 +274,69 @@ std::string bot::createIdentifier(const std::string& username,
   identifier += username;
 
   return identifier;
+}
+
+std::string bot::loadPackages(const std::string& folder) {
+  // Lock because of server list r/w access.
+  boost::lock_guard<boost::mutex> lock(server_mutex_);
+
+  // Folder parameter has to be a directory.
+  if (!boost::filesystem::is_directory(folder)) {
+    return "";
+  }
+
+  // Iterate packages.
+	rapidjson::Document document;
+	rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+  document.SetObject();
+  rapidjson::Value packages(rapidjson::kArrayType);
+  using boost::filesystem::directory_iterator;
+  for (directory_iterator i = directory_iterator(folder);
+       i != directory_iterator(); ++i) {
+    // Check if package is a directory.
+    if (!boost::filesystem::is_directory(*i)) {
+      continue;
+    }
+
+    // Check if servers file exists.
+    std::string server_list = i->path().relative_path().string() + "/servers.lua";
+    boost::filesystem::path servers_path(server_list);
+    if (!boost::filesystem::exists(servers_path)
+        || boost::filesystem::is_directory(servers_path)) {
+      continue;
+    }
+
+    // Write package name.
+    rapidjson::Value a(rapidjson::kObjectType);
+    rapidjson::Value package_name(i->path().filename().string().c_str(), allocator);
+	  a.AddMember("name", package_name, allocator);
+
+    // Write servers from package.
+    rapidjson::Value l(rapidjson::kArrayType);
+    std::map<std::string, std::string> s;
+    lua_connection::loadServerList(server_list, &s);
+    typedef std::pair<std::string, std::string> str_pair;
+    BOOST_FOREACH(str_pair server, s) {
+      rapidjson::Value server_name(server.first.c_str(), allocator);
+      l.PushBack(server_name, allocator);
+    }
+	  a.AddMember("servers", l, allocator);
+    packages.PushBack(a, allocator);
+
+    // Store result if not already done.
+    if (!CONTAINS(server_lists_, server_list)) {
+      server_lists_.push_back(server_list);
+      servers_.insert(s.begin(), s.end());
+    }
+  }
+  document.AddMember("packages", packages, allocator);
+
+  // Convert to string.
+	rapidjson::StringBuffer buffer;
+	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+	document.Accept(writer);
+
+  return buffer.GetString();
 }
 
 void bot::loadModules(boost::asio::io_service* io_service)  {
@@ -250,8 +356,7 @@ void bot::loadModules(boost::asio::io_service* io_service)  {
 int bot::randomWait(int a, int b) {
   unsigned int seed = 32336753;
   double random = static_cast<double>(rand_r(&seed)) / RAND_MAX;
-  int wait_time = a + std::round(random * (b - a));
-  wait_time *= wait_time_factor_;
+  int wait_time = a + std::round(random * (b - a) * wait_time_factor_);
   return wait_time;
 }
 
@@ -273,14 +378,20 @@ void bot::log(int type, const std::string& source, const std::string& message) {
       << std::left << std::setw(20) << identifier_
       << "][" << std::left << std::setw(8) << source << "] " << message << "\n";
 
-  // Print log message.
-  std::cout << msg.str();
-
   // Store log message.
   if (log_msgs_.size() > MAX_LOG_SIZE) {
     log_msgs_.pop_front();
   }
   log_msgs_.push_back(msg.str());
+  callback(identifier_, "log", msg.str());
+}
+
+std::string bot::log_msgs() {
+  std::stringstream log;
+  BOOST_FOREACH(std::string msg, log_msgs_) {
+    log << msg;
+  }
+  return log.str();
 }
 
 std::string bot::status(const std::string key) {
@@ -294,6 +405,7 @@ void bot::status(const std::string key, const std::string value) {
   // Lock because of status map r/w access.
   boost::lock_guard<boost::mutex> lock(status_mutex_);
   status_[key] = value;
+  callback(identifier_, key, value);
 }
 
 }  // namespace botscript

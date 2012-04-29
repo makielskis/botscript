@@ -27,12 +27,15 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <sstream>
 
 #include "boost/thread.hpp"
 #include "boost/utility.hpp"
 #include "boost/filesystem.hpp"
 #include "boost/shared_ptr.hpp"
 #include "boost/asio/io_service.hpp"
+#include "boost/thread.hpp"
+#include "boost/function.hpp"
 
 #include "./module.h"
 #include "./webclient.h"
@@ -47,27 +50,28 @@ namespace botscript {
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
 class module;
+typedef boost::function<void (std::string id, std::string k, std::string v) > update_ptr;
 
 class bot : boost::noncopyable {
  public:
   enum { INFO, ERROR };
 
-  bot(const std::string& username, const std::string password,
-      const std::string& package, const std::string server,
-      const std::string& proxy_host, const std::string& proxy_port,
-      boost::asio::io_service* io_service)
+  bot(const std::string& username, const std::string& password,
+      const std::string& package, const std::string& server,
+      const std::string& proxy_host, const std::string& proxy_port)
   throw(lua_exception, bad_login_exception);
 
-  ~bot();
+  explicit bot(const std::string& configuration)
+  throw(lua_exception, bad_login_exception);
 
-  static bot* load(const std::string& config,
-                   boost::asio::io_service* io_service);
+  virtual ~bot();
 
   static std::string createIdentifier(const std::string& username,
                                       const std::string& package,
                                       const std::string& server);
+  static std::string loadPackages(const std::string& folder);
 
-  std::string configuration();
+  std::string configuration(bool with_password);
 
   void execute(const std::string& command, const std::string& argument);
 
@@ -79,11 +83,17 @@ class bot : boost::noncopyable {
   int randomWait(int min, int max);
 
   void log(int type, const std::string& source, const std::string& message);
+  std::string log_msgs();
+
+  virtual void callback(std::string id, std::string k, std::string v) {};
 
   std::string status(const std::string key);
   void status(const std::string key, const std::string value);
 
  private:
+  void init(const std::string& username, const std::string& password)
+  throw(lua_exception, bad_login_exception);
+
   void loadModules(boost::asio::io_service* io_service);
 
   botscript::webclient webclient_;
@@ -103,6 +113,12 @@ class bot : boost::noncopyable {
   static boost::mutex server_mutex_;
   static std::vector<std::string> server_lists_;
   static std::map<std::string, std::string> servers_;
+
+  static int bot_count_;
+  static boost::mutex init_mutex_;
+  static boost::asio::io_service* io_service_;
+  static boost::asio::io_service::work* work_;
+  static boost::thread_group* worker_threads_;
 };
 
 }  // namespace botscript

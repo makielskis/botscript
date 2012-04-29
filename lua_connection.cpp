@@ -86,7 +86,7 @@ throw(lua_exception) {
         error = std::string("could not open ") + script_path;
         break;
       case LUA_ERRSYNTAX:
-        error = std::string("syntax error ") + lua_tostring(state,-1);
+        error = std::string("syntax error ") + lua_tostring(state, -1);
         break;
       case LUA_ERRMEM:
         error = "out of memory";
