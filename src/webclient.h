@@ -31,9 +31,9 @@
 #include "boost/utility.hpp"
 #include "boost/foreach.hpp"
 #include "boost/thread.hpp"
-#include "tidy/tidy.h"
-#include "tidy/buffio.h"
-#include "pugixml/pugixml.hpp"
+#include "tidy.h"
+#include "buffio.h"
+#include "pugixml.hpp"
 #include "boost/algorithm/string/predicate.hpp"
 
 #include "./http.h"

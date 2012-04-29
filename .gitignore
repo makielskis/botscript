@@ -1,1 +1,8 @@
 cpplint.py
+build/
+*.a
+*.o
+*.lo
+*.am
+*.in
+Makefile
