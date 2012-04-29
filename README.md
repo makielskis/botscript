@@ -19,9 +19,7 @@ Build external libraries
 ### Boost
   - Download Boost 1.48.0 from boost.org
   - Build bjam according to the Boost introduction.
-  - `bjam --layout=system --with-system --with-python --with-thread
-          --with-regex --with-iostreams --with-filesystem
-          variant=release link=static threading=multi runtime-link=static`
+  - `./b2 --layout=system --with-system --with-python --with-thread --with-regex --with-iostreams --with-filesystem cxxflags=-fPIC variant=release link=static threading=multi runtime-link=static`
 
 ### Lua 5.2
   - Go to Lua folder: `cd external_lib/lua-5.2.0`
@@ -49,7 +47,7 @@ Build BotScript
   - Create and goto build folder `mkdir build && cd build`
   - Edit cmake boost path and python include path (line 4 and 5).  
   (- If you want to get an executable file uncomment all 'botscript' lines.)
-  - Create makefile from cmake file: cmake ../src
+  - Create makefile from cmake file: `cmake ../src`
   - Make: `make`
   - Rename library: `mv libpybotscript.so pybotscript.so`
   - Have fun with pybotscript!
