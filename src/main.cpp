@@ -37,11 +37,7 @@
 
 int main(int argc, char* argv[]) {
   botscript::bot* b = new botscript::bot("\"disabled", "blabla", "packages/pg", "http://muenchen.pennergame.de", "");
-  std::cout << b->configuration(true) << "\n";
-  std::cout << b->configuration(false) << "\n";
-  std::cout << b->configuration(false) << "\n";
-  std::cout << b->configuration(true) << "\n";
-  std::cout << b->configuration(false) << "\n";
+  std::cout << b->interface_description() << "\n";
   delete b;
   return 0;
 }

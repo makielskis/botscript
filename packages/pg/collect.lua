@@ -1,3 +1,7 @@
+interface_collect = {}
+interface_collect["module"] = "Flaschen sammeln"
+interface_collect["active"] = { input_type = "toggle", display_name = "Sammeln gehen" }
+
 function get_collect_time(page)
 	link = m_get_by_xpath(page, "//a[@href = '/activities/' and @class= 'ttip']")
 	seconds = m_get_by_regex(link, "counter\\((-?[0-9]*)\\)")

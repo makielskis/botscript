@@ -1,12 +1,22 @@
-dofile('kv/base.lua')
+dofile('packages/kv/base.lua')
 
 status_looting = {}
-status_looting["areas"] = ""
-status_looting["slots"] = "0,1,2,3,4,5,6"
-status_looting["caught_strategy"] = "bribe"
-status_looting["gangtoll_strategy"] = "payToll"
-status_looting["time_slot"] = ""
 status_looting["area"] = ""
+status_looting["area_from"] = ""
+status_looting["timeslot"] = "0"
+status_looting["timeslot_from"] = "0,1,2,3,4,5,6"
+status_looting["caught_strategy"] = "bribe"
+status_looting["caught_strategy_from"] = "bribe,soap,risk"
+status_looting["gangtoll_strategy"] = "payToll"
+status_looting["gangtoll_strategy_from"] = "payToll"
+
+interface_looting = {}
+interface_looting["module"] = "Plunder"
+interface_looting["active"] = { input_type = "toggle", display_name = "Sammeln starten" }
+interface_looting["areas"] = { input_type = "dropdown", display_name = "Sammelgebiete" }
+interface_looting["timeslot"] = { input_type = "dropdown", display_name = "Zeit" }
+interface_looting["caught_stategy"] = { input_type = "dropdown", display_name = "Gefasst Strategie" }
+interface_looting["gangtoll_strategy"] = { input_type = "dropdown", display_name = "Bandensteuer Strategie" }
 
 function get_territories(page)
 	m_log("getting territories")
@@ -58,11 +68,6 @@ function caught_check(page)
 		local xpath = "//button[@type = 'submit' and @name = '" .. strategy .. "']"
 		m_log("got caught - using strategy: " .. strategy)
 		return m_submit_form(page, xpath)
-	else
-		m_log('writing debug')
-		file = io.open('debug.html', 'w')
-		file:write(page)
-		file:close(file)
 	end
 	return page
 end

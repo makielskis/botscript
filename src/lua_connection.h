@@ -29,6 +29,9 @@
 #include <string>
 
 #include "boost/thread.hpp"
+#include "boost/shared_ptr.hpp"
+
+#include "rapidjson/document.h"
 
 #include "./webclient.h"
 #include "./bot.h"
@@ -42,10 +45,18 @@ namespace botscript {
 
 class bot;
 
+typedef boost::shared_ptr<rapidjson::Value> jsonval_ptr;
+
 class lua_connection {
  public:
+  static jsonval_ptr toJSON(lua_State* state, int stack_index,
+      rapidjson::Document::AllocatorType& allocator);
+  static std::string lua_connection::toJSON(lua_State* state,
+                                            const std::string& lua_var,
+                                            const std::string& var_name);
+
   static void luaStringTableToMap(lua_State* state, int stack_index,
-                           std::map<std::string, std::string>* map);
+                                  std::map<std::string, std::string>* map);
 
   static bool loadServerList(const std::string script,
                              std::map<std::string, std::string>* servers);
@@ -73,7 +84,7 @@ class lua_connection {
   throw(lua_exception, bad_login_exception);
 
   static void get_status(lua_State* state, const std::string& var,
-                  std::map<std::string, std::string>* status)
+                         std::map<std::string, std::string>* status)
   throw(lua_exception);
 
   static void set_status(lua_State* state, const std::string& var,

@@ -3,6 +3,13 @@ status_sell["price"] = "-1"
 status_sell["continuous"] = "0"
 status_sell["amount"] = "0"
 
+interface_sell = {}
+interface_sell["module"] = "Flaschen verkaufen"
+interface_sell["active"] = { input_type = "toggle", display_name = "Flaschen verkaufen" }
+interface_sell["price"] = { input_type = "textfield", display_name = "Verkaufspreis" }
+interface_sell["continuous"] = { input_type = "checkbox", display_name = "Dauerverkaufsmodus" }
+interface_sell["amount"] = { input_type = "textfield", display_name = "Verkaufsmenge" }
+
 function get_bottle_price(str)
 	price = m_get_by_xpath(str, "//font[@id = 'wirkung']")
 	

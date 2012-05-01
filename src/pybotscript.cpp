@@ -92,6 +92,7 @@ BOOST_PYTHON_MODULE(pybotscript) {
     .def("log", &bot::log_msgs)
     .def("callback", &bot::set_callback)
     .def("packages", &bot::loadPackages)
+    .def("interface_description", &bot::interface_description)
     .staticmethod("packages")
     .def("create_identifier", &bot::createIdentifier)
     .staticmethod("create_identifier");

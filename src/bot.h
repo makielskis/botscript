@@ -74,6 +74,8 @@ class bot : boost::noncopyable {
 
   std::string configuration(bool with_password);
 
+  std::string interface_description();
+
   void execute(const std::string& command, const std::string& argument);
 
   std::string identifier() const { return identifier_; }

@@ -1,3 +1,7 @@
+interface_mission = {}
+interface_mission["module"] = "Mission"
+interface_mission["active"] = { input_type = "toggle", display_name = "Mission starten" }
+
 function get_block_time(page)
 	-- Cooldown und Missions-Restzeit auslesen
 	local cooldown = m_get_by_regex(page, '.mission_cooldown_[0-9]*"\\), ([0-9]*),')

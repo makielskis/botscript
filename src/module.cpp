@@ -39,6 +39,7 @@ module::module(const std::string& script, bot* bot, lua_State* main_state,
     : bot_(bot),
       lua_run_("run_"),
       lua_status_("status_"),
+      lua_interface_("interface_"),
       lua_state_(NULL),
       io_service_(io_service),
       timer_(*io_service),
@@ -52,6 +53,7 @@ module::module(const std::string& script, bot* bot, lua_State* main_state,
   // Build basic strings.
   lua_run_ += module_name_;
   lua_status_ += module_name_;
+  lua_interface_ += module_name_;
   lua_active_status_ += module_name_ + "_active";
 
   // Set active status to not running.
@@ -68,6 +70,10 @@ module::module(const std::string& script, bot* bot, lua_State* main_state,
     bot->status(module_name_ + "_" + s.first, s.second);
   }
   status_.clear();
+
+  // Get user interface definition.
+  interface_description_ = lua_connection::toJSON(lua_state_, lua_interface_,
+                                                  module_name_);
 }
 
 module::~module() {

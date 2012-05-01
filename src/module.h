@@ -43,6 +43,7 @@ class module : boost::noncopyable {
   ~module();
 
   std::string name() { return module_name_; }
+  std::string interface_description() { return interface_description_; }
 
   void shutdown();
   void applyStatus();
@@ -55,7 +56,9 @@ class module : boost::noncopyable {
   std::string module_name_;
   std::string lua_run_;
   std::string lua_status_;
+  std::string lua_interface_;
   std::string lua_active_status_;
+  std::string interface_description_;
   lua_State* lua_state_;
   boost::asio::io_service* io_service_;
   boost::asio::deadline_timer timer_;

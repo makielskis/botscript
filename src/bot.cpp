@@ -233,6 +233,21 @@ std::string bot::configuration(bool with_password) {
   return buffer.GetString();
 }
 
+std::string bot::interface_description() {
+  std::stringstream out;
+  out << "[";
+  for (std::set<module*>::iterator m = modules_.begin();;) {
+    out << (*m)->interface_description();
+    if (++m == modules_.end()) {
+      break;
+    } else {
+      out << ",";
+    }
+  }
+  out << "]";
+  return out.str();
+}
+
 void bot::execute(const std::string& command, const std::string& argument) {
   if (command == "base_set_wait_time_factor") {
     std::string new_wait_time_factor = argument;
