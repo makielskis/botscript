@@ -111,9 +111,10 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
 
   // Load module configuration.
   const rapidjson::Value& a = document["modules"];
-  for (rapidjson::SizeType i = 0; i < a.Size(); i++) {
-    const rapidjson::Value& m = a[i];
-    std::string module = m["name"].GetString();
+  for (rapidjson::Value::ConstMemberIterator i = a.MemberBegin();
+       i != a.MemberEnd(); ++i) {
+    const rapidjson::Value& m = i->value;
+    std::string module = i->name.GetString();
     rapidjson::Value::ConstMemberIterator it = m.MemberBegin();
     for (; it != m.MemberEnd(); ++it) {
       std::string name = it->name.GetString();
