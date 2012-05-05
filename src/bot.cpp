@@ -43,19 +43,25 @@
 #include "./lua_connection.h"
 
 namespace std {
+
+// round() is missing in C++ until C++ 2011 standard.
+// But we have one!
 double round(double r) {
   return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
 }
+
 }  // namespace std
 
 namespace botscript {
 
-
 // Initialization of the static bot class attributes.
-std::map<std::string, std::string>bot::servers_;
+std::map<std::string, std::string> bot::servers_;
 std::vector<std::string> bot::server_lists_;
 boost::mutex bot::server_mutex_;
 boost::mutex bot::log_mutex_;
+
+std::map<std::string, std::string> bot::interface_;
+boost::mutex bot::interface_mutex_;
 
 int bot::bot_count_ = 0;
 boost::mutex bot::init_mutex_;
@@ -72,14 +78,17 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
     package_(package),
     server_(server),
     wait_time_factor_(1),
-    lua_state_(NULL) {
+    lua_state_(NULL),
+    stopped_(false) {
   status_["base_wait_time_factor"] = "1";
   init(proxy);
 }
 
 bot::bot(const std::string& configuration)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception)
-  : lua_state_(NULL) {
+  : lua_state_(NULL),
+    wait_time_factor_(1),
+    stopped_(false) {
   rapidjson::Document document;
   if (document.Parse<0>(configuration.c_str()).HasParseError()) {
     // Configuration is not valid JSON. Return null.
@@ -157,6 +166,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
 }
 
 bot::~bot() {
+  stopped_ = true;
   lua_connection::remove(identifier_);
   lua_close(lua_state_);
   BOOST_FOREACH(module* module, modules_) {
@@ -234,18 +244,22 @@ std::string bot::configuration(bool with_password) {
 }
 
 std::string bot::interface_description() {
-  std::stringstream out;
-  out << "[";
-  for (std::set<module*>::iterator m = modules_.begin();;) {
-    out << (*m)->interface_description();
-    if (++m == modules_.end()) {
-      break;
-    } else {
-      out << ",";
+  boost::lock_guard<boost::mutex> lock(interface_mutex_);
+  if (interface_.find(package_) == interface_.end()) {
+    std::stringstream out;
+    out << "{\"interface\":[";
+    for (std::set<module*>::iterator m = modules_.begin();;) {
+      out << (*m)->interface_description();
+      if (++m == modules_.end()) {
+        break;
+      } else {
+        out << ",";
+      }
     }
+    out << "]}";
+    interface_[package_] = out.str();
   }
-  out << "]";
-  return out.str();
+  return interface_[package_];
 }
 
 void bot::execute(const std::string& command, const std::string& argument) {
