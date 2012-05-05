@@ -51,9 +51,8 @@ class lua_connection {
  public:
   static jsonval_ptr toJSON(lua_State* state, int stack_index,
       rapidjson::Document::AllocatorType& allocator);
-  static std::string lua_connection::toJSON(lua_State* state,
-                                            const std::string& lua_var,
-                                            const std::string& var_name);
+  static std::string toJSON(lua_State* state, const std::string& lua_var,
+                            const std::string& var_name);
 
   static void luaStringTableToMap(lua_State* state, int stack_index,
                                   std::map<std::string, std::string>* map);
