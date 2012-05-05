@@ -213,13 +213,11 @@ std::string bot::configuration(bool with_password) {
                      status_["base_wait_time_factor"].c_str(), allocator);
 
   // Write module configuration values.
-  rapidjson::Value modules(rapidjson::kArrayType);
+  rapidjson::Value modules(rapidjson::kObjectType);
   BOOST_FOREACH(module* m, modules_) {
     // Initialize module JSON object and add name property.
     std::string module_name = m->name();
     rapidjson::Value module(rapidjson::kObjectType);
-    rapidjson::Value name_attr(module_name.c_str(), allocator);
-	  module.AddMember("name", name_attr, allocator);
 
     // Add module settings.
     typedef std::pair<std::string, std::string> str_pair;
@@ -231,7 +229,8 @@ std::string bot::configuration(bool with_password) {
 	      module.AddMember(key_attr, val_attr, allocator);
       }
     }
-    modules.PushBack(module, allocator);
+    rapidjson::Value name_attr(module_name.c_str(), allocator);
+    modules.AddMember(name_attr, module, allocator);
   }
   document.AddMember("modules", modules, allocator);
 
@@ -263,6 +262,7 @@ std::string bot::interface_description() {
 }
 
 void bot::execute(const std::string& command, const std::string& argument) {
+  // Handle wait time factor command.
   if (command == "base_set_wait_time_factor") {
     std::string new_wait_time_factor = argument;
     if (new_wait_time_factor.find(".") == std::string::npos) {
@@ -276,6 +276,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
     return;
   }
 
+  // Handle set proxy command.
   if (command == "base_set_proxy") {
     if (argument.empty()) {
       webclient_.proxy("", "");
@@ -290,8 +291,10 @@ void bot::execute(const std::string& command, const std::string& argument) {
     }
     webclient_.proxy(proxy_split[0], proxy_split[1]);
     log(INFO, "base", "proxy set");
+    return;
   }
 
+  // Forward all other commands to modules.
   BOOST_FOREACH(module* module, modules_) {
     module->execute(command, argument);
   }
