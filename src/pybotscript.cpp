@@ -19,6 +19,9 @@
  */
 
 #include "boost/python.hpp"
+#include "boost/lambda/lambda.hpp"
+#include "boost/bind.hpp"
+#include "boost/asio/io_service.hpp"
 
 #include "./exceptions/bad_login_exception.h"
 #include "./exceptions/lua_exception.h"
@@ -43,6 +46,37 @@ class pybot : public botscript::bot {
       callback_function_(NULL) {
   };
 
+  static void loadBot(const std::string identifier, 
+                      const std::string configuration,
+                      boost::python::dict* result) {
+    try {
+      std::auto_ptr<pybot> bot(new pybot(configuration));
+      {
+        boost::lock_guard<boost::mutex> lock(call_mutex_);
+        (*result)[identifier] = boost::python::object(bot);
+      }
+    } catch (botscript::lua_exception& e) {
+    } catch (botscript::bad_login_exception& e) {
+    }
+  }
+
+  static boost::python::dict loadBots(boost::python::dict configs) {
+    boost::python::dict result;
+    boost::asio::io_service io_service;
+
+    boost::python::list iterkeys = (boost::python::list) configs.iterkeys();
+    for (int i = 0; i < boost::python::len(iterkeys); i++) {
+      std::string k = boost::python::extract<std::string>(iterkeys[i]);
+      std::string v = boost::python::extract<std::string>(configs[iterkeys[i]]);
+      io_service.post(boost::bind(&pybot::loadBot, k, v, &result));
+      result[k] = boost::python::object();
+    }
+
+    io_service.run();
+
+    return result;
+  }
+
   virtual void callback(std::string id, std::string k, std::string v) {
     boost::lock_guard<boost::mutex> lock(call_mutex_);
     if (callback_function_ != NULL) {
@@ -64,8 +98,10 @@ class pybot : public botscript::bot {
  private:
   PyObject* callback_function_;
   static boost::mutex call_mutex_;
+  static boost::mutex load_mutex_;
 };
 boost::mutex pybot::call_mutex_;
+boost::mutex pybot::load_mutex_;
 
 void bad_login_translator(botscript::bad_login_exception const& e) {
   PyErr_SetString(PyExc_UserWarning, "bad login");
@@ -99,7 +135,9 @@ BOOST_PYTHON_MODULE(pybotscript) {
     .def("interface_description", &bot::interface_description)
     .staticmethod("packages")
     .def("create_identifier", &bot::createIdentifier)
-    .staticmethod("create_identifier");
+    .staticmethod("create_identifier")
+    .def("load_bots", &bot::loadBots)
+    .staticmethod("load_bots");
   register_exception_translator<botscript::bad_login_exception>(
           bad_login_translator);
   register_exception_translator<botscript::lua_exception>(
