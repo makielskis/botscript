@@ -22,6 +22,7 @@
 #include "boost/lambda/lambda.hpp"
 #include "boost/bind.hpp"
 #include "boost/asio/io_service.hpp"
+#include "boost/thread.hpp"
 
 #include "./exceptions/bad_login_exception.h"
 #include "./exceptions/lua_exception.h"
@@ -63,7 +64,6 @@ class pybot : public botscript::bot {
   static boost::python::dict loadBots(boost::python::dict configs) {
     boost::python::dict result;
     boost::asio::io_service io_service;
-
     boost::python::list iterkeys = (boost::python::list) configs.iterkeys();
     for (int i = 0; i < boost::python::len(iterkeys); i++) {
       std::string k = boost::python::extract<std::string>(iterkeys[i]);
@@ -72,7 +72,13 @@ class pybot : public botscript::bot {
       result[k] = boost::python::object();
     }
 
+    boost::thread_group threads;
+    for(unsigned int i = 0; i < 2; ++i) {
+      threads.create_thread(
+          boost::bind(&boost::asio::io_service::run, &io_service));
+    }
     io_service.run();
+    threads.join_all();
 
     return result;
   }
