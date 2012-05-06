@@ -48,7 +48,11 @@ class pybot : public botscript::bot {
     if (callback_function_ != NULL) {
       PyGILState_STATE gstate;
       gstate = PyGILState_Ensure();
-      boost::python::call<void>(callback_function_, id, k, v);
+      try {
+        boost::python::call<void>(callback_function_, id, k, v);
+      } catch(boost::python::error_already_set& e) {
+        std::cout << "Python callback raised an exception.\n";
+      }
       PyGILState_Release(gstate);
     }
   }
