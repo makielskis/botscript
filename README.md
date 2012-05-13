@@ -7,7 +7,7 @@ Botscript is a library thats main target is to make life easier when programming
  nifty user interfaces or other services around botscript.
 
 Botscript makes heavy use of the Boost C++ extensions.
- Other external libraries used are: Lua 5.2, pugixml 1.0 and HTML Tidy.
+ Other external libraries used are: MongoDB, Lua 5.2, pugixml 1.0 and HTML Tidy.
 
 Build external libraries
 ------------------------
@@ -54,12 +54,11 @@ Build BotScript
 ---------------
 
   - Create and goto build folder `mkdir build && cd build`
-  - Edit cmake boost path and python include path (line 4 and 5).  
-  (- If you want to get an executable file uncomment all 'botscript' lines.)
+  - Edit cmake boost path and python include path (line 4 and 5).
   - Create makefile from cmake file: `cmake ../src`
   - Make: `make`
   - Rename library: `mv libpybotscript.so pybotscript.so`
-  - Have fun with pybotscript!
+  - Have fun with pybotscript, proxy_checker and the botscript executable.
 
 How to use pybotscript
 ----------------------
