@@ -14,7 +14,7 @@ Build external libraries
 
 ### MongoDB Client (only for proxy_check)
   - Install the scons build system for building the MongoDB client.
-  - Go to MongoDB Client folder: `mongo-client-2.1.1`
+  - Go to MongoDB Client folder: `cd external_lib/mongo-client-2.1.1`
   - Build MongoDB Client library `scons install --prefix ./build`
   - Copy static library: `cp build/libmongoclient.a ../../`
   - Open the -mongo-cxx-driver.tgz- archive and extract the
