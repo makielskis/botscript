@@ -21,28 +21,19 @@
 // Compile with
 // clang -o botscript_exe  main.cpp -I/home/wasabi/boost_1_48_0/ -L/home/wasabi/Development/cppbot/botscript -L/home/wasabi/Development/cppbot/botscript -L/home/wasabi/boost_1_48_0/stage/lib/ bot.cpp lua_connection.cpp -lboost_system -lboost_regex -lboost_iostreams -pthread -ltidy -lpugixml -llua5.1
 
-#include <fstream>
-#include <istream>
 #include <iostream>
 #include <string>
-#include <sstream>
-#include <map>
+#include <set>
 
+#include "boost/foreach.hpp"
 #include "boost/thread.hpp"
 #include "boost/asio/io_service.hpp"
 #include "boost/bind.hpp"
 #include "boost/iostreams/copy.hpp"
+#include "boost/regex.hpp"
 
-#include "bot.h"
+#include "./webclient.h"
 
-int main(int argc, char* argv[]) {
-  botscript::bot* b = new botscript::bot("\"disabled", "blabla", "packages/pg", "http://muenchen.pennergame.de", "");
-  std::cout << b->interface_description() << "\n";
-  delete b;
-  return 0;
-}
-
-/*
 int main(int argc, char* argv[]) {
   if (argc != 2) {
     std::cout << "usage: " << argv[0] << " config.json\n";
@@ -65,7 +56,6 @@ int main(int argc, char* argv[]) {
 
   return 0;
 }
-*/
 
 /*
 int main(void) {
