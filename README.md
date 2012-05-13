@@ -22,7 +22,7 @@ Build external libraries
     `external_lib/mongo-client-2.1.1/build/build/include/mongo`
 
 ### Python (only for pybotscript)
-  - Install the python development package from your package management (Linux) 
+  - Install the python development package from your package management (Linux)  
     or download the required files (Windows)
 
 ### Boost
