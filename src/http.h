@@ -176,7 +176,7 @@ class http_source {
   }
 
   void handleResolve(const boost::system::error_code& ec,
-          boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
+      boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
   throw(std::ios_base::failure) {
     if (!ec) {
       // Start the timeout timer.
@@ -390,10 +390,18 @@ class http_source {
           continue;
         } else if (chunksize - chunk_bytes != 0) {
           // This chunk is missing some bytes.
-          // Transfer them and read the next chunk size declaration.
+          // Allocate memory for the missing bytes.
           response_buffer_.consume(chunk_bytes);
           response_content_.resize(
                   bytes_transferred_ + chunksize - chunk_bytes);
+
+          // Start timeout timer.
+          int timeout = ceil(
+              chunksize - chunk_bytes / static_cast<double>(1024));
+          timeout_timer_.expires_from_now(
+              boost::posix_time::seconds(timeout + 3));
+
+          // Transfer them and read the next chunk size declaration.
           boost::asio::async_read(socket_,
               boost::asio::buffer(
                       &(response_content_[bytes_transferred_]),
@@ -419,6 +427,7 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Read until the end of the chunk size declaration.
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(3));
       boost::asio::async_read_until(socket_, response_buffer_,
               boost::regex("\r?\n?[0-9a-fA-F]+\r\n"),
               boost::bind(&http_source::handleReadChunkSize, this,
