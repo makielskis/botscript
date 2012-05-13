@@ -17,7 +17,7 @@ Build external libraries
   - Go to MongoDB Client folder: `mongo-client-2.1.1`
   - Build MongoDB Client library `scons install --prefix ./build`
   - Copy static library: `cp build/libmongoclient.a ../../`
-  - Open the -mongo-cxx-driver.tgz- archive and copy the
+  - Open the -mongo-cxx-driver.tgz- archive and extract the
     `/mongo-cxx-driver/src/mongo/platform/` folder to
     `external_lib/mongo-client-2.1.1/build/mongo`
 
@@ -64,9 +64,9 @@ Build BotScript
 How to use pybotscript
 ----------------------
 
-`$ python`  
-`>>> from pybotscript import bot`  
-`>>> mybot = bot("username", "password", "package", "http://server.com", "proxy:port")`  
-`>>> mybot.execute("set_module123_active", "1")`
+    $ python
+    >>> from pybotscript import bot
+    >>> mybot = bot("username", "password", "package", "http://server.com", "proxy:port")
+    >>> mybot.execute("set_module123_active", "1")
 
 For a complete reference have a look at the pybotscript documentation.
