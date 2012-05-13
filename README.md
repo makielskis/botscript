@@ -12,7 +12,7 @@ Botscript makes heavy use of the Boost C++ extensions.
 Build external libraries
 ------------------------
 
-### Python
+### Python (only for pybotscript)
   - Install the python development package from your package management (Linux) 
     or download the required files (Windows)
 
