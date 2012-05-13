@@ -72,6 +72,14 @@ class proxy_check {
                   BSON("address" << proxy),
                   BSON("address" << proxy << "good" << check_result_),
                   true);
+
+        mongo::BSONObjBuilder inuse_null;
+        inuse_null.appendNull("inuse");
+        mongo::BSONObj inuse_null_obj = inuse_null.obj();
+        db.update("test.proxies",
+            BSON("address" << proxy << "inuse" << BSON("$exists" << false)),
+            BSON("$set" << BSON("inuse" << false))
+        );
       } else {
         db.remove("test.proxies", BSON("address" << proxy));
       }
