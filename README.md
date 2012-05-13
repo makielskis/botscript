@@ -17,8 +17,8 @@ Build external libraries
   - Go to MongoDB Client folder: `cd external_lib/mongo-client-2.1.1`
   - Build MongoDB Client library `scons install --prefix ./build`
   - Copy static library: `cp build/libmongoclient.a ../../`
-  - Open the -mongo-cxx-driver.tgz- archive and extract the
-    `/mongo-cxx-driver/src/mongo/platform/` folder to
+  - Open the -mongo-cxx-driver.tgz- archive and extract the  
+    `/mongo-cxx-driver/src/mongo/platform/` folder to  
     `external_lib/mongo-client-2.1.1/build/build/include/mongo`
 
 ### Python (only for pybotscript)
