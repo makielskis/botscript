@@ -63,6 +63,8 @@ class pybot : public botscript::bot {
 
   static boost::python::dict loadBots(boost::python::dict configs) {
     boost::python::dict result;
+
+    // Post load tasks to io_service.
     boost::asio::io_service io_service;
     boost::python::list iterkeys = (boost::python::list) configs.iterkeys();
     for (int i = 0; i < boost::python::len(iterkeys); i++) {
@@ -72,11 +74,14 @@ class pybot : public botscript::bot {
       result[k] = boost::python::object();
     }
 
+    // Pay for a round of threads.
     boost::thread_group threads;
     for(unsigned int i = 0; i < 2; ++i) {
       threads.create_thread(
           boost::bind(&boost::asio::io_service::run, &io_service));
     }
+
+    // Wait for the load tasks to finish.
     io_service.run();
     threads.join_all();
 
