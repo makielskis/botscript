@@ -12,6 +12,15 @@ Botscript makes heavy use of the Boost C++ extensions.
 Build external libraries
 ------------------------
 
+### MongoDB Client (only for proxy_check)
+  - Install the scons build system for building the MongoDB client.
+  - Go to MongoDB Client folder: `mongo-client-2.1.1`
+  - Build MongoDB Client library `scons install --prefix ./build`
+  - Copy static library: `cp build/libmongoclient.a ../../`
+  - Open the -mongo-cxx-driver.tgz- archive and copy the
+    `/mongo-cxx-driver/src/mongo/platform/` folder to
+    `external_lib/mongo-client-2.1.1/build/mongo`
+
 ### Python (only for pybotscript)
   - Install the python development package from your package management (Linux) 
     or download the required files (Windows)
