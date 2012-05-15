@@ -5,12 +5,12 @@ set(BOOST_PATH "../../../../boost_1_48_0/")
 set(PYTHON_INCLUDE_PATH "/usr/include/python2.7")
 
 # Uncomment to use Clang compiler (improved error/warning output).
-SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
-SET (CMAKE_CXX_FLAGS                "-Wall")
-SET (CMAKE_CXX_FLAGS_DEBUG          "-g")
-SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
-SET (CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
-SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
+#SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
+#SET (CMAKE_CXX_FLAGS                "-Wall")
+#SET (CMAKE_CXX_FLAGS_DEBUG          "-g")
+#SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
+#SET (CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
+#SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 add_executable(proxy_check proxy_check.cpp)
 add_executable(botscript main.cpp lua_connection.cpp bot.cpp module.cpp)
