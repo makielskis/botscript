@@ -43,7 +43,6 @@
 #include "./exceptions/lua_exception.h"
 #include "./exceptions/bad_login_exception.h"
 #include "./exceptions/invalid_proxy_exception.h"
-#include "./proxy_manager.h"
 
 namespace botscript {
 
@@ -138,7 +137,7 @@ class bot : boost::noncopyable {
   static boost::asio::io_service::work* work_;
   static boost::thread_group* worker_threads_;
 
-  static force_proxy_;
+  static bool force_proxy_;
 };
 
 }  // namespace botscript
