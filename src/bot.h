@@ -43,6 +43,7 @@
 #include "./exceptions/lua_exception.h"
 #include "./exceptions/bad_login_exception.h"
 #include "./exceptions/invalid_proxy_exception.h"
+#include "./proxy_manager.h"
 
 namespace botscript {
 
@@ -83,6 +84,9 @@ class bot : boost::noncopyable {
   std::string server() const { return server_; }
   double wait_time_factor() { return wait_time_factor_; }
 
+  static bool force_proxy() { return force_proxy_; }
+  static void force_proxy(bool force_proxy) { force_proxy_ = force_proxy; } 
+
   int randomWait(int min, int max);
 
   void log(int type, const std::string& source, const std::string& message);
@@ -92,6 +96,9 @@ class bot : boost::noncopyable {
 
   std::string status(const std::string key);
   void status(const std::string key, const std::string value);
+
+  void connectionFailed(bool connection_error);
+  void connectionWorked();
 
  private:
   void init(const std::string& proxy)
@@ -106,13 +113,17 @@ class bot : boost::noncopyable {
   std::string server_;
   std::string identifier_;
   double wait_time_factor_;
-  lua_State* lua_state_;
   bool stopped_;
   std::set<module*> modules_;
+
   std::list<std::string> log_msgs_;
   static boost::mutex log_mutex_;
+
   std::map<std::string, std::string> status_;
   boost::mutex status_mutex_;
+
+  double connection_status_;
+  boost::mutex connection_status_mutex_;
 
   static boost::mutex server_mutex_;
   static std::vector<std::string> server_lists_;
@@ -126,6 +137,8 @@ class bot : boost::noncopyable {
   static boost::asio::io_service* io_service_;
   static boost::asio::io_service::work* work_;
   static boost::thread_group* worker_threads_;
+
+  static force_proxy_;
 };
 
 }  // namespace botscript

@@ -76,10 +76,10 @@ class lua_connection {
   static lua_State* newState(std::string module_name, bot* bot)
   throw(lua_exception);
 
-  static lua_State* login(bot* bot,
-                          const std::string& username,
-                          const std::string& password,
-                          const std::string& package)
+  static void login(bot* bot,
+                    const std::string& username,
+                    const std::string& password,
+                    const std::string& package)
   throw(lua_exception, bad_login_exception);
 
   static void get_status(lua_State* state, const std::string& var,

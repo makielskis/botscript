@@ -34,8 +34,9 @@
 
 namespace botscript {
 
-module::module(const std::string& script, bot* bot, lua_State* main_state,
+module::module(const std::string& script, bot* bot,
                boost::asio::io_service* io_service)
+throw(lua_exception)
     : bot_(bot),
       lua_run_("run_"),
       lua_status_("status_"),
@@ -60,8 +61,13 @@ module::module(const std::string& script, bot* bot, lua_State* main_state,
   bot_->status(lua_active_status_, "0");
 
   // Load module script.
-  lua_state_ = lua_connection::newState(module_name_, bot);
-  lua_connection::executeScript(script, lua_state_);
+  try {
+    lua_state_ = lua_connection::newState(module_name_, bot);
+    lua_connection::executeScript(script, lua_state_);
+  } catch(const lua_exception& e) {
+    lua_close(lua_state_);
+    throw e;
+  }
 
   // Initialize status.
   lua_connection::get_status(lua_state_, lua_status_, &status_);
@@ -153,10 +159,20 @@ void module::run() {
     // Start the timer.
     timer_.expires_from_now(boost::posix_time::seconds(sleep));
     timer_.async_wait(boost::bind(&module::run, this));
+
+    // Tell bot that the connection worked.
+    bot_->connectionWorked();
   } catch(const lua_exception& e) {
     // Log error.
     bot_->log(bot::ERROR, module_name_, e.what());
     bot_->log(bot::ERROR, module_name_, "restarting in 10s");
+
+    // Check and count error.
+    if (boost::starts_with(e.what(), "#con")) {
+      bot_->connectionFailed(true);
+    } else if (boost::starts_with(e.what(), "#nof")) {
+      bot_->connectionFailed(false);
+    }
 
     // Start the timer.
     timer_.expires_from_now(boost::posix_time::seconds(10));

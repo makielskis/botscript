@@ -234,10 +234,10 @@ lua_State* lua_connection::newState(std::string module_name,
   return state;
 }
 
-lua_State* lua_connection::login(bot* bot,
-                                 const std::string& username,
-                                 const std::string& password,
-                                 const std::string& package)
+void lua_connection::login(bot* bot,
+                           const std::string& username,
+                           const std::string& password,
+                           const std::string& package)
 throw(lua_exception, bad_login_exception) {
   // Load login script.
   lua_State* state = newState("base", bot);
@@ -262,7 +262,7 @@ throw(lua_exception, bad_login_exception) {
     throw bad_login_exception();
   }
 
-  return state;
+  lua_close(state);
 }
 
 void lua_connection::get_status(lua_State* state, const std::string& var,
@@ -366,7 +366,7 @@ int lua_connection::doRequest(lua_State* state, bool path) {
       response = getWebClient(state)->request_get(url);
     }
   } catch(const std::ios_base::failure& e) {
-    return luaL_error(state, "%s", e.what());
+    return luaL_error(state, "#con %s", e.what());
   }
 
   lua_pushstring(state, response.c_str());
@@ -392,7 +392,7 @@ int lua_connection::m_post_request(lua_State* state) {
     response = getWebClient(state)->request_post(url,
             reinterpret_cast<const char*>(data.c_str()), data.length());
   } catch(const std::ios_base::failure& e) {
-    return luaL_error(state, "%s", e.what());
+    return luaL_error(state, "#con %s", e.what());
   }
   lua_pushstring(state, response.c_str());
 
@@ -426,9 +426,9 @@ int lua_connection::m_submit_form(lua_State* state) {
       webclient* wc = bot->webclient();
       response = wc->submit(xpath, content, parameters, action);
   } catch(const std::ios_base::failure& e) {
-    return luaL_error(state, "%s", e.what());
+    return luaL_error(state, "#con %s", e.what());
   } catch(const element_not_found_exception& e) {
-    return luaL_error(state, "%s", e.what());
+    return luaL_error(state, "#nof %s", e.what());
   }
 
   // Return result.

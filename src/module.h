@@ -30,6 +30,7 @@
 #include "boost/thread.hpp"
 
 #include "./bot.h"
+#include "./exceptions/lua_exception.h"
 #include "./lua_connection.h"
 
 namespace botscript {
@@ -38,8 +39,9 @@ class bot;
 
 class module : boost::noncopyable {
  public:
-  module(const std::string& script, bot* bot, lua_State* main_state,
-         boost::asio::io_service* io_service);
+  module(const std::string& script, bot* bot,
+         boost::asio::io_service* io_service)
+  throw(lua_exception);
   ~module();
 
   std::string name() { return module_name_; }

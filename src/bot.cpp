@@ -68,6 +68,7 @@ boost::mutex bot::init_mutex_;
 boost::asio::io_service* bot::io_service_ = NULL;
 boost::asio::io_service::work* bot::work_ = NULL;
 boost::thread_group* bot::worker_threads_ = NULL;
+bool bot::force_proxy_ = false;
 
 bot::bot(const std::string& username, const std::string& password,
          const std::string& package, const std::string& server,
@@ -78,21 +79,20 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
     package_(package),
     server_(server),
     wait_time_factor_(1),
-    lua_state_(NULL),
-    stopped_(false) {
+    stopped_(false),
+    connection_status_(1) {
   status_["base_wait_time_factor"] = "1";
   init(proxy);
 }
 
 bot::bot(const std::string& configuration)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception)
-  : lua_state_(NULL),
-    wait_time_factor_(1),
-    stopped_(false) {
+  : wait_time_factor_(1),
+    stopped_(false),
+    connection_status_(1) {
   rapidjson::Document document;
   if (document.Parse<0>(configuration.c_str()).HasParseError()) {
-    // Configuration is not valid JSON. Return null.
-    // TODO(felix) throw error
+    // Configuration is not valid JSON. This should NOT happen!
   }
 
   // Read basic configuration values.
@@ -162,14 +162,13 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
     }
   }
   identifier_ = createIdentifier(username_, package_, server_);
-  lua_state_ = lua_connection::login(this, username_, password_, package_);
+  lua_connection::login(this, username_, password_, package_);
   loadModules(io_service_);
 }
 
 bot::~bot() {
   stopped_ = true;
   lua_connection::remove(identifier_);
-  lua_close(lua_state_);
   BOOST_FOREACH(module* module, modules_) {
     module->shutdown();
     delete module;
@@ -351,7 +350,8 @@ std::string bot::loadPackages(const std::string& folder) {
     }
 
     // Check if servers file exists.
-    std::string server_list = i->path().relative_path().string() + "/servers.lua";
+    boost::filesystem::path path = i->path();
+    std::string server_list = path.relative_path().string() + "/servers.lua";
     boost::filesystem::path servers_path(server_list);
     if (!boost::filesystem::exists(servers_path)
         || boost::filesystem::is_directory(servers_path)) {
@@ -360,7 +360,7 @@ std::string bot::loadPackages(const std::string& folder) {
 
     // Write package name.
     rapidjson::Value a(rapidjson::kObjectType);
-    rapidjson::Value package_name(i->path().filename().string().c_str(), allocator);
+    rapidjson::Value package_name(path.filename().string().c_str(), allocator);
 	  a.AddMember("name", package_name, allocator);
 
     // Write servers from package.
@@ -391,7 +391,7 @@ std::string bot::loadPackages(const std::string& folder) {
   return buffer.GetString();
 }
 
-void bot::loadModules(boost::asio::io_service* io_service)  {
+void bot::loadModules(boost::asio::io_service* io_service) {
   using boost::filesystem::directory_iterator;
   if (boost::filesystem::is_directory(package_)) {
     for (directory_iterator i = directory_iterator(package_);
@@ -399,14 +399,21 @@ void bot::loadModules(boost::asio::io_service* io_service)  {
       std::string path = i->path().relative_path().generic_string();
       if (!boost::algorithm::ends_with(path, "servers.lua") &&
           !boost::algorithm::ends_with(path, "base.lua")) {
-        modules_.insert(new module(path, this, lua_state_, io_service));
+        try {
+          module* new_module = new module(path, this, io_service);
+          modules_.insert(new_module);
+        } catch(const lua_exception& e) {
+          log(ERROR, "base", e.what());
+        }
       }
     }
   }
 }
 
 int bot::randomWait(int a, int b) {
-  unsigned int seed = 32336753;
+  static unsigned int seed = 6753;
+  seed *= 31;
+  seed %= 32768;
   double random = static_cast<double>(rand_r(&seed)) / RAND_MAX;
   int wait_time = a + std::round(random * (b - a) * wait_time_factor_);
   return wait_time;
@@ -444,6 +451,29 @@ std::string bot::log_msgs() {
     log << msg;
   }
   return log.str();
+}
+
+void bot::connectionFailed(bool connection_error) {
+  boost::lock_guard<boost::mutex> lock(connection_status_mutex_);
+  connection_status_ -= (connection_error ? 0.1 : 0.025);
+  if (connection_status_ <= 0) {
+    connection_status_ = 0;
+    log(ERROR, "base", "problems - trying to relogin");
+    try {
+      lua_connection::login(this, username_, password_, package_);
+    } catch(const lua_exception& e) {
+      // TODO(felix) set next proxy
+    } catch(const bad_login_exception& e) {
+    }
+  }
+}
+
+void bot::connectionWorked() {
+  boost::lock_guard<boost::mutex> lock(connection_status_mutex_);
+  connection_status_ += 0.1;
+  if (connection_status_ > 1) {
+    connection_status_ = 1;
+  }
 }
 
 std::string bot::status(const std::string key) {
