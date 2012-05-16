@@ -111,6 +111,8 @@ class pybot : public botscript::bot {
   static boost::mutex call_mutex_;
   static boost::mutex load_mutex_;
 };
+
+// Do static initialization.
 boost::mutex pybot::call_mutex_;
 boost::mutex pybot::load_mutex_;
 
