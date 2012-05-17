@@ -182,7 +182,7 @@ void module::run() {
   // Since all timer actions end with a return statement:
   // Tell user that the module is stopped now.
   stopping_ = false;
-  bot_->log(bot::INFO, module_name_, "stop");
+  bot_->log(bot::INFO, module_name_, "quit");
 }
 
 void module::execute(const std::string& command, const std::string& argument) {
