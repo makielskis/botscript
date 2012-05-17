@@ -67,7 +67,6 @@ class module : boost::noncopyable {
   boost::mutex status_mutex_;
   boost::mutex run_mutex_;
   bool stopping_;
-  bool online_;
 };
 
 }  // namespace botscript

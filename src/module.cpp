@@ -44,8 +44,7 @@ throw(lua_exception)
       lua_state_(NULL),
       io_service_(io_service),
       timer_(*io_service),
-      stopping_(false),
-      online_(true) {
+      stopping_(false) {
   // Discover module name.
   using boost::filesystem::path;
   std::string filename = path(script).filename().generic_string();
@@ -87,32 +86,27 @@ module::~module() {
 }
 
 void module::applyStatus() {
-    // Lock because of r/w access to module status.
-    boost::lock_guard<boost::mutex> lock(status_mutex_);
+  // Lock because of r/w access to module status.
+  boost::lock_guard<boost::mutex> lock(status_mutex_);
 
-    // Write the status to the lua script state.
-    typedef std::pair<std::string, std::string> str_pair;
-    BOOST_FOREACH(str_pair s, status_) {
-      try {
-        lua_connection::set_status(lua_state_, lua_status_, s.first, s.second);
-      } catch(const lua_exception& e) {
-        std::stringstream msg;
-        msg << "could not set status " << s.first << " = " << s.second;
-        bot_->log(bot::INFO, module_name_, msg.str());
-        return;
-      }
+  // Write the status to the lua script state.
+  typedef std::pair<std::string, std::string> str_pair;
+  BOOST_FOREACH(str_pair s, status_) {
+    try {
+      lua_connection::set_status(lua_state_, lua_status_, s.first, s.second);
+    } catch(const lua_exception& e) {
+      std::stringstream msg;
+      msg << "could not set status " << s.first << " = " << s.second;
+      bot_->log(bot::INFO, module_name_, msg.str());
+      return;
     }
+  }
 
-    // Clear status.
-    status_.clear();
+  // Clear status.
+  status_.clear();
 }
 
 void module::run() {
-  if (!online_) {
-    // Quit when module is offline.
-    return;
-  }
-
   // Lock to prevent shutdown while execution.
   boost::lock_guard<boost::mutex> lock(run_mutex_);
 
@@ -156,12 +150,15 @@ void module::run() {
     msg << "sleeping " << sleep << "s";
     bot_->log(bot::INFO, module_name_, msg.str());
 
-    // Start the timer.
-    timer_.expires_from_now(boost::posix_time::seconds(sleep));
-    timer_.async_wait(boost::bind(&module::run, this));
-
     // Tell bot that the connection worked.
     bot_->connectionWorked();
+
+    // Start the timer.
+    if (!stopping_) {
+      timer_.expires_from_now(boost::posix_time::seconds(sleep));
+      timer_.async_wait(boost::bind(&module::run, this));
+      return;
+    }
   } catch(const lua_exception& e) {
     // Log error.
     bot_->log(bot::ERROR, module_name_, e.what());
@@ -175,13 +172,21 @@ void module::run() {
     }
 
     // Start the timer.
-    timer_.expires_from_now(boost::posix_time::seconds(10));
-    timer_.async_wait(boost::bind(&module::run, this));
+    if (!stopping_) {
+      timer_.expires_from_now(boost::posix_time::seconds(10));
+      timer_.async_wait(boost::bind(&module::run, this));
+      return;
+    }
   }
+
+  // Since all timer actions end with a return statement:
+  // Tell user that the module is stopped now.
+  stopping_ = false;
+  bot_->log(bot::INFO, module_name_, "stop");
 }
 
 void module::execute(const std::string& command, const std::string& argument) {
-  if (!boost::starts_with(command, module_name_ + "_set_") || !online_) {
+  if (!boost::starts_with(command, module_name_ + "_set_")) {
     // Don't handle commands for other modules.
     // Don't handle commands when we're offline.
     return;
@@ -193,20 +198,27 @@ void module::execute(const std::string& command, const std::string& argument) {
     // Handle active status command.
     std::string active_status = bot_->status(lua_active_status_);
     if (active_status == "1" && argument == "0") {
-      // Command is to turn on and module is offline.
-      // Stop the module.
-      bot_->log(bot::INFO, module_name_, "stopping");
-      bot_->status(lua_active_status_, "0");
-      stopping_ = true;
-    } else if (active_status == "0" && argument == "1") {
       // Command is to turn off and module is online.
+      // Stop the module.
+      if (run_mutex_.try_lock()) {
+        timer_.cancel();
+        bot_->log(bot::INFO, module_name_, "stop");
+        bot_->status(lua_active_status_, "0");
+        run_mutex_.unlock();
+      } else {
+        stopping_ = true;
+        bot_->status(lua_active_status_, "0");
+      }
+    } else if (active_status == "0" && argument == "1") {
+      // Command is to turn on and module is offline.
       // Start the module.
       bot_->log(bot::INFO, module_name_, "start");
       bot_->status(lua_active_status_, "1");
-      if (stopping_) {
-        stopping_ = false;
-      } else {
+      if (run_mutex_.try_lock()) {
         io_service_->post(boost::bind(&module::run, this));
+        run_mutex_.unlock();
+      } else {
+        stopping_ = false;
       }
     }
   } else {
@@ -232,13 +244,10 @@ void module::shutdown() {
   // Lock to not disturb the run function.
   boost::lock_guard<boost::mutex> lock(run_mutex_);
 
-  // Set module status to offline.
-  online_ = false;
-
   // Cancel all asynchronous operations.
-  timer_.cancel();
-  stopping_ = true;
   bot_->status(lua_active_status_, "0");
+  stopping_ = true;
+  timer_.cancel();
 }
 
 }  // namespace botscript
