@@ -66,6 +66,7 @@ class module : boost::noncopyable {
   boost::asio::deadline_timer timer_;
   boost::mutex status_mutex_;
   boost::mutex run_mutex_;
+  boost::mutex execute_mutex_;
   bool stopping_;
 };
 

@@ -186,6 +186,9 @@ void module::run() {
 }
 
 void module::execute(const std::string& command, const std::string& argument) {
+  // Parallel execution and module shutdown guard.
+  boost::lock_guard<boost::mutex> lock(execute_mutex_);
+
   if (!boost::starts_with(command, module_name_ + "_set_")) {
     // Don't handle commands for other modules.
     // Don't handle commands when we're offline.
@@ -202,22 +205,29 @@ void module::execute(const std::string& command, const std::string& argument) {
       // Stop the module.
       if (run_mutex_.try_lock()) {
         timer_.cancel();
-        bot_->log(bot::INFO, module_name_, "stop");
         bot_->status(lua_active_status_, "0");
         run_mutex_.unlock();
       } else {
         stopping_ = true;
         bot_->status(lua_active_status_, "0");
       }
+      bot_->log(bot::INFO, module_name_, "stop");
     } else if (active_status == "0" && argument == "1") {
       // Command is to turn on and module is offline.
       // Start the module.
       bot_->log(bot::INFO, module_name_, "start");
       bot_->status(lua_active_status_, "1");
       if (run_mutex_.try_lock()) {
-        io_service_->post(boost::bind(&module::run, this));
+        // Lock acquired - module run() is not running.
+        if (!stopping_) {
+          io_service_->post(boost::bind(&module::run, this));
+        } else {
+          stopping_ = false;
+        }
         run_mutex_.unlock();
       } else {
+        // Lock not acquired - module run() is running.
+        // Set stopping_ to false to keep it running.
         stopping_ = false;
       }
     }
@@ -241,13 +251,19 @@ void module::execute(const std::string& command, const std::string& argument) {
 }
 
 void module::shutdown() {
-  // Lock to not disturb the run function.
-  boost::lock_guard<boost::mutex> lock(run_mutex_);
+  {
+    // Lock to not disturb the run / execute function.
+    boost::lock_guard<boost::mutex> run_lock(run_mutex_);
+    boost::lock_guard<boost::mutex> exe_lock(execute_mutex_);
 
-  // Cancel all asynchronous operations.
-  bot_->status(lua_active_status_, "0");
-  stopping_ = true;
+    // Cancel all asynchronous operations.
+    bot_->status(lua_active_status_, "0");
+    stopping_ = true;
+  }
+
+  // Cancel timer and ensure that it has finished execution.
   timer_.cancel();
+  boost::this_thread::sleep(boost::posix_time::milliseconds(250));
 }
 
 }  // namespace botscript
