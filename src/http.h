@@ -44,6 +44,7 @@
 #include "boost/asio.hpp"
 #include "boost/lambda/lambda.hpp"
 #include "boost/lexical_cast.hpp"
+#include "boost/exception/exception.hpp"
 
 namespace botscript {
 
@@ -63,6 +64,7 @@ class http_source {
               const void* content, const size_t content_length,
               const std::string& proxy_host,
               boost::asio::io_service* io_service)
+  throw(std::ios_base::failure)
     : io_service_(io_service),
       socket_(*io_service),
       resolver_(*io_service),
@@ -83,7 +85,15 @@ class http_source {
                             boost::bind(&http_source::handleResolve, this,
                                         boost::asio::placeholders::error,
                                         boost::asio::placeholders::iterator));
-    io_service_->run();
+    try {
+      io_service_->run();
+    } catch(const boost::exception_detail::clone_impl<
+                      boost::exception_detail::error_info_injector<
+                          boost::system::system_error
+                      >
+                  >& e) {
+      throw std::ios_base::failure("");
+    }
   }
 
   ~http_source() {
@@ -108,7 +118,15 @@ class http_source {
     }
     int timeout = ceil(n / static_cast<double>(1024));
     timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout + 5));
-    io_service_->run();
+    try {
+      io_service_->run();
+    } catch(const boost::exception_detail::clone_impl<
+                      boost::exception_detail::error_info_injector<
+                          boost::system::system_error
+                      >
+                  >& e) {
+      throw std::ios_base::failure("");
+    }
 
     // Copy from buffer to stream.
     size_t to_return = std::min((size_t) n, response_content_.size());
