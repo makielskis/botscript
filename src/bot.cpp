@@ -193,9 +193,9 @@ std::string bot::configuration(bool with_password) {
   boost::lock_guard<boost::mutex> lock(status_mutex_);
 
   // Write basic configuration values.
-	rapidjson::Document document;
+  rapidjson::Document document;
   document.SetObject();
-	rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
   document.AddMember("username", username_.c_str(), allocator);
   if (with_password) {
     document.AddMember("password", password_.c_str(), allocator);
@@ -226,7 +226,7 @@ std::string bot::configuration(bool with_password) {
         std::string key = j.first.substr(module_name.length() + 1);
         rapidjson::Value key_attr(key.c_str(), allocator);
         rapidjson::Value val_attr(j.second.c_str(), allocator);
-	      module.AddMember(key_attr, val_attr, allocator);
+        module.AddMember(key_attr, val_attr, allocator);
       }
     }
     rapidjson::Value name_attr(module_name.c_str(), allocator);
@@ -235,9 +235,9 @@ std::string bot::configuration(bool with_password) {
   document.AddMember("modules", modules, allocator);
 
   // Convert to string.
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-	document.Accept(writer);
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  document.Accept(writer);
 
   return buffer.GetString();
 }
@@ -337,8 +337,8 @@ std::string bot::loadPackages(const std::string& folder) {
   }
 
   // Iterate packages.
-	rapidjson::Document document;
-	rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+  rapidjson::Document document;
+  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
   document.SetObject();
   rapidjson::Value packages(rapidjson::kArrayType);
   using boost::filesystem::directory_iterator;
@@ -361,7 +361,7 @@ std::string bot::loadPackages(const std::string& folder) {
     // Write package name.
     rapidjson::Value a(rapidjson::kObjectType);
     rapidjson::Value package_name(path.filename().string().c_str(), allocator);
-	  a.AddMember("name", package_name, allocator);
+    a.AddMember("name", package_name, allocator);
 
     // Write servers from package.
     rapidjson::Value l(rapidjson::kArrayType);
@@ -372,7 +372,7 @@ std::string bot::loadPackages(const std::string& folder) {
       rapidjson::Value server_name(server.first.c_str(), allocator);
       l.PushBack(server_name, allocator);
     }
-	  a.AddMember("servers", l, allocator);
+    a.AddMember("servers", l, allocator);
     packages.PushBack(a, allocator);
 
     // Store result if not already done.
@@ -384,9 +384,9 @@ std::string bot::loadPackages(const std::string& folder) {
   document.AddMember("packages", packages, allocator);
 
   // Convert to string.
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-	document.Accept(writer);
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  document.Accept(writer);
 
   return buffer.GetString();
 }
@@ -398,7 +398,8 @@ void bot::loadModules(boost::asio::io_service* io_service) {
          i != directory_iterator(); ++i) {
       std::string path = i->path().relative_path().generic_string();
       if (!boost::algorithm::ends_with(path, "servers.lua") &&
-          !boost::algorithm::ends_with(path, "base.lua")) {
+          !boost::algorithm::ends_with(path, "base.lua") &&
+          !boost::starts_with(i->path().filename().string(), ".")) {
         try {
           module* new_module = new module(path, this, io_service);
           modules_.insert(new_module);
