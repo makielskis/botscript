@@ -62,7 +62,7 @@ else:
     env['DIST_ARCHIVE_SUFFIX'] = '.tgz'
 
 if nix:
-    env.Append(CCFLAGS=["-O3", "-pthread"])
+    env.Append(CCFLAGS=["-fPIC", "-O3", "-pthread"])
 if linux:
     env.Append(LINKFLAGS=["-Wl,--as-needed", "-Wl,-zdefs"])
 
