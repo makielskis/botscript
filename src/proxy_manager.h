@@ -21,41 +21,58 @@
 #ifndef PROXY_MANAGER_H_
 #define PROXY_MANAGER_H_
 
-#include <stack>
 #include <string>
+#include <vector>
+
+#include "boost/foreach.hpp"
 
 #include "client/dbclient.h"
 
 #include "./bot.h"
+#include "./exceptions/invalid_proxy_exception.h"
 
 namespace botscript {
 
-class no_proxies_exception : public std::exception {
-};
-
 class proxy_manager {
  public:
-  static std::string next_proxy() throw(no_proxies_exception) {
-    boost::lock_guard<boost::mutex> lock(db_mutex_);
+  static std::vector<std::string> get_proxies() throw(invalid_proxy_exception) {
+    // Create the result set.
+    std::vector<std::string> proxies(20);
+
+    // Create the result cursor ptr.
+    mongo::DBClientConnection db;
+    db.connect("localhost");
     std::auto_ptr<mongo::DBClientCursor> cursor =
-        db_.query("test.proxies", QUERY("inuse" << false << "good" << true));
+        db.query("test.proxies", QUERY("inuse" << false << "good" << true));
+
+    // Iterate results.
+    int count = 0;
     while(cursor->more()) {
       mongo::BSONObj p = cursor->next();
-      std::string address = p.getStringField("address");
-      std::cout << address << "\n";
-      return address;
+      proxies[count] = p.getStringField("address");
+
+      count++;
+      if (count == 20) {
+        break;
+      }
     }
-    throw no_proxies_exception();
+
+    // Throw exception if there were no proxies found.
+    if (count == 0) {
+      throw invalid_proxy_exception();
+    }
+
+    return proxies;
   }
 
- private:
-  static mongo::DBClientConnection db_;
-  static boost::mutex db_mutex_;
+  static void return_proxy(const std::string& proxy) {
+/*
+    boost::lock_guard<boost::mutex> lock(dbmutex_);
+    db.update("test.proxies", BSON("address" << proxy),
+               BSON("$set" << BSON("inuse" << false)));
+*/
+  }
 };
-
-// Initialize proxy manager's static variables.
-mongo::DBClientConnection proxy_manager::db_;
-boost::mutex proxy_manager::db_mutex_;
 
 }  // namespace botscript
 

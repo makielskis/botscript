@@ -30,6 +30,6 @@ set_target_properties(botscript PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stag
 set_target_properties(pybotscript PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 set_target_properties(proxy_check PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}/stage/lib/")
 
-target_link_libraries(botscript boost_system boost_thread boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml lua dl z)
-target_link_libraries(pybotscript boost_system boost_python boost_thread-mt boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml lua dl z)
+target_link_libraries(botscript mongoclient boost_system boost_thread boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml lua dl z)
+target_link_libraries(pybotscript mongoclient boost_system boost_python boost_thread-mt boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml lua dl z)
 target_link_libraries(proxy_check mongoclient boost_system boost_thread boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml dl z)

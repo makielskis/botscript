@@ -44,6 +44,8 @@
 #include "./exceptions/bad_login_exception.h"
 #include "./exceptions/invalid_proxy_exception.h"
 
+#define AUTO_PROXY
+
 namespace botscript {
 
 #define MAX_LOG_SIZE 50
@@ -84,14 +86,21 @@ class bot : boost::noncopyable {
   double wait_time_factor() { return wait_time_factor_; }
 
   static bool force_proxy() { return force_proxy_; }
-  static void force_proxy(bool force_proxy) { force_proxy_ = force_proxy; } 
+  static void force_proxy(bool force_proxy) { force_proxy_ = force_proxy; }
+
+  static bool auto_proxy_enabled() { return auto_proxy_enabled_; }
+  static void auto_proxy_enabled(bool auto_proxy_enabled) {
+#ifdef AUTO_PROXY
+    auto_proxy_enabled_ = auto_proxy_enabled;
+#endif
+  }
 
   int randomWait(int min, int max);
 
   void log(int type, const std::string& source, const std::string& message);
   std::string log_msgs();
 
-  virtual void callback(std::string id, std::string k, std::string v) {};
+  virtual void callback(std::string id, std::string k, std::string v) {}
 
   std::string status(const std::string key);
   void status(const std::string key, const std::string value);
@@ -102,6 +111,9 @@ class bot : boost::noncopyable {
  private:
   void init(const std::string& proxy)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
+
+  void setProxy(const std::string& proxy)
+  throw(invalid_proxy_exception);
 
   void loadModules(boost::asio::io_service* io_service);
 
@@ -115,6 +127,8 @@ class bot : boost::noncopyable {
   bool stopped_;
   std::set<module*> modules_;
 
+  boost::mutex execute_mutex_;
+
   std::list<std::string> log_msgs_;
   static boost::mutex log_mutex_;
 
@@ -123,6 +137,8 @@ class bot : boost::noncopyable {
 
   double connection_status_;
   boost::mutex connection_status_mutex_;
+
+  std::vector<std::string> proxies_;
 
   static boost::mutex server_mutex_;
   static std::vector<std::string> server_lists_;
@@ -138,6 +154,7 @@ class bot : boost::noncopyable {
   static boost::thread_group* worker_threads_;
 
   static bool force_proxy_;
+  static bool auto_proxy_enabled_;
 };
 
 }  // namespace botscript
