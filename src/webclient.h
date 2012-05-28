@@ -245,6 +245,30 @@ class webclient : boost::noncopyable {
                    params_str.c_str(), params_str.length());
   }
 
+  static std::string getLocation(const pugi::xml_document &doc) {
+    pugi::xpath_node tool = doc.select_single_node(
+                                    "/html/head/meta[@name = 'location']");
+    return tool.node().empty() ? "" : tool.node().attribute("content").value();
+  }
+
+  static std::string getLocation(const std::string& page) {
+    pugi::xml_document doc;
+    doc.load(page.c_str());
+    return getLocation(doc);
+  }
+
+  static std::string getBaseURL(const std::string& page) {
+      std::string url = getLocation(page);
+      if (url.empty()) {
+        return url;
+      } else {
+        boost::regex url_regex("((.*://[a-zA-Z0-9\\.\\-]*)(:[0-9]*)?)");
+        boost::match_results<std::string::const_iterator> what;
+        boost::regex_search(url, what, url_regex);
+        return what[1].str();
+      }
+  }
+
  private:
   std::map<std::string, std::string> randomHeaders() {
     std::map<std::string, std::string> headers;
@@ -433,30 +457,6 @@ class webclient : boost::noncopyable {
     }
 
     return escaped;
-  }
-
-  static std::string getLocation(const pugi::xml_document &doc) {
-    pugi::xpath_node tool = doc.select_single_node(
-                                    "/html/head/meta[@name = 'location']");
-    return tool.node().empty() ? "" : tool.node().attribute("content").value();
-  }
-
-  static std::string getLocation(const std::string& page) {
-    pugi::xml_document doc;
-    doc.load(page.c_str());
-    return getLocation(doc);
-  }
-
-  static std::string getBaseURL(const std::string& page) {
-      std::string url = getLocation(page);
-      if (url.empty()) {
-        return url;
-      } else {
-        boost::regex url_regex("((.*://[a-zA-Z0-9\\.\\-]*)(:[0-9]*)?)");
-        boost::match_results<std::string::const_iterator> what;
-        boost::regex_search(url, what, url_regex);
-        return what[1].str();
-      }
   }
 
   boost::mutex mutex;
