@@ -85,11 +85,8 @@ class bot : boost::noncopyable {
   std::string server() const { return server_; }
   double wait_time_factor() { return wait_time_factor_; }
 
-  static bool force_proxy() { return force_proxy_; }
-  static void force_proxy(bool force_proxy) { force_proxy_ = force_proxy; }
-
-  static bool auto_proxy_enabled() { return auto_proxy_enabled_; }
-  static void auto_proxy_enabled(bool auto_proxy_enabled) {
+  static bool set_auto_proxy_enabled() { return auto_proxy_enabled_; }
+  static void get_auto_proxy_enabled(bool auto_proxy_enabled) {
 #ifdef AUTO_PROXY
     auto_proxy_enabled_ = auto_proxy_enabled;
 #endif
@@ -107,6 +104,8 @@ class bot : boost::noncopyable {
 
   void connectionFailed(bool connection_error);
   void connectionWorked();
+
+  static bool force_proxy_;
 
  private:
   void init(const std::string& proxy)
@@ -153,7 +152,6 @@ class bot : boost::noncopyable {
   static boost::asio::io_service::work* work_;
   static boost::thread_group* worker_threads_;
 
-  static bool force_proxy_;
   static bool auto_proxy_enabled_;
 };
 

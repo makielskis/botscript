@@ -150,7 +150,12 @@ BOOST_PYTHON_MODULE(pybotscript) {
     .def("create_identifier", &bot::createIdentifier)
     .staticmethod("create_identifier")
     .def("load_bots", &bot::loadBots)
-    .staticmethod("load_bots");
+    .staticmethod("load_bots")
+    .def_readwrite("force_proxy", &bot::force_proxy_)
+    .def("set_auto_proxy_enabled", &bot::set_auto_proxy_enabled)
+    .staticmethod("set_auto_proxy_enabled")
+    .def("get_auto_proxy_enabled", &bot::get_auto_proxy_enabled)
+    .staticmethod("get_auto_proxy_enabled");
   register_exception_translator<botscript::bad_login_exception>(
           bad_login_translator);
   register_exception_translator<botscript::lua_exception>(
