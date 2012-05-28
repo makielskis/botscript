@@ -73,10 +73,12 @@ int main(int argc, char* argv[]) {
     stdout_bot* bot = new stdout_bot(config.str());
     boost::this_thread::sleep(boost::posix_time::seconds(24));
     delete bot;
-  } catch(botscript::bad_login_exception& e) {
+  } catch(const botscript::bad_login_exception& e) {
     std::cout << "bad login: " << e.what() << "\n";
-  } catch(botscript::lua_exception& e) {
+  } catch(const botscript::lua_exception& e) {
     std::cout << "lua error: " << e.what() << "\n";
+  } catch(const botscript::invalid_proxy_exception& e) {
+    std::cout << "invalid proxy\n";
   }
 
   return 0;
