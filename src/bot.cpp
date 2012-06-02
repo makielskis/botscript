@@ -203,6 +203,9 @@ throw(invalid_proxy_exception) {
   std::string original_proxy_port = webclient_.proxy_port();
   proxies_.clear();
   boost::split(proxies_, proxy, boost::is_any_of(", \t\n"));
+  if (proxies_.empty()) {
+    throw invalid_proxy_exception();
+  }
   std::vector<std::string>::iterator proxy_it =
       std::find_if(proxies_.begin(), proxies_.end(),
                    boost::bind(&bot::checkProxy, this, _1) == true);
