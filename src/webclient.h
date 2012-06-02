@@ -61,14 +61,15 @@ class element_not_found_exception : public std::exception {
 
 class webclient : boost::noncopyable {
  public:
-  webclient() : headers_(randomHeaders()) {
+  webclient() : headers_(randomHeaders()), timeout_(0) {
   }
 
   webclient(const std::map<std::string, std::string>& headers,
             const std::string& proxy_host, const std::string& proxy_port)
     : proxy_host_(proxy_host),
       proxy_port_(proxy_port),
-      headers_(headers) {
+      headers_(headers),
+      timeout_(0) {
   }
 
   void proxy(const std::string host, const std::string port) {
@@ -119,16 +120,20 @@ class webclient : boost::noncopyable {
       path = path.length() == 0 ? "/" : path;
 
       // Do web request.
-      botscript::request r(host, proxy_port_.empty() ? port : proxy_port_,
-                           path, method, headers_,
-                           content, content_length, proxy_host_);
-      std::string response = r.do_request();
-      std::map<std::string, std::string> cookies = r.cookies();
+      boost::asio::io_service io_service;
+      http_source src(host, proxy_port_.empty() ? port : proxy_port_,
+                      path, method, headers_,
+                      content, content_length, proxy_host_, &io_service);
+      const std::vector<char> bytes = src.read(timeout_);
+      std::string response(static_cast<const char*>(&(bytes[0])), bytes.size());
+
+      // Store cookies.
+      std::map<std::string, std::string> cookies = src.cookies();
       storeCookies(cookies);
 
       // Check for redirect (new location given).
       std::string location = url;
-      url = r.location();
+      url = src.location();
       if (url.empty() || redirect_count == MAX_REDIRECTS) {
         // Insert location as meta-tag in the head.
         size_t head_start = response.find("<head>");
@@ -464,6 +469,7 @@ class webclient : boost::noncopyable {
   std::string proxy_port_;
   std::map<std::string, std::string> headers_;
   std::map<std::string, std::string> cookies_;
+  int timeout_;
 };
 
 }  // namespace botscript

@@ -75,6 +75,7 @@ class http_source {
       content_length_(0),
       bytes_transferred_(0),
       requested_bytes_(0),
+      transfer_all_(false),
       transfer_finished_(false) {
     buildRequest(host, path, method, content, content_length,
                  headers, !proxy_host.empty());
@@ -121,6 +122,31 @@ class http_source {
     response_content_.resize(bytes_transferred_);
 
     return to_return;
+  }
+
+  const std::vector<char>& read(int timeout) {
+    if (transfer_finished_) {
+      return response_content_;
+    }
+    io_service_->reset();
+
+    // Set timeout.
+    timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
+                                          boost::asio::placeholders::error));
+    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
+
+    // Do transfer.
+    transfer_all_ = true;
+    if (transfer_encoding_chunked_) {
+      io_service_->post(boost::bind(&http_source::handleReadChunkSize, this,
+                                    boost::system::error_code(), 0));
+    } else {
+      io_service_->post(boost::bind(&http_source::handleRead, this,
+                                    boost::system::error_code(), 0));
+    }
+    io_service_->run();
+
+    return response_content_;
   }
 
   bool content_encoding_gzip() { return content_encoding_gzip_; }
@@ -282,7 +308,7 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Stop if we transferred enough bytes.
-      if (response_content_.size() >= requested_bytes_) {
+      if (!transfer_all_ && response_content_.size() >= requested_bytes_) {
         return;
       }
 
@@ -299,8 +325,13 @@ class http_source {
       }
 
       // Read incoming bytes if any.
-      size_t to_transfer = std::min((size_t)content_length_,
-                                    requested_bytes_ - bytes_transferred_);
+      size_t to_transfer = 0;
+      if (transfer_all_) {
+        to_transfer = content_length_;
+      } else {
+        to_transfer = std::min((size_t)content_length_,
+                               requested_bytes_ - bytes_transferred_);
+      }
 
       if (to_transfer == 0) {
         if (content_length_ == 0) {
@@ -327,7 +358,7 @@ class http_source {
   void handleReadChunkSize(const boost::system::error_code& ec,
                            std::size_t bytes_transferred)
   throw(std::ios_base::failure) {
-    if (response_content_.size() >= requested_bytes_) {
+    if (!transfer_all_ && response_content_.size() >= requested_bytes_) {
       return;
     }
 
@@ -397,11 +428,13 @@ class http_source {
           response_content_.resize(
                   bytes_transferred_ + chunksize - chunk_bytes);
 
-          // Start timeout timer.
-          int timeout = ceil(
-              chunksize - chunk_bytes / static_cast<double>(1024));
-          timeout_timer_.expires_from_now(
-              boost::posix_time::seconds(timeout + 3));
+          if (!transfer_all_) {
+            // Start timeout timer.
+            int timeout = ceil(
+                chunksize - chunk_bytes / static_cast<double>(1024));
+            timeout_timer_.expires_from_now(
+                boost::posix_time::seconds(timeout + 3));
+          }
 
           // Transfer them and read the next chunk size declaration.
           boost::asio::async_read(socket_,
@@ -429,7 +462,9 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Read until the end of the chunk size declaration.
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(3));
+      if (!transfer_all_) {
+        timeout_timer_.expires_from_now(boost::posix_time::seconds(3));
+      }
       boost::asio::async_read_until(socket_, response_buffer_,
               boost::regex("\r?\n?[0-9a-fA-F]+\r\n"),
               boost::bind(&http_source::handleReadChunkSize, this,
@@ -440,20 +475,20 @@ class http_source {
     }
   }
 
-  void finishTransfer() {
-    if (!transfer_finished_) {
-      transfer_finished_ = true;
-      socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-      socket_.close();
-    }
-  }
-
   void handleTimeout(const boost::system::error_code& ec) {
     if (ec == boost::asio::error::operation_aborted) {
         return;
     }
     if (timeout_timer_.expires_from_now() < boost::posix_time::seconds(0)) {
       finishTransfer();
+    }
+  }
+
+  void finishTransfer() {
+    if (!transfer_finished_) {
+      transfer_finished_ = true;
+      socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+      socket_.close();
     }
   }
 
@@ -494,43 +529,8 @@ class http_source {
   size_t bytes_transferred_;
   std::vector<char> response_content_;
   size_t requested_bytes_;
+  bool transfer_all_;
   bool transfer_finished_;
-};
-
-typedef boost::reference_wrapper<botscript::http_source> http_stream_ref;
-class request : boost::noncopyable {
- public:
-  request(const std::string& host, const std::string& port,
-          const std::string& path, const int method,
-          const std::map<std::string, std::string>& headers,
-          const void* content, const size_t content_length,
-          const std::string& proxy_host)
-    throw(std::ios_base::failure)
-    : src(host, port, path, method, headers,
-          content, content_length, proxy_host, &io_service),
-      s(boost::ref(src)) {
-  }
-
-  std::string do_request() throw(std::ios_base::failure) {
-    std::stringstream response;
-    if (src.content_encoding_gzip()) {
-      boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
-      filter.push(boost::iostreams::gzip_decompressor());
-      filter.push(s);
-      boost::iostreams::copy(filter, response);
-    } else {
-      boost::iostreams::copy(s, response);
-    }
-    return response.str();
-  }
-
-  std::map<std::string, std::string>& cookies() { return src.cookies(); }
-  std::string& location() { return src.location(); }
-
- private:
-  boost::asio::io_service io_service;
-  http_source src;
-  boost::iostreams::stream<http_stream_ref> s;
 };
 
 }  // namespace botscript
