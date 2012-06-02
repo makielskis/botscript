@@ -30,22 +30,21 @@
 #include <iostream>
 #include <sstream>
 #include <set>
+#include <algorithm>
 
+#include "boost/bind.hpp"
 #include "boost/algorithm/string/join.hpp"
 #include "boost/algorithm/string/predicate.hpp"
 #include "boost/algorithm/string.hpp"
 #include "boost/foreach.hpp"
 #include "boost/filesystem.hpp"
+#include "boost/lambda/lambda.hpp"
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
 #include "./lua_connection.h"
-
-#ifdef AUTO_PROXY
-#include "./proxy_manager.h"
-#endif
 
 namespace std {
 
@@ -73,13 +72,6 @@ boost::mutex bot::init_mutex_;
 boost::asio::io_service* bot::io_service_ = NULL;
 boost::asio::io_service::work* bot::work_ = NULL;
 boost::thread_group* bot::worker_threads_ = NULL;
-bool bot::force_proxy_ = false;
-
-#ifdef AUTO_PROXY
-bool bot::auto_proxy_enabled_ = true;
-#else
-bool bot::auto_proxy_enabled_ = false;
-#endif
 
 bot::bot(const std::string& username, const std::string& password,
          const std::string& package, const std::string& server,
@@ -165,88 +157,63 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   loadModules(io_service_);
 }
 
+bool bot::checkProxy(std::string proxy) {
+  // Don't accept empty proxies
+  if (proxy.empty()) {
+    return false;
+  }
+
+  // Split proxy to host and port and set it.
+  std::vector<std::string> proxy_split;
+  boost::split(proxy_split, proxy, boost::is_any_of(":"));
+  if (proxy_split.size() != 2) {
+    log(ERROR, "base", "unknown proxy format");
+    return false;
+  }
+  webclient_.proxy(proxy_split[0], proxy_split[1]);
+
+  // Try to login.
+  try {
+    log(INFO, "base", "checking proxy - login");
+    lua_connection::login(this, username_, password_, package_);
+  } catch(const bad_login_exception& e) {
+    log(ERROR, "base", "bad login");
+    return false;
+  } catch(const lua_exception& e) {
+    log(ERROR, "base", e.what());
+    return false;
+  }
+
+  return true;
+}
+
 void bot::setProxy(const std::string& proxy)
 throw(invalid_proxy_exception) {
-  // Make place for new proxies.
-  proxies_.clear();
+  // Change status.
+  status("base_proxy", proxy);
 
-  // Determine proxies to use.
-  bool auto_proxy = false;
-  if ((proxy.empty() && force_proxy_) || proxy == "auto") {
-#ifdef AUTO_PROXY
-    // Check if auto proxy is enabled.
-    if (!auto_proxy_enabled_) {
-      throw invalid_proxy_exception();
-    }
-
-    // Get autoproxies from proxystore.
-    proxies_ = proxy_manager::get_proxies();
-    status("base_proxy", "auto");
-    auto_proxy = true;
-#else
-    // Autoproxy feature not available.
-    throw invalid_proxy_exception();
-#endif
-  } else if (!proxy.empty()) {
-    // Split given proxies.
-    boost::split(proxies_, proxy, boost::is_any_of(", \t\n"));
-  } else {
-    // No proxy at all.
+  // Use direct connection for empty proxy.
+  if (proxy.empty()) {
+    webclient_.proxy("", "");
     return;
   }
 
-  // Check proxies.
-  bool proxy_found = false;
-  BOOST_FOREACH(std::string p, proxies_) {
-    if (proxy_found) {
-      // Working proxy already found - proceed.
-      proxy_manager::return_proxy(p);
-      continue;
-    }
+  // Clear and fill proxy list with new proxies.
+  std::string original_proxy_host = webclient_.proxy_host();
+  std::string original_proxy_port = webclient_.proxy_port();
+  proxies_.clear();
+  boost::split(proxies_, proxy, boost::is_any_of(", \t\n"));
+  std::vector<std::string>::iterator proxy_it =
+      std::find_if(proxies_.begin(), proxies_.end(),
+                   boost::bind(&bot::checkProxy, this, _1) == true);
 
-    // Split proxy into host and port and set it.
-    std::vector<std::string> proxy_split;
-    boost::split(proxy_split, p, boost::is_any_of(":"));
-    if (proxy_split.size() != 2) {
-      log(ERROR, "base", "unknown proxy format");
-      continue;
-    }
-    webclient_.proxy(proxy_split[0], proxy_split[1]);
-
-    // Check proxy (try to login).
-    try {
-      log(INFO, "base", "checking proxy - login");
-      lua_connection::login(this, username_, password_, package_);
-    } catch(const bad_login_exception& e) {
-      log(ERROR, "base", "bad login");
-      if (auto_proxy) {
-        proxy_manager::return_proxy(p);
-      }
-      continue;
-    } catch(const lua_exception& e) {
-      log(ERROR, "base", e.what());
-      if (auto_proxy) {
-        proxy_manager::return_proxy(p);
-      }
-      continue;
-    }
-
-    // No exception - we found a working proxy.
-    proxy_found = true;
-    if (!auto_proxy) {
-      break;
-    }
-  }
-
-  // Update status.
-  if (!auto_proxy) {
-    status("base_proxy", boost::algorithm::join(proxies_, ","));
-  }
-
-  // No proxy found at all.
-  if (!proxy_found) {
+  // Check result.
+  if (proxy_it == proxies_.end()) {
+    webclient_.proxy(original_proxy_host, original_proxy_port);
     log(ERROR, "base", "no working proxy found");
     throw invalid_proxy_exception();
+  } else {
+    log(INFO, "base", std::string("proxy set to ") + (*proxy_it));
   }
 }
 
@@ -289,8 +256,7 @@ std::string bot::configuration(bool with_password) {
   document.AddMember("package", package_.c_str(), allocator);
   document.AddMember("server", server_.c_str(), allocator);
   if (!webclient_.proxy_host().empty()) {
-    std::string proxy = webclient_.proxy_host() + ":" + webclient_.proxy_port();
-    rapidjson::Value proxy_value(proxy.c_str(), allocator);
+    rapidjson::Value proxy_value(status("base_proxy").c_str(), allocator);
     document.AddMember("proxy", proxy_value, allocator);
   } else {
     document.AddMember("proxy", "", allocator);

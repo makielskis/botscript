@@ -2,22 +2,15 @@ About
 -----
 
 Botscript is a library thats main target is to make life easier when programming
- browser game bots. But it can also be used for other HTTP based activities.
- It comes with a handy python API that can be used to build
- nifty user interfaces or other services around botscript.
+browser game bots. But it can also be used for other HTTP based activities.
+It comes with a handy python API that can be used to build
+nifty user interfaces or other services around botscript.
 
-Botscript makes heavy use of the Boost C++ extensions.
- Other external libraries used are: MongoDB, Lua 5.2, pugixml 1.0 and HTML Tidy.
+Botscript makes heavy use of the Boost C++ extensions.  
+Other external libraries used are: Lua 5.2, pugixml 1.0 and HTML Tidy.
 
 Build external libraries
 ------------------------
-
-### MongoDB Client (only for proxy_check)
-  - Install the scons build system for building the MongoDB client.
-  - Go to MongoDB Client folder: `cd external_lib/mongo-client-2.1.1`
-  - Build MongoDB Client library `scons install --prefix ./build`
-  - Copy static library: `cp build/libmongoclient.a ../../`
-  - Copy mongo include files: `cp -r src/mongo/platform build/build/include/mongo/`
 
 ### Python (only for pybotscript)
   - Install the python development package from your package management (Linux)  
@@ -56,7 +49,7 @@ Build BotScript
   - Create makefile from cmake file: `cmake ../src`
   - Make: `make`
   - Rename library: `mv libpybotscript.so pybotscript.so`
-  - Have fun with pybotscript, proxy_checker and the botscript executable.
+  - Have fun with pybotscript and the botscript executable!
 
 How to use pybotscript
 ----------------------

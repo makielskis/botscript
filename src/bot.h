@@ -44,8 +44,6 @@
 #include "./exceptions/bad_login_exception.h"
 #include "./exceptions/invalid_proxy_exception.h"
 
-#define AUTO_PROXY
-
 namespace botscript {
 
 #define MAX_LOG_SIZE 50
@@ -85,13 +83,6 @@ class bot : boost::noncopyable {
   std::string server() const { return server_; }
   double wait_time_factor() { return wait_time_factor_; }
 
-  static bool set_auto_proxy_enabled() { return auto_proxy_enabled_; }
-  static void get_auto_proxy_enabled(bool auto_proxy_enabled) {
-#ifdef AUTO_PROXY
-    auto_proxy_enabled_ = auto_proxy_enabled;
-#endif
-  }
-
   int randomWait(int min, int max);
 
   void log(int type, const std::string& source, const std::string& message);
@@ -105,14 +96,12 @@ class bot : boost::noncopyable {
   void connectionFailed(bool connection_error);
   void connectionWorked();
 
-  static bool force_proxy_;
-
  private:
   void init(const std::string& proxy)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
-  void setProxy(const std::string& proxy)
-  throw(invalid_proxy_exception);
+  bool checkProxy(std::string proxy);
+  void setProxy(const std::string& proxy) throw(invalid_proxy_exception);
 
   void loadModules(boost::asio::io_service* io_service);
 
@@ -151,8 +140,6 @@ class bot : boost::noncopyable {
   static boost::asio::io_service* io_service_;
   static boost::asio::io_service::work* work_;
   static boost::thread_group* worker_threads_;
-
-  static bool auto_proxy_enabled_;
 };
 
 }  // namespace botscript
