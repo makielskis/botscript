@@ -95,23 +95,26 @@ class http_source {
 
   std::streamsize read(char_type* s, std::streamsize n)
   throw(std::ios_base::failure) {
-    if (transfer_finished_) {
+    // Check for empty response buffer.
+    if (response_content_.size() == 0) {
       return 0;
     }
-    io_service_->reset();
 
-    // Fill buffer.
-    requested_bytes_ = n;
-    if (transfer_encoding_chunked_) {
-      io_service_->post(boost::bind(&http_source::handleReadChunkSize, this,
-                                    boost::system::error_code(), 0));
-    } else {
-      io_service_->post(boost::bind(&http_source::handleRead, this,
-                                    boost::system::error_code(), 0));
+    if (!transfer_finished_) {
+      // Fill buffer.
+      requested_bytes_ = n;
+      io_service_->reset();
+      if (transfer_encoding_chunked_) {
+        io_service_->post(boost::bind(&http_source::handleReadChunkSize, this,
+                                      boost::system::error_code(), 0));
+      } else {
+        io_service_->post(boost::bind(&http_source::handleRead, this,
+                                      boost::system::error_code(), 0));
+      }
+      int timeout = ceil(n / static_cast<double>(1024));
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout + 5));
+      io_service_->run();
     }
-    int timeout = ceil(n / static_cast<double>(1024));
-    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout + 5));
-    io_service_->run();
 
     // Copy from buffer to stream.
     size_t to_return = std::min((size_t) n, response_content_.size());
@@ -130,11 +133,6 @@ class http_source {
     }
     io_service_->reset();
 
-    // Set timeout.
-    timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
-                                          boost::asio::placeholders::error));
-    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
-
     // Do transfer.
     transfer_all_ = true;
     if (transfer_encoding_chunked_) {
@@ -144,7 +142,16 @@ class http_source {
       io_service_->post(boost::bind(&http_source::handleRead, this,
                                     boost::system::error_code(), 0));
     }
+
+    // Set timeout.
+    std::cout << "timeout: " << timeout << "\n";
+    timeout_timer_.cancel();
+    timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
+                                          boost::asio::placeholders::error));
+    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
+
     io_service_->run();
+    std::cout << "transfer finished: " << transfer_finished_ << "\n";
 
     return response_content_;
   }
@@ -480,6 +487,7 @@ class http_source {
         return;
     }
     if (timeout_timer_.expires_from_now() < boost::posix_time::seconds(0)) {
+      std::cout << "timeout\n";
       finishTransfer();
     }
   }
@@ -531,6 +539,43 @@ class http_source {
   size_t requested_bytes_;
   bool transfer_all_;
   bool transfer_finished_;
+};
+
+typedef boost::reference_wrapper<botscript::http_source> http_stream_ref;
+class request : boost::noncopyable {
+ public:
+  request(const std::string& host, const std::string& port,
+          const std::string& path, const int method,
+          const std::map<std::string, std::string>& headers,
+          const void* content, const size_t content_length,
+          const std::string& proxy_host)
+    throw(std::ios_base::failure)
+    : src_(host, port, path, method, headers,
+          content, content_length, proxy_host, &io_service_),
+      s_(boost::ref(src_)) {
+  }
+
+  std::string do_request(int timeout) throw(std::ios_base::failure) {
+    src_.read(timeout);
+    std::stringstream response;
+    if (src_.content_encoding_gzip()) {
+      boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
+      filter.push(boost::iostreams::gzip_decompressor());
+      filter.push(s_);
+      boost::iostreams::copy(filter, response);
+    } else {
+      boost::iostreams::copy(s_, response);
+    }
+    return response.str();
+  }
+
+  std::map<std::string, std::string>& cookies() { return src_.cookies(); }
+  std::string& location() { return src_.location(); }
+
+ private:
+  boost::asio::io_service io_service_;
+  http_source src_;
+  boost::iostreams::stream<http_stream_ref> s_;
 };
 
 }  // namespace botscript

@@ -69,7 +69,7 @@ class webclient : boost::noncopyable {
     : proxy_host_(proxy_host),
       proxy_port_(proxy_port),
       headers_(headers),
-      timeout_(0) {
+      timeout_(30) {
   }
 
   void proxy(const std::string host, const std::string port) {
@@ -120,20 +120,18 @@ class webclient : boost::noncopyable {
       path = path.length() == 0 ? "/" : path;
 
       // Do web request.
-      boost::asio::io_service io_service;
-      http_source src(host, proxy_port_.empty() ? port : proxy_port_,
-                      path, method, headers_,
-                      content, content_length, proxy_host_, &io_service);
-      const std::vector<char> bytes = src.read(timeout_);
-      std::string response(static_cast<const char*>(&(bytes[0])), bytes.size());
+      botscript::request r(host, proxy_port_.empty() ? port : proxy_port_,
+                           path, method, headers_,
+                           content, content_length, proxy_host_);
+      std::string response = r.do_request(timeout_);
 
       // Store cookies.
-      std::map<std::string, std::string> cookies = src.cookies();
+      std::map<std::string, std::string> cookies = r.cookies();
       storeCookies(cookies);
 
       // Check for redirect (new location given).
       std::string location = url;
-      url = src.location();
+      url = r.location();
       if (url.empty() || redirect_count == MAX_REDIRECTS) {
         // Insert location as meta-tag in the head.
         size_t head_start = response.find("<head>");
@@ -273,6 +271,8 @@ class webclient : boost::noncopyable {
         return what[1].str();
       }
   }
+
+  int timeout_;
 
  private:
   std::map<std::string, std::string> randomHeaders() {
@@ -469,7 +469,6 @@ class webclient : boost::noncopyable {
   std::string proxy_port_;
   std::map<std::string, std::string> headers_;
   std::map<std::string, std::string> cookies_;
-  int timeout_;
 };
 
 }  // namespace botscript
