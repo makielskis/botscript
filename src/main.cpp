@@ -49,7 +49,7 @@ class stdout_bot : public botscript::bot {
     : bot(configuration) {
   };
 
-  virtual void callback(std::string id, std::string k, std::string v) {
+  void callback(std::string id, std::string k, std::string v) {
     if (k == "log") {
       std::cout << v << std::flush;
     }

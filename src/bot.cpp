@@ -152,7 +152,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   bot_count_++;
 
   identifier_ = createIdentifier(username_, package_, server_);
-  setProxy(proxy);
+  setProxy(proxy, true);
   lua_connection::login(this, username_, password_, package_);
   loadModules(io_service_);
 }
@@ -187,7 +187,7 @@ bool bot::checkProxy(std::string proxy) {
   return true;
 }
 
-void bot::setProxy(const std::string& proxy)
+void bot::setProxy(const std::string& proxy, bool check_only_first)
 throw(invalid_proxy_exception) {
   // Change status.
   status("base_proxy", proxy);
@@ -206,9 +206,15 @@ throw(invalid_proxy_exception) {
   if (proxies_.empty()) {
     throw invalid_proxy_exception();
   }
-  std::vector<std::string>::iterator proxy_it =
-      std::find_if(proxies_.begin(), proxies_.end(),
-                   boost::bind(&bot::checkProxy, this, _1) == true);
+
+  // Check first proxy / proxies.
+  std::vector<std::string>::iterator proxy_it;
+  if (check_only_first) {
+    proxy_it = checkProxy(proxies_[0]) ? proxies_.begin() : proxies_.end();
+  } else {
+    proxy_it = std::find_if(proxies_.begin(), proxies_.end(),
+                            boost::bind(&bot::checkProxy, this, _1) == true);
+  }
 
   // Check result.
   if (proxy_it == proxies_.end()) {
@@ -341,7 +347,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
     std::string proxy_host = webclient_.proxy_host();
     std::string proxy_port = webclient_.proxy_port();
     try {
-      setProxy(argument);
+      setProxy(argument, false);
     } catch(const invalid_proxy_exception& e) {
       log(INFO, "base", "new proxy failed - resetting");
       webclient_.proxy(proxy_host, proxy_port);

@@ -101,7 +101,8 @@ class bot : boost::noncopyable {
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   bool checkProxy(std::string proxy);
-  void setProxy(const std::string& proxy) throw(invalid_proxy_exception);
+  void setProxy(const std::string& proxy, bool check_only_first)
+  throw(invalid_proxy_exception);
 
   void loadModules(boost::asio::io_service* io_service);
 
