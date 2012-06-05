@@ -48,16 +48,41 @@
 
 namespace botscript {
 
+/**
+ * Boost.Iostreams HTTP source stream.
+ * \sa request class for convenience usage
+ */
 class http_source {
  public:
-  // Do some stream type definitions.
-  // This is a source stream working with chars.
+  /**
+   * This is a char stream (to be used with Boost.Iostreams)
+   */
   typedef char char_type;
+
+  /**
+   * This is a source stream (to be used with Boost.Iostreams)
+   */
   typedef boost::iostreams::source_tag category;
 
-  // Request methods enumeration.
+  /// Request methods enumeration.
   enum { GET, POST, /* OPTIONS, HEAD, PUT, DELETE not implemented (yet?) */ };
 
+  /**
+   * Initializes and connects the http_source to the given host (or proxy_host).
+   * Does the request and transfers the response header.
+   * The response content will be read using the read() functions.
+   *
+   * \exception std::ios_base::failure if the connection fails
+   * \param host the host to request
+   * \param port the port to use (use proxy port if proxy is used)
+   * \param method the method to use botscript::http_source::GET/POST
+   * \param headers the headers to send
+   * \param content the request body to send (for POST requests)
+   * \param content_length the content length (for content != nullptr)
+   * \param proxy_host the proxy host to use
+                       (or empty string for direct connection)
+   * \param io_service Asio io_service object to use for async function calls
+   */
   http_source(const std::string& host, const std::string& port,
               const std::string& path, const int method,
               const std::map<std::string, std::string>& headers,
@@ -93,6 +118,13 @@ class http_source {
     finishTransfer();
   }
 
+  /// Read function suited to use with boost::iostreams::stream
+  /**
+   * \param s the buffer to copy to
+   * \param n the buffer size
+   * \exception std::ios_base::failure if the transfer fails
+   * \return the count of bytes copied to s
+   */
   std::streamsize read(char_type* s, std::streamsize n)
   throw(std::ios_base::failure) {
     // Check for empty response buffer.
@@ -123,7 +155,15 @@ class http_source {
     return to_return;
   }
 
-  const std::vector<char>& read(int timeout) {
+  /// Reads the whole content with one timeout.
+  /**
+   * The whole transfer is allowed to take timeout seconds.
+   * \param timeout the timeout in seconds
+   * \return the bytes read in a vector
+   * \exception std::ios_base::failure if the transfer fails
+   */
+  const std::vector<char>& read(int timeout)
+  throw(std::ios_base::failure) {
     if (transfer_finished_) {
       return response_content_;
     }
@@ -150,8 +190,17 @@ class http_source {
     return response_content_;
   }
 
+  /// Tells whether the content encoding was GZIP or not.
   bool content_encoding_gzip() { return content_encoding_gzip_; }
+
+  /// Returns the cookies set by the server.
+  /**
+   * The expire date and path information get discarded since this is only
+   * a very simple HTTP stream implementation.
+   */
   std::map<std::string, std::string>& cookies() { return response_cookies_; }
+
+  /// Returns the location set by the server to redirect the client.
   std::string& location() { return response_location_; }
 
  private:
@@ -534,9 +583,19 @@ class http_source {
   bool transfer_finished_;
 };
 
-typedef boost::reference_wrapper<botscript::http_source> http_stream_ref;
+/**
+ * Convenience class for http_source class. Loads the response stream to a
+ * string and returns the string.
+ */
 class request : boost::noncopyable {
  public:
+  typedef boost::reference_wrapper<botscript::http_source> http_stream_ref;
+
+  /**
+   * Connects a http_source.
+   * \sa http_source::http_source for constructor arguments
+   * \exception std::ios_base::failure if the transfer fails
+   */
   request(const std::string& host, const std::string& port,
           const std::string& path, const int method,
           const std::map<std::string, std::string>& headers,
@@ -548,6 +607,11 @@ class request : boost::noncopyable {
       s_(boost::ref(src_)) {
   }
 
+  /**
+   * Downloads the content. Decompresses if needed.
+   * \exception std::ios_base::failure if the transfer fails
+   * \return the transferred content
+   */
   std::string do_request(int timeout) throw(std::ios_base::failure) {
     src_.read(timeout);
     std::stringstream response;
@@ -562,7 +626,10 @@ class request : boost::noncopyable {
     return response.str();
   }
 
+  /// Returns the cookies. \sa http_source::cookies()
   std::map<std::string, std::string>& cookies() { return src_.cookies(); }
+
+  /// Returns the (redirect) location. \sa http_source::location()
   std::string& location() { return src_.location(); }
 
  private:

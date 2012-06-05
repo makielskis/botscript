@@ -115,7 +115,7 @@ void lua_connection::luaStringTableToMap(lua_State* state, int stack_index,
   }
 }
 
-bool lua_connection::loadServerList(const std::string script,
+bool lua_connection::loadServerList(const std::string& script,
     std::map<std::string, std::string>* servers) {
   // Initialize lua_State.
   lua_State* state = luaL_newstate();
@@ -266,8 +266,7 @@ throw(lua_exception, bad_login_exception) {
 }
 
 void lua_connection::get_status(lua_State* state, const std::string& var,
-                                std::map<std::string, std::string>* status)
-throw(lua_exception) {
+                                std::map<std::string, std::string>* status) {
   // Clear stack.
   lua_pop(state, lua_gettop(state));
 
@@ -360,7 +359,7 @@ int lua_connection::doRequest(lua_State* state, bool path) {
   try {
     if (path) {
       bot* bot = getBot(state);
-      webclient* wc  = bot->webclient();
+      webclient* wc = bot->webclient();
       response = wc->request_get(bot->server() + url);
     } else {
       response = getWebClient(state)->request_get(url);
@@ -390,7 +389,7 @@ int lua_connection::m_post_request(lua_State* state) {
   std::string response;
   try {
     response = getWebClient(state)->request_post(url,
-            reinterpret_cast<const char*>(data.c_str()), data.length());
+        reinterpret_cast<const char*>(data.c_str()), data.length());
   } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "#con %s", e.what());
   }
