@@ -99,6 +99,9 @@ class lua_connection {
    * Calls the function previously pushed to the stack of the lua state.
    *
    * \param state the lua script state
+   * \param nargs the argument count
+   * \param nresults the result count
+   * \param errfunc the error function
    * \exception lua_exception if the function call failes
    */
   static void callFunction(lua_State* state,

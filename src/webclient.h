@@ -21,6 +21,9 @@
 #ifndef WEBCLIENT_H_
 #define WEBCLIENT_H_
 
+#include <tidy.h>
+#include <buffio.h>
+
 #include <string>
 #include <map>
 #include <sstream>
@@ -31,10 +34,9 @@
 #include "boost/utility.hpp"
 #include "boost/foreach.hpp"
 #include "boost/thread.hpp"
-#include "tidy.h"
-#include "buffio.h"
-#include "pugixml.hpp"
 #include "boost/algorithm/string/predicate.hpp"
+
+#include "pugixml.hpp"
 
 #include "./http.h"
 
@@ -48,6 +50,7 @@ namespace botscript {
  */
 class element_not_found_exception : public std::exception {
  public:
+  /// Constructor with reason string as argument.
   explicit element_not_found_exception(const std::string& what)
     : error(what) {
   }
@@ -55,6 +58,7 @@ class element_not_found_exception : public std::exception {
   ~element_not_found_exception() throw() {
   }
 
+  /// Returns the reason string.
   virtual const char* what() const throw() {
     return error.c_str();
   }
@@ -246,7 +250,6 @@ class webclient : boost::noncopyable {
     return getLocation(doc);
   }
 
-  
   /**
    * Returns the base URL of the location stored in the page.
    *

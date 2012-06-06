@@ -54,14 +54,10 @@ namespace botscript {
  */
 class http_source {
  public:
-  /**
-   * This is a char stream (to be used with Boost.Iostreams)
-   */
+  /// This is a char stream (to be used with Boost.Iostreams)
   typedef char char_type;
 
-  /**
-   * This is a source stream (to be used with Boost.Iostreams)
-   */
+  /// This is a source stream (to be used with Boost.Iostreams)
   typedef boost::iostreams::source_tag category;
 
   /// Request methods enumeration.
@@ -75,6 +71,7 @@ class http_source {
    * \exception std::ios_base::failure if the connection fails
    * \param host the host to request
    * \param port the port to use (use proxy port if proxy is used)
+   * \param path the path to send the request to
    * \param method the method to use botscript::http_source::GET/POST
    * \param headers the headers to send
    * \param content the request body to send (for POST requests)

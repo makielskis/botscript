@@ -33,8 +33,22 @@
 #include "./bot.h"
 #include "./webclient.h"
 
+/// Bot derived from botscript::bot to put log output to the console.
 class stdout_bot : public botscript::bot {
  public:
+
+  /**
+   * \param username the login username
+   * \param password the login password
+   * \param package the lua scrip package
+   *                 (contains at least servers.lua and base.lua)
+   * \param server the server address to use
+   * \param proxy the proxy to use (empty for direct connection).
+                  (only the first proxy in a list will be checked!)
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   */
   stdout_bot(const std::string& username, const std::string& password,
         const std::string& package, const std::string& server,
         const std::string& proxy)
@@ -43,12 +57,23 @@ class stdout_bot : public botscript::bot {
     : botscript::bot(username, password, package, server, proxy) {
   }
 
+  /**
+   * Loads the given bot configuration.
+   *
+   * \param configuration JSON configuration string
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   */
   explicit stdout_bot(const std::string& configuration)
   throw(botscript::lua_exception, botscript::bad_login_exception,
         botscript::invalid_proxy_exception)
     : bot(configuration) {
   };
 
+  /**
+   * Callback - logs to console, ignores status changes.
+   */
   void callback(std::string id, std::string k, std::string v) {
     if (k == "log") {
       std::cout << v << std::flush;
@@ -71,6 +96,8 @@ int main(int argc, char* argv[]) {
   // Load configuration.
   try {
     stdout_bot* bot = new stdout_bot(config.str());
+    std::cout << "configuration:\n";
+    std::cout << bot->configuration(true) << "\n";
     boost::this_thread::sleep(boost::posix_time::seconds(24));
     delete bot;
   } catch(const botscript::bad_login_exception& e) {

@@ -18,6 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string>
+
 #include "boost/python.hpp"
 #include "boost/lambda/lambda.hpp"
 #include "boost/bind.hpp"
@@ -29,6 +31,7 @@
 #include "./exceptions/invalid_proxy_exception.h"
 #include "./bot.h"
 
+/// RAII class for releasing and aquiring the global interpreter lock.
 class gil_release {
  public:
   gil_release() {
@@ -39,13 +42,27 @@ class gil_release {
       PyEval_RestoreThread(save_state);
   }
 
-private:
+ private:
   PyThreadState* save_state;
 };
 
 /// Bot derived from the default bot. Intended to used with boost::python.
 class pybot : public botscript::bot {
  public:
+  /**
+   * Loads a bot (without releasing the global interpreter lock).
+   *
+   * \param username the login username
+   * \param password the login password
+   * \param package the lua scrip package
+   *                 (contains at least servers.lua and base.lua)
+   * \param server the server address to use
+   * \param proxy the proxy to use (empty for direct connection).
+                  (only the first proxy in a list will be checked!)
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   */
   pybot(const std::string& username, const std::string& password,
         const std::string& package, const std::string& server,
         const std::string& proxy)
@@ -55,6 +72,14 @@ class pybot : public botscript::bot {
       callback_function_(NULL) {
   }
 
+  /**
+   * Loads the given bot configuration.
+   *
+   * \param configuration JSON configuration string
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   */
   explicit pybot(const std::string& configuration)
   throw(botscript::lua_exception, botscript::bad_login_exception,
         botscript::invalid_proxy_exception)
@@ -62,6 +87,21 @@ class pybot : public botscript::bot {
       callback_function_(NULL) {
   };
 
+  /**
+   * Loads a bot (with releasing the global interpreter lock).
+   *
+   * \param username the login username
+   * \param password the login password
+   * \param package the lua scrip package
+   *                 (contains at least servers.lua and base.lua)
+   * \param server the server address to use
+   * \param proxy the proxy to use (empty for direct connection).
+                  (only the first proxy in a list will be checked!)
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   * \return the loaded bot
+   */
   static boost::python::object loadSingleBot(const std::string& username,
                                              const std::string& password,
                                              const std::string& package,
@@ -75,6 +115,12 @@ class pybot : public botscript::bot {
     return boost::python::object(bot);
   }
 
+  /**
+   * Loads the given bot configurations in parallel.
+   *
+   * \param configs a identifier - configuration mapping
+   * \return the loaded bots
+   */
   static boost::python::dict loadBots(boost::python::dict configs) {
     boost::python::dict result;
 
@@ -90,7 +136,7 @@ class pybot : public botscript::bot {
 
     // Pay for a round of threads.
     boost::thread_group threads;
-    for(unsigned int i = 0; i < 2; ++i) {
+    for (unsigned int i = 0; i < 2; ++i) {
       threads.create_thread(
           boost::bind(&boost::asio::io_service::run, &io_service));
     }
@@ -117,19 +163,24 @@ class pybot : public botscript::bot {
       gstate = PyGILState_Ensure();
       try {
         boost::python::call<void>(callback_function_, id, k, v);
-      } catch(boost::python::error_already_set& e) {
+      } catch(const boost::python::error_already_set& e) {
         std::cout << "Python callback raised an exception.\n";
       }
       PyGILState_Release(gstate);
     }
   }
 
+  /**
+   * Sets the callback function.
+   *
+   * \param callback_function the callback function to set
+   */
   void set_callback(PyObject* callback_function) {
     callback_function_ = callback_function;
   }
 
  private:
-  static void loadBot(const std::string identifier, 
+  static void loadBot(const std::string identifier,
                       const std::string configuration,
                       boost::python::dict* result) {
     try {
@@ -138,8 +189,8 @@ class pybot : public botscript::bot {
         boost::lock_guard<boost::mutex> lock(call_mutex_);
         (*result)[identifier] = boost::python::object(bot);
       }
-    } catch (botscript::lua_exception& e) {
-    } catch (botscript::bad_login_exception& e) {
+    } catch(const botscript::lua_exception& e) {
+    } catch(const botscript::bad_login_exception& e) {
     }
   }
 
@@ -152,14 +203,17 @@ class pybot : public botscript::bot {
 boost::mutex pybot::call_mutex_;
 boost::mutex pybot::load_mutex_;
 
+/// Translates botscript::bad_login_exception to Python user warning.
 void bad_login_translator(botscript::bad_login_exception const& e) {
   PyErr_SetString(PyExc_UserWarning, "bad login");
 }
 
+/// Translates botscript::lua_exception to Python user warning.
 void lua_exception_translator(botscript::lua_exception const& e) {
   PyErr_SetString(PyExc_UserWarning, e.what());
 }
 
+/// Translates botscript::invalid_proxy_exception to Python user warning.
 void invalid_proxy_exception_translator(
         botscript::invalid_proxy_exception const& e) {
   PyErr_SetString(PyExc_UserWarning, "bad proxy");
@@ -172,7 +226,7 @@ BOOST_PYTHON_MODULE(pybotscript) {
   using boost::python::init;
   using boost::python::register_exception_translator;
   class_<bot, std::auto_ptr<bot>, boost::noncopyable >("bot",
-          init<std::string, std::string, std::string,\
+          init< std::string, std::string, std::string, \
                std::string, std::string>())
     .def(init<std::string>())
     .def("configuration", &bot::configuration)

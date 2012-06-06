@@ -34,7 +34,6 @@
 #include "boost/filesystem.hpp"
 #include "boost/shared_ptr.hpp"
 #include "boost/asio/io_service.hpp"
-#include "boost/thread.hpp"
 #include "boost/function.hpp"
 
 #include "./module.h"
@@ -51,7 +50,8 @@ namespace botscript {
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
 class module;
-typedef boost::function<void (std::string id, std::string k, std::string v) > update_ptr;
+typedef boost::function<void (std::string id, std::string k, std::string v) >
+        update_ptr;
 
 /// Bot class.
 class bot : boost::noncopyable {

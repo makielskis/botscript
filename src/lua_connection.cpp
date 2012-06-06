@@ -78,8 +78,8 @@ std::string lua_connection::toJSON(lua_State* state, const std::string& lua_var,
   lua_getglobal(state, lua_var.c_str());
 
   // Setup document and get allocator.
-	rapidjson::Document document;
-	rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+  rapidjson::Document document;
+  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
   document.SetObject();
 
   // Turn lua object to rapidjson.
@@ -87,9 +87,9 @@ std::string lua_connection::toJSON(lua_State* state, const std::string& lua_var,
   document.AddMember(var_name.c_str(), *val.get(), allocator);
 
   // Convert to string.
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-	document.Accept(writer);
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  document.Accept(writer);
 
   return buffer.GetString();
 }

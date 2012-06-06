@@ -31,6 +31,7 @@
 #include <sstream>
 #include <set>
 #include <algorithm>
+#include <utility>
 
 #include "boost/bind.hpp"
 #include "boost/algorithm/string/join.hpp"
@@ -143,7 +144,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
       io_service_ = new boost::asio::io_service();
       work_ = new boost::asio::io_service::work(*io_service_);
       worker_threads_ = new boost::thread_group();
-      for(unsigned int i = 0; i < 1; ++i) {
+      for (unsigned int i = 0; i < 1; ++i) {
         worker_threads_->create_thread(
                 boost::bind(&boost::asio::io_service::run, io_service_));
       }
