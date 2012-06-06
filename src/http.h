@@ -181,9 +181,7 @@ class http_source {
     io_service_->run();
 
     // Set timeout.
-    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
-    timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
-                                          boost::asio::placeholders::error));
+    startTimeout(timeout);
 
     io_service_->run();
 
@@ -257,12 +255,8 @@ class http_source {
       boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
   throw(std::ios_base::failure) {
     if (!ec) {
-      // Start the timeout timer.
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(3));
-      timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
-                                            boost::asio::placeholders::error));
-
       // Connect to the resolved endpoint.
+      startTimeout(4);
       boost::asio::async_connect(socket_, endpoint_iterator,
                                  boost::bind(&http_source::handleConnect, this,
                                              boost::asio::placeholders::error));
@@ -276,8 +270,10 @@ class http_source {
     if (!ec) {
       // Start the timeout timer assuming that the minimum transfer rate
       // is at least 1kb per second
+      std::cerr << "connected\n";
       int timeout = ceil(request_buffer_.size() / static_cast<double>(1024));
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout + 1));
+      startTimeout(timeout + 2);
+      std::cerr << "write timeout set to " << (timeout + 1) << "\n";
 
       // Write request.
       boost::asio::async_write(socket_, request_buffer_,
@@ -292,7 +288,8 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Read the status line (with timeout).
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(3));
+      std::cerr << "read (status line) timeout 3\n";
+      startTimeout(7);
       boost::asio::async_read_until(socket_, response_buffer_, "\r\n",
               boost::bind(&http_source::handleReadStatusLine, this,
                           boost::asio::placeholders::error));
@@ -304,6 +301,7 @@ class http_source {
   void handleReadStatusLine(const boost::system::error_code& ec)
   throw(std::ios_base::failure) {
     if (!ec) {
+      std::cerr << "status line read!\n";
       // Check the status line
       std::istream response_stream(&response_buffer_);
       std::string http_version;
@@ -312,7 +310,7 @@ class http_source {
       response_stream.ignore(128, '\n');
 
       // Read response headers (with timeout).
-      timeout_timer_.expires_from_now(boost::posix_time::seconds(2));
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(6));
       boost::asio::async_read_until(socket_, response_buffer_, "\r\n\r\n",
               boost::bind(&http_source::handleReadHeaders, this,
                           boost::asio::placeholders::error));
@@ -527,15 +525,20 @@ class http_source {
 
   void handleTimeout(const boost::system::error_code& ec) {
     if (ec == boost::asio::error::operation_aborted) {
+        std::cerr << "handleTimeou(operation_aborted)\n";
         return;
     }
     if (timeout_timer_.expires_from_now() < boost::posix_time::seconds(0)) {
+      std::cerr << "timeout!\n";
       finishTransfer();
+      return;
     }
+    std::cout << "handleTimeout(?)\n";
   }
 
   void finishTransfer() {
     if (!transfer_finished_) {
+      std::cerr << "finishing transfer\n";
       transfer_finished_ = true;
       socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
       socket_.close();
@@ -562,6 +565,13 @@ class http_source {
       flags |= boost::match_prev_avail;
       flags |= boost::match_not_bob;
     }
+  }
+
+  void startTimeout(int timeout) {
+    timeout_timer_.cancel();
+    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
+    timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
+                                          boost::asio::placeholders::error));
   }
 
   boost::asio::io_service* io_service_;
