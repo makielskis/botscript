@@ -270,10 +270,8 @@ class http_source {
     if (!ec) {
       // Start the timeout timer assuming that the minimum transfer rate
       // is at least 1kb per second
-      std::cerr << "connected\n";
       int timeout = ceil(request_buffer_.size() / static_cast<double>(1024));
       startTimeout(timeout + 2);
-      std::cerr << "write timeout set to " << (timeout + 1) << "\n";
 
       // Write request.
       boost::asio::async_write(socket_, request_buffer_,
@@ -288,7 +286,6 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Read the status line (with timeout).
-      std::cerr << "read (status line) timeout 3\n";
       startTimeout(7);
       boost::asio::async_read_until(socket_, response_buffer_, "\r\n",
               boost::bind(&http_source::handleReadStatusLine, this,
@@ -301,7 +298,6 @@ class http_source {
   void handleReadStatusLine(const boost::system::error_code& ec)
   throw(std::ios_base::failure) {
     if (!ec) {
-      std::cerr << "status line read!\n";
       // Check the status line
       std::istream response_stream(&response_buffer_);
       std::string http_version;
@@ -525,20 +521,16 @@ class http_source {
 
   void handleTimeout(const boost::system::error_code& ec) {
     if (ec == boost::asio::error::operation_aborted) {
-        std::cerr << "handleTimeou(operation_aborted)\n";
         return;
     }
     if (timeout_timer_.expires_from_now() < boost::posix_time::seconds(0)) {
-      std::cerr << "timeout!\n";
       finishTransfer();
       return;
     }
-    std::cout << "handleTimeout(?)\n";
   }
 
   void finishTransfer() {
     if (!transfer_finished_) {
-      std::cerr << "finishing transfer\n";
       transfer_finished_ = true;
       socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
       socket_.close();
