@@ -76,7 +76,6 @@ class pybot : public botscript::bot {
   }
 
   static boost::python::dict loadBots(boost::python::dict configs) {
-    gil_release nogil;
     boost::python::dict result;
 
     // Post load tasks to io_service.
