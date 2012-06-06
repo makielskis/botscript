@@ -66,19 +66,13 @@ class pybot : public botscript::bot {
                                              const std::string& password,
                                              const std::string& package,
                                              const std::string& server,
-                                             const std::string& proxy) {
+                                             const std::string& proxy)
+  throw(botscript::lua_exception, botscript::bad_login_exception,
+        botscript::invalid_proxy_exception) {
     gil_release nogil;
-    try {
-      std::auto_ptr<pybot> bot(
-          new pybot(username, password, package, server, proxy));
-      return boost::python::object(bot);
-    } catch (const botscript::lua_exception& e) {
-      return boost::python::object();
-    } catch (const botscript::bad_login_exception& e) {
-      return boost::python::object();
-    } catch (const botscript::invalid_proxy_exception& e) {
-      return boost::python::object();
-    }
+    std::auto_ptr<pybot> bot(
+        new pybot(username, password, package, server, proxy));
+    return boost::python::object(bot);
   }
 
   static boost::python::dict loadBots(boost::python::dict configs) {
