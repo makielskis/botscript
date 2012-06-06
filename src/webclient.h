@@ -275,7 +275,7 @@ class webclient : boost::noncopyable {
     return tool.node().empty() ? "" : tool.node().attribute("content").value();
   }
 
-  std::string request(std::string url, const int method,
+  std::string request(std::string url, int method,
                       const void* content, const size_t content_length)
   throw(std::ios_base::failure) {
     // Lock complete request because of cookies r/w access.
@@ -300,7 +300,8 @@ class webclient : boost::noncopyable {
       // Do web request.
       botscript::request r(host, proxy_port_.empty() ? port : proxy_port_,
                            path, method, headers_,
-                           content, content_length, proxy_host_);
+                           !redirect_count ? content : NULL,
+                           !redirect_count ? content_length : 0, proxy_host_);
       std::string response = r.do_request(timeout_);
 
       // Store cookies.
@@ -329,7 +330,7 @@ class webclient : boost::noncopyable {
       if (!boost::starts_with(url, "http:")) {
         url = "http://" + host + url;
       }
-
+      method = http_source::GET;
       redirect_count++;
     }
   }
@@ -438,9 +439,9 @@ class webclient : boost::noncopyable {
   }
 
   std::vector<std::pair<std::string, std::string> > getParameters(
-          const pugi::xml_node& node,
-          const pugi::xml_node& submit,
-          bool submit_found) {
+      const pugi::xml_node& node,
+      const pugi::xml_node& submit,
+      bool submit_found) {
     // Parameters store.
     std::vector<std::pair<std::string, std::string> > parameters;
 
