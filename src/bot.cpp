@@ -264,14 +264,15 @@ std::string bot::configuration(bool with_password) {
   }
   document.AddMember("package", package_.c_str(), allocator);
   document.AddMember("server", server_.c_str(), allocator);
-  if (!webclient_.proxy_host().empty()) {
-    rapidjson::Value proxy_value(status("base_proxy").c_str(), allocator);
-    document.AddMember("proxy", proxy_value, allocator);
-  } else {
-    document.AddMember("proxy", "", allocator);
-  }
   document.AddMember("wait_time_factor",
                      status_["base_wait_time_factor"].c_str(), allocator);
+
+  // Write proxy.
+  std::map<std::string, std::string>::const_iterator i =
+      status_.find("base_proxy");
+  std::string proxy = (i == status_.end()) ? "" : i->second;
+  rapidjson::Value proxy_value(proxy.c_str(), allocator);
+  document.AddMember("proxy", proxy_value, allocator);
 
   // Write module configuration values.
   rapidjson::Value modules(rapidjson::kObjectType);
@@ -548,8 +549,10 @@ std::string bot::status(const std::string key) {
 
 void bot::status(const std::string key, const std::string value) {
   // Lock because of status map r/w access.
-  boost::lock_guard<boost::mutex> lock(status_mutex_);
-  status_[key] = value;
+  {
+    boost::lock_guard<boost::mutex> lock(status_mutex_);
+    status_[key] = value;
+  }
   callback(identifier_, key, value);
 }
 
