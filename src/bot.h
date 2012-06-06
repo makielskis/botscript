@@ -53,47 +53,143 @@ namespace botscript {
 class module;
 typedef boost::function<void (std::string id, std::string k, std::string v) > update_ptr;
 
+/// Bot class.
 class bot : boost::noncopyable {
  public:
   enum { INFO, ERROR };
 
+  /**
+   * Creates a new bot.
+   *
+   * \param username the login username
+   * \param password the login password
+   * \param package the lua scrip package
+   *                 (contains at least servers.lua and base.lua)
+   * \param server the server address to use
+   * \param proxy the proxy to use (empty for direct connection).
+                  (only the first proxy in a list will be checked!)
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   */
   bot(const std::string& username, const std::string& password,
       const std::string& package, const std::string& server,
       const std::string& proxy)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
+  /**
+   * Loads the given bot configuration.
+   *
+   * \param configuration JSON configuration string
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   */
   explicit bot(const std::string& configuration)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   virtual ~bot();
 
+  /**
+   * Creates a unique identifier with the given information
+   *
+   * \param username the bot username
+   * \param package the script package
+   * \param server the server address
+   */
   static std::string createIdentifier(const std::string& username,
                                       const std::string& package,
                                       const std::string& server);
+
+  /**
+   * Loads all packages contained in the folder.
+   *
+   * \param folder the folder the packages reside in
+   * \return a servers listing for all packages (JSON string)
+   */
   static std::string loadPackages(const std::string& folder);
 
+  /**
+   * Creates a configuration string.
+   *
+   * \param with_password whether to include the password in the configuration
+   * \return the JSON configuration string
+   */
   std::string configuration(bool with_password);
 
+  /// Returns the interface description (JSON).
   std::string interface_description();
 
+  /**
+   * Executes the given command.
+   *
+   * \param command the command to execute
+   * \param argument the argument to pass
+   */
   void execute(const std::string& command, const std::string& argument);
 
+  /// Returns the bots identifier.
   std::string identifier() const { return identifier_; }
+
+  /// Returns the bots webclient.
   botscript::webclient* webclient() { return &webclient_; }
+
+  /// Returns the bots server address.
   std::string server() const { return server_; }
-  double wait_time_factor() { return wait_time_factor_; }
 
-  int randomWait(int min, int max);
-
-  void log(int type, const std::string& source, const std::string& message);
+  /// Returns all log messages in one string.
   std::string log_msgs();
 
+  /// Returns the wait time factor set.
+  double wait_time_factor() { return wait_time_factor_; }
+
+  /// Returns a random wait time between min and max (multiplied with the wtf).
+  int randomWait(int min, int max);
+
+  /**
+   * Logs a log message.
+   *
+   * \param type INFO or ERROR
+   * \param source the logging source (module)
+   * \param message the message to log
+   */
+  void log(int type, const std::string& source, const std::string& message);
+
+  /**
+   * Callback function that should be reimplemented in derivated classes.
+   *
+   * \param id the bot identifier
+   * \param k the key that changed
+   * \param v the new value
+   */
   virtual void callback(std::string id, std::string k, std::string v) {}
 
+  /**
+   * Returns the status (value) of the given key.
+   *
+   * \param key the key of the value to return
+   * \return the value
+   */
   std::string status(const std::string key);
+
+  /**
+   * Sets the status key to the given value.
+   *
+   * \param key the key
+   * \param value the value to set
+   */
   void status(const std::string key, const std::string value);
 
+  /**
+   * Called when a connection failed. Used to determine whether a proxy is too
+   * bad and should be replaced. Counts fails and success.
+   *
+   * \param connection_error whether it was an connection error
+   *                         (or for example element not found error)
+   */
   void connectionFailed(bool connection_error);
+
+  /// Called when something worked indicating that the current proxy is good.
   void connectionWorked();
 
  private:
