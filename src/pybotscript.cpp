@@ -29,6 +29,21 @@
 #include "./exceptions/invalid_proxy_exception.h"
 #include "./bot.h"
 
+class gil_release {
+ public:
+  gil_release() {
+      save_state = PyEval_SaveThread();
+  }
+
+  ~gil_release() {
+      PyEval_RestoreThread(save_state);
+  }
+
+private:
+  PyThreadState* save_state;
+};
+
+/// Bot derived from the default bot. Intended to used with boost::python.
 class pybot : public botscript::bot {
  public:
   pybot(const std::string& username, const std::string& password,
@@ -47,21 +62,27 @@ class pybot : public botscript::bot {
       callback_function_(NULL) {
   };
 
-  static void loadBot(const std::string identifier, 
-                      const std::string configuration,
-                      boost::python::dict* result) {
+  static boost::python::object loadSingleBot(const std::string& username,
+                                             const std::string& password,
+                                             const std::string& package,
+                                             const std::string& server,
+                                             const std::string& proxy) {
+    gil_release nogil;
     try {
-      std::auto_ptr<pybot> bot(new pybot(configuration));
-      {
-        boost::lock_guard<boost::mutex> lock(call_mutex_);
-        (*result)[identifier] = boost::python::object(bot);
-      }
-    } catch (botscript::lua_exception& e) {
-    } catch (botscript::bad_login_exception& e) {
+      std::auto_ptr<pybot> bot(
+          new pybot(username, password, package, server, proxy));
+      return boost::python::object(bot);
+    } catch (const botscript::lua_exception& e) {
+      return boost::python::object();
+    } catch (const botscript::bad_login_exception& e) {
+      return boost::python::object();
+    } catch (const botscript::invalid_proxy_exception& e) {
+      return boost::python::object();
     }
   }
 
   static boost::python::dict loadBots(boost::python::dict configs) {
+    gil_release nogil;
     boost::python::dict result;
 
     // Post load tasks to io_service.
@@ -88,6 +109,14 @@ class pybot : public botscript::bot {
     return result;
   }
 
+  /**
+   * Callback function override. Called on changes.
+   *
+   * \sa botscript::bot::callback()
+   * \param id the bot identifier
+   * \param k the key that changed
+   * \param v the new value
+   */
   virtual void callback(std::string id, std::string k, std::string v) {
     boost::lock_guard<boost::mutex> lock(call_mutex_);
     if (callback_function_ != NULL) {
@@ -107,6 +136,20 @@ class pybot : public botscript::bot {
   }
 
  private:
+  static void loadBot(const std::string identifier, 
+                      const std::string configuration,
+                      boost::python::dict* result) {
+    try {
+      std::auto_ptr<pybot> bot(new pybot(configuration));
+      {
+        boost::lock_guard<boost::mutex> lock(call_mutex_);
+        (*result)[identifier] = boost::python::object(bot);
+      }
+    } catch (botscript::lua_exception& e) {
+    } catch (botscript::bad_login_exception& e) {
+    }
+  }
+
   PyObject* callback_function_;
   static boost::mutex call_mutex_;
   static boost::mutex load_mutex_;
@@ -150,7 +193,9 @@ BOOST_PYTHON_MODULE(pybotscript) {
     .def("create_identifier", &bot::createIdentifier)
     .staticmethod("create_identifier")
     .def("load_bots", &bot::loadBots)
-    .staticmethod("load_bots");
+    .staticmethod("load_bots")
+    .def("load_bot", &bot::loadSingleBot)
+    .staticmethod("load_bot");
   register_exception_translator<botscript::bad_login_exception>(
           bad_login_translator);
   register_exception_translator<botscript::lua_exception>(
