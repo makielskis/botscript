@@ -37,22 +37,49 @@ namespace botscript {
 
 class bot;
 
+/// Bot module using a lua script.
 class module : boost::noncopyable {
  public:
+  /**
+   * Creates a new module starting the given script. The script has to contain
+   * a table called modulename_state and run_modulename.
+   *
+   * \param script the path of the script to use
+   * \param bot the bot owning the module
+   * \param io_service the io service to use for asynchronous operations
+   * \exception lua_exception if loading the script fails
+   */
   module(const std::string& script, bot* bot,
          boost::asio::io_service* io_service)
   throw(lua_exception);
+
+  /// Destructor.
   ~module();
 
+  /// Returns the module name.
   std::string name() { return module_name_; }
+
+  /// Returns the interface description.
   std::string interface_description() { return interface_description_; }
 
+  /**
+   * Stops the module.
+   */
   void shutdown();
-  void applyStatus();
-  void run();
+
+  /**
+   * Executes the given command on this module. Does nothing if the command is
+   * not available.
+   *
+   * \param command the command to execute
+   * \param argument the argument to deliver
+   */
   void execute(const std::string& command, const std::string& argument);
 
  private:
+  void applyStatus();
+  void run();
+
   bot* bot_;
   std::map<std::string, std::string> status_;
   std::string module_name_;

@@ -42,6 +42,10 @@
 
 namespace botscript {
 
+/**
+ * Exception thrown when an element (for example a web form)
+ * could not be foundon a website.
+ */
 class element_not_found_exception : public std::exception {
  public:
   explicit element_not_found_exception(const std::string& what)
@@ -59,11 +63,18 @@ class element_not_found_exception : public std::exception {
   std::string error;
 };
 
+/// Webclient doing web requests and submitting web forms.
 class webclient : boost::noncopyable {
  public:
-  webclient() : headers_(randomHeaders()), timeout_(0) {
+  /// Does default initialization with default random headers and 30sec timeout.
+  webclient() : headers_(randomHeaders()), timeout_(30) {
   }
 
+  /**
+   * \param headers the headers to send when doing web requests
+   * \param proxy_host the proxy host to use (empty for direct connection)
+   * \param proxy_port the proxy port to use (empty for direct connection)
+   */
   webclient(const std::map<std::string, std::string>& headers,
             const std::string& proxy_host, const std::string& proxy_port)
     : proxy_host_(proxy_host),
@@ -72,90 +83,65 @@ class webclient : boost::noncopyable {
       timeout_(30) {
   }
 
+  /**
+   * Sets the proxy.
+   *
+   * \param host the proxy host (empty for direct connection)
+   * \param port the proxy port (empty for direct connection)
+   */
   void proxy(const std::string host, const std::string port) {
     boost::lock_guard<boost::mutex> lock(mutex);
     proxy_host_ = host;
     proxy_port_ = port;
   }
 
+  /// Returns the proxy host.
   std::string proxy_host() const {
     return proxy_host_;
   }
 
+  /// Returns the proxy port.
   std::string proxy_port() const {
     return proxy_port_;
   }
 
+  /**
+   * Does a simple HTTP GET request
+   *
+   * \exception std::ios_base::failure when the request fails
+   * \return the response
+   */
   std::string request_get(std::string url)
   throw(std::ios_base::failure) {
     return request(url, botscript::http_source::GET, NULL, 0);
   }
 
+  /**
+   * Does a HTTP POST request
+   *
+   * \param url the URL to send the data to
+   * \param content pointer to the content to send
+   * \param content_length the content length
+   * \exception std::ios_base::failure when the request fails
+   * \return the response
+   */
   std::string request_post(std::string url,
                            const void* content, const size_t content_length)
   throw(std::ios_base::failure) {
     return request(url, botscript::http_source::POST, content, content_length);
   }
 
-  std::string request(std::string url, const int method,
-                      const void* content, const size_t content_length)
-  throw(std::ios_base::failure) {
-    // Lock complete request because of cookies r/w access.
-    boost::lock_guard<boost::mutex> lock(mutex);
-
-    int redirect_count = 0;
-    while (true) {
-      // Extract protocol, port, host address and path from the URL.
-      boost::regex url_regex("(.*)://([a-zA-Z0-9\\.\\-]*)(:[0-9]*)?(.*)");
-      boost::match_results<std::string::const_iterator> what;
-      boost::regex_search(url, what, url_regex);
-
-      std::string prot = what[1].str();
-      std::string host = what[2].str();
-      std::string port = what[3].str();
-      std::string path = what[4].str();
-
-      // Set port and path to default values of not set explicitly.
-      port = port.length() == 0 ? prot : port.substr(1, port.length() - 1);
-      path = path.length() == 0 ? "/" : path;
-
-      // Do web request.
-      botscript::request r(host, proxy_port_.empty() ? port : proxy_port_,
-                           path, method, headers_,
-                           content, content_length, proxy_host_);
-      std::string response = r.do_request(timeout_);
-
-      // Store cookies.
-      std::map<std::string, std::string> cookies = r.cookies();
-      storeCookies(cookies);
-
-      // Check for redirect (new location given).
-      std::string location = url;
-      url = r.location();
-      if (url.empty() || redirect_count == MAX_REDIRECTS) {
-        // Insert location as meta-tag in the head.
-        size_t head_start = response.find("<head>");
-        if (head_start != std::string::npos) {
-          std::string location_metatag = "\n<meta name=\"location\" content=\""
-                                         + location + "\" />\n";
-          response = response.substr(0, head_start + 6) + location_metatag
-                     + response.substr(head_start + 7, response.length());
-        }
-        if (!boost::ends_with(location, ".xml")) {
-          response = tidy(response);
-        }
-        return response;
-      }
-
-      // Fix relative location declaration.
-      if (!boost::starts_with(url, "http:")) {
-        url = "http://" + host + url;
-      }
-
-      redirect_count++;
-    }
-  }
-
+  /**
+   * Submits a HTML form
+   *
+   * \param xpath the XPath of the form to submit
+   * \param page the page where the form can be found using the given XPath
+   * \param input_params the form parameters to fill in
+   * \param action the form action - leave empty do use default form action
+   * \exception element_not_found_exception if the form could not be found
+   * \exception std::ios_base::failure when the request fails
+   * \return the response
+   */
   std::string submit(const std::string& xpath, const std::string& page,
                      std::map<std::string, std::string> input_params,
                      const std::string& action)
@@ -248,18 +234,25 @@ class webclient : boost::noncopyable {
                    params_str.c_str(), params_str.length());
   }
 
-  static std::string getLocation(const pugi::xml_document &doc) {
-    pugi::xpath_node tool = doc.select_single_node(
-                                    "/html/head/meta[@name = 'location']");
-    return tool.node().empty() ? "" : tool.node().attribute("content").value();
-  }
-
+  /**
+   * Extracts the location stored in a page loaded by this webclient.
+   *
+   * \param page the page
+   * \return the location
+   */
   static std::string getLocation(const std::string& page) {
     pugi::xml_document doc;
     doc.load(page.c_str());
     return getLocation(doc);
   }
 
+  
+  /**
+   * Returns the base URL of the location stored in the page.
+   *
+   * \param page the page
+   * \return the base URL
+   */
   static std::string getBaseURL(const std::string& page) {
       std::string url = getLocation(page);
       if (url.empty()) {
@@ -272,9 +265,75 @@ class webclient : boost::noncopyable {
       }
   }
 
+  /// Request timeout in seconds.
   int timeout_;
 
  private:
+  static std::string getLocation(const pugi::xml_document &doc) {
+    pugi::xpath_node tool = doc.select_single_node(
+                                "/html/head/meta[@name = 'location']");
+    return tool.node().empty() ? "" : tool.node().attribute("content").value();
+  }
+
+  std::string request(std::string url, const int method,
+                      const void* content, const size_t content_length)
+  throw(std::ios_base::failure) {
+    // Lock complete request because of cookies r/w access.
+    boost::lock_guard<boost::mutex> lock(mutex);
+
+    int redirect_count = 0;
+    while (true) {
+      // Extract protocol, port, host address and path from the URL.
+      boost::regex url_regex("(.*)://([a-zA-Z0-9\\.\\-]*)(:[0-9]*)?(.*)");
+      boost::match_results<std::string::const_iterator> what;
+      boost::regex_search(url, what, url_regex);
+
+      std::string prot = what[1].str();
+      std::string host = what[2].str();
+      std::string port = what[3].str();
+      std::string path = what[4].str();
+
+      // Set port and path to default values of not set explicitly.
+      port = port.length() == 0 ? prot : port.substr(1, port.length() - 1);
+      path = path.length() == 0 ? "/" : path;
+
+      // Do web request.
+      botscript::request r(host, proxy_port_.empty() ? port : proxy_port_,
+                           path, method, headers_,
+                           content, content_length, proxy_host_);
+      std::string response = r.do_request(timeout_);
+
+      // Store cookies.
+      std::map<std::string, std::string> cookies = r.cookies();
+      storeCookies(cookies);
+
+      // Check for redirect (new location given).
+      std::string location = url;
+      url = r.location();
+      if (url.empty() || redirect_count == MAX_REDIRECTS) {
+        // Insert location as meta-tag in the head.
+        size_t head_start = response.find("<head>");
+        if (head_start != std::string::npos) {
+          std::string location_metatag = "\n<meta name=\"location\" content=\""
+                                         + location + "\" />\n";
+          response = response.substr(0, head_start + 6) + location_metatag
+                     + response.substr(head_start + 7, response.length());
+        }
+        if (!boost::ends_with(location, ".xml")) {
+          response = tidy(response);
+        }
+        return response;
+      }
+
+      // Fix relative location declaration.
+      if (!boost::starts_with(url, "http:")) {
+        url = "http://" + host + url;
+      }
+
+      redirect_count++;
+    }
+  }
+
   std::map<std::string, std::string> randomHeaders() {
     std::map<std::string, std::string> headers;
     headers["User-Agent"]      = "Mozilla/5.0 (Windows; U; Windows NT 6.1; de;"\

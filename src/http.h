@@ -589,8 +589,6 @@ class http_source {
  */
 class request : boost::noncopyable {
  public:
-  typedef boost::reference_wrapper<botscript::http_source> http_stream_ref;
-
   /**
    * Connects a http_source.
    * \sa http_source::http_source for constructor arguments
@@ -633,6 +631,7 @@ class request : boost::noncopyable {
   std::string& location() { return src_.location(); }
 
  private:
+  typedef boost::reference_wrapper<botscript::http_source> http_stream_ref;
   boost::asio::io_service io_service_;
   http_source src_;
   boost::iostreams::stream<http_stream_ref> s_;

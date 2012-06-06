@@ -47,6 +47,10 @@ class bot;
 
 typedef boost::shared_ptr<rapidjson::Value> jsonval_ptr;
 
+/**
+ * Class containing static methods to interoperate with the lua scripting
+ * language.
+ */
 class lua_connection {
  public:
   /**
@@ -75,6 +79,7 @@ class lua_connection {
    * Loads the servers table contained in the script.
    *
    * \param script the script containing the servers table
+   * \param servers the servers std::map to write to
    * \return true when the servers could be read successfully
    */
   static bool loadServerList(const std::string& script,
@@ -151,6 +156,7 @@ class lua_connection {
    * Reads the lua table var from the lua script state to the given status.
    *
    * \param state the lua script state
+   * \param status the std::map status to write to
    * \param var the variable name to load
    */
   static void get_status(lua_State* state, const std::string& var,
@@ -159,7 +165,7 @@ class lua_connection {
   /**
    * Writes the key and value to the given variable in the given scrip state
    *
-   * \param the lua script state
+   * \param state the lua script state
    * \param var the table variable name
    * \param key the key to write
    * \param value the value to write
@@ -317,6 +323,13 @@ class lua_connection {
   static int m_set_status(lua_State* state);
 
  private:
+  /**
+   * Recursive toJSON.
+   *
+   * \param state the lua script state
+   * \param stack_index the index of the element that should be converted
+   * \param allocator the rapid-json memory allocator
+   */
   static jsonval_ptr toJSON(lua_State* state, int stack_index,
       rapidjson::Document::AllocatorType& allocator);
 
