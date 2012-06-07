@@ -179,6 +179,17 @@ class pybot : public botscript::bot {
     callback_function_ = callback_function;
   }
 
+  /**
+   * Global interpreter releasing execute function.
+   *
+   * \param command the command to execute
+   * \param argument the argument to pass
+   */
+  void execute(const std::string& command, const std::string& argument) {
+    gil_release nogil;
+    botscript::bot::execute(command, argument);
+  }
+
  private:
   static void loadBot(const std::string identifier,
                       const std::string configuration,

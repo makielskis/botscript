@@ -126,7 +126,7 @@ class bot : boost::noncopyable {
    * \param command the command to execute
    * \param argument the argument to pass
    */
-  void execute(const std::string& command, const std::string& argument);
+  virtual void execute(const std::string& command, const std::string& argument);
 
   /// Returns the bots identifier.
   std::string identifier() const { return identifier_; }
