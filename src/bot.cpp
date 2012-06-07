@@ -228,8 +228,6 @@ throw(invalid_proxy_exception) {
 }
 
 bot::~bot() {
-  boost::lock_guard<boost::mutex> lock(execute_mutex_);
-
   stopped_ = true;
   lua_connection::remove(identifier_);
   BOOST_FOREACH(module* module, modules_) {
