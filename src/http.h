@@ -283,7 +283,7 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Read the status line (with timeout).
-      startTimeout(7);
+      startTimeout(10);
       boost::asio::async_read_until(socket_, response_buffer_, "\r\n",
               boost::bind(&http_source::handleReadStatusLine, this,
                           boost::asio::placeholders::error));
