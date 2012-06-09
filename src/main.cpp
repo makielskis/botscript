@@ -96,9 +96,7 @@ int main(int argc, char* argv[]) {
   // Load configuration.
   try {
     stdout_bot* bot = new stdout_bot(config.str());
-    std::cout << "configuration:\n";
-    std::cout << bot->configuration(true) << "\n";
-    boost::this_thread::sleep(boost::posix_time::seconds(24));
+    while (true) { boost::this_thread::sleep(boost::posix_time::hours(24)); }
     delete bot;
   } catch(const botscript::bad_login_exception& e) {
     std::cout << "bad login: " << e.what() << "\n";
