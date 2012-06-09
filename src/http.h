@@ -283,7 +283,7 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Read the status line (with timeout).
-      startTimeout(10);
+      startTimeout(14);
       boost::asio::async_read_until(socket_, response_buffer_, "\r\n",
               boost::bind(&http_source::handleReadStatusLine, this,
                           boost::asio::placeholders::error));
@@ -410,6 +410,9 @@ class http_source {
         const char* r =
                 boost::asio::buffer_cast<const char*>(response_buffer_.data());
 
+        if (response_buffer_.size() == 0) {
+          throw std::ios_base::failure("read (chunksize) error");
+        }
         if (r[0] == '\r' && r[1] == '\n') {
           response_buffer_.consume(2);
         }
@@ -494,7 +497,7 @@ class http_source {
         }
       }
     } else {
-      throw std::ios_base::failure("read (chunksize) error");
+      throw std::ios_base::failure("read (chunk) error");
     }
   }
 
@@ -512,7 +515,7 @@ class http_source {
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
     } else {
-      throw std::ios_base::failure("read (chunked) error");
+      throw std::ios_base::failure("read (chunksize) error");
     }
   }
 
