@@ -162,7 +162,7 @@ class bot : boost::noncopyable {
    * \param k the key that changed
    * \param v the new value
    */
-  virtual void callback(std::string id, std::string k, std::string v) {}
+  virtual void callback(std::string id, std::string k, std::string v) { if (k == "log") std::cout << v; }
 
   /**
    * Returns the status (value) of the given key.
@@ -193,11 +193,11 @@ class bot : boost::noncopyable {
   void connectionWorked();
 
  private:
-  void init(const std::string& proxy)
+  void init(const std::string& proxy, int login_trys, bool check_only_first)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
-  bool checkProxy(std::string proxy);
-  void setProxy(const std::string& proxy, bool check_only_first)
+  bool checkProxy(std::string proxy, int login_trys);
+  void setProxy(const std::string& proxy, bool check_only_first, int login_trys)
   throw(invalid_proxy_exception);
 
   void loadModules(boost::asio::io_service* io_service);

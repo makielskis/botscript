@@ -40,6 +40,7 @@
 #include "boost/foreach.hpp"
 #include "boost/filesystem.hpp"
 #include "boost/lambda/lambda.hpp"
+#include "boost/lexical_cast.hpp"
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -86,7 +87,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
     stopped_(false),
     connection_status_(1) {
   status_["base_wait_time_factor"] = "1";
-  init(proxy);
+  init(proxy, 2, true);
 }
 
 bot::bot(const std::string& configuration)
@@ -110,7 +111,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
   std::string proxy = document["proxy"].GetString();
 
   // Create bot.
-  init(proxy);
+  init(proxy, 3, false);
   execute("base_set_wait_time_factor", wait_time_factor);
 
   // Load module configuration.
@@ -135,7 +136,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
   }
 }
 
-void bot::init(const std::string& proxy)
+void bot::init(const std::string& proxy, int login_trys, bool check_only_first)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   if (bot_count_ == 0) {
     boost::lock_guard<boost::mutex> lock(init_mutex_);
@@ -144,7 +145,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
       io_service_ = new boost::asio::io_service();
       work_ = new boost::asio::io_service::work(*io_service_);
       worker_threads_ = new boost::thread_group();
-      for (unsigned int i = 0; i < 1; ++i) {
+      for (unsigned int i = 0; i < 2; ++i) {
         worker_threads_->create_thread(
                 boost::bind(&boost::asio::io_service::run, io_service_));
       }
@@ -153,12 +154,14 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   bot_count_++;
 
   identifier_ = createIdentifier(username_, package_, server_);
-  setProxy(proxy, true);
-  lua_connection::login(this, username_, password_, package_);
+  setProxy(proxy, check_only_first, login_trys);
+  if (proxy.empty()) {
+    lua_connection::login(this, username_, password_, package_);
+  }
   loadModules(io_service_);
 }
 
-bool bot::checkProxy(std::string proxy) {
+bool bot::checkProxy(std::string proxy, int login_trys) {
   // Don't accept empty proxies
   if (proxy.empty()) {
     return false;
@@ -174,21 +177,25 @@ bool bot::checkProxy(std::string proxy) {
   webclient_.proxy(proxy_split[0], proxy_split[1]);
 
   // Try to login.
-  try {
-    log(INFO, "base", "checking proxy - login");
-    lua_connection::login(this, username_, password_, package_);
-  } catch(const bad_login_exception& e) {
-    log(ERROR, "base", "bad login");
-    return false;
-  } catch(const lua_exception& e) {
-    log(ERROR, "base", e.what());
-    return false;
+  std::cout << login_trys << " login trys\n";
+  for (int i = 0; i < login_trys; i++) {
+    try {
+      std::string t = boost::lexical_cast<std::string>(i + 1);
+      log(INFO, "base", t + ". try - checking proxy - login");
+      lua_connection::login(this, username_, password_, package_);
+      return true;
+    } catch(const bad_login_exception& e) {
+      log(ERROR, "base", "bad login");
+    } catch(const lua_exception& e) {
+      log(ERROR, "base", e.what());
+    }
   }
 
-  return true;
+  return false;
 }
 
-void bot::setProxy(const std::string& proxy, bool check_only_first)
+void bot::setProxy(const std::string& proxy, bool check_only_first,
+                   int login_trys)
 throw(invalid_proxy_exception) {
   // Change status.
   status("base_proxy", proxy);
@@ -211,10 +218,11 @@ throw(invalid_proxy_exception) {
   // Check first proxy / proxies.
   std::vector<std::string>::iterator proxy_it;
   if (check_only_first) {
-    proxy_it = checkProxy(proxies_[0]) ? proxies_.begin() : proxies_.end();
+    proxy_it = checkProxy(proxies_[0], login_trys)
+               ? proxies_.begin() : proxies_.end();
   } else {
     proxy_it = std::find_if(proxies_.begin(), proxies_.end(),
-                            boost::bind(&bot::checkProxy, this, _1) == true);
+        boost::bind(&bot::checkProxy, this, _1, login_trys) == true);
   }
 
   // Check result.
@@ -347,7 +355,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
     std::string proxy_host = webclient_.proxy_host();
     std::string proxy_port = webclient_.proxy_port();
     try {
-      setProxy(argument, false);
+      setProxy(argument, false, 1);
     } catch(const invalid_proxy_exception& e) {
       log(INFO, "base", "new proxy failed - resetting");
       webclient_.proxy(proxy_host, proxy_port);
