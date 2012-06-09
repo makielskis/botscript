@@ -201,8 +201,11 @@ class pybot : public botscript::bot {
         (*result)[identifier] = boost::python::object(bot);
       }
     } catch(const botscript::lua_exception& e) {
+      std::cout << identifier << ": " << e.what() << "\n";
     } catch(const botscript::bad_login_exception& e) {
+      std::cout << identifier << ": bad login\n";
     } catch(const botscript::invalid_proxy_exception& e) {
+      std::cout << identifier << ": invalid proxy\n";
     }
   }
 
