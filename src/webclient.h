@@ -71,7 +71,7 @@ class element_not_found_exception : public std::exception {
 class webclient : boost::noncopyable {
  public:
   /// Does default initialization with default random headers and 30sec timeout.
-  webclient() : headers_(randomHeaders()), timeout_(30) {
+  webclient() : timeout_(30), headers_(randomHeaders()) {
   }
 
   /**
@@ -81,10 +81,10 @@ class webclient : boost::noncopyable {
    */
   webclient(const std::map<std::string, std::string>& headers,
             const std::string& proxy_host, const std::string& proxy_port)
-    : proxy_host_(proxy_host),
+    : timeout_(30),
+      proxy_host_(proxy_host),
       proxy_port_(proxy_port),
-      headers_(headers),
-      timeout_(30) {
+      headers_(headers) {
   }
 
   /**
