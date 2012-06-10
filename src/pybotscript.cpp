@@ -136,7 +136,7 @@ class pybot : public botscript::bot {
 
     // Pay for a round of threads.
     boost::thread_group threads;
-    for (unsigned int i = 0; i < 2; ++i) {
+    for (unsigned int i = 0; i < 15; ++i) {
       threads.create_thread(
           boost::bind(&boost::asio::io_service::run, &io_service));
     }
