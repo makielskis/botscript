@@ -159,27 +159,31 @@ class http_source {
    * \return the bytes read in a vector
    * \exception std::ios_base::failure if the transfer fails
    */
-  const std::vector<char>& read(int timeout)
+  const std::vector<char> read(int timeout)
   throw(std::ios_base::failure) {
+    // Don't transfer anything at all if the transfer is already finished.
+    // Simply return the response buffer.
     if (transfer_finished_) {
       return response_content_;
     }
-    io_service_->reset();
+
+    // Nothing to transfer - return empty buffer.
+    if (!transfer_encoding_chunked_ && !content_length_) {
+      response_content_.clear();
+      return response_content_;
+    }
 
     // Do transfer.
-    transfer_all_ = true;
-    timeout_timer_.cancel();
     io_service_->reset();
+    transfer_all_ = true;
     if (transfer_encoding_chunked_) {
       handleReadChunkSize(boost::system::error_code(), 0);
     } else {
       handleRead(boost::system::error_code(), 0);
     }
-    io_service_->run();
 
-    // Set timeout.
+    // Set timeout and transfer.
     startTimeout(timeout);
-
     io_service_->run();
 
     return response_content_;
