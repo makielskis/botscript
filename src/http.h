@@ -538,6 +538,7 @@ class http_source {
       transfer_finished_ = true;
       socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
       socket_.close();
+      timeout_timer_.cancel();
     }
   }
 
