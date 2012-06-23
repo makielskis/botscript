@@ -69,15 +69,9 @@ boost::mutex bot::log_mutex_;
 std::map<std::string, std::string> bot::interface_;
 boost::mutex bot::interface_mutex_;
 
-int bot::bot_count_ = 0;
-boost::mutex bot::init_mutex_;
-boost::asio::io_service* bot::io_service_ = NULL;
-boost::asio::io_service::work* bot::work_ = NULL;
-boost::thread_group* bot::worker_threads_ = NULL;
-
 bot::bot(const std::string& username, const std::string& password,
          const std::string& package, const std::string& server,
-         const std::string& proxy)
+         const std::string& proxy, boost::asio::io_service* io_service)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception)
   : username_(username),
     password_(password),
@@ -87,10 +81,10 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
     stopped_(false),
     connection_status_(1) {
   status_["base_wait_time_factor"] = "1";
-  init(proxy, 2, true);
+  init(proxy, 2, true, io_service);
 }
 
-bot::bot(const std::string& configuration)
+bot::bot(const std::string& configuration, boost::asio::io_service* io_service)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception)
   : wait_time_factor_(1),
     stopped_(false),
@@ -111,7 +105,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
   std::string proxy = document["proxy"].GetString();
 
   // Create bot.
-  init(proxy, 3, false);
+  init(proxy, 3, false, io_service);
   execute("base_set_wait_time_factor", wait_time_factor);
 
   // Load module configuration.
@@ -136,29 +130,15 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
   }
 }
 
-void bot::init(const std::string& proxy, int login_trys, bool check_only_first)
+void bot::init(const std::string& proxy, int login_trys, bool check_only_first,
+               boost::asio::io_service* io_service)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
-  if (bot_count_ == 0) {
-    boost::lock_guard<boost::mutex> lock(init_mutex_);
-    if (bot_count_ == 0) {
-      // If this is the first bot: initialize io service.
-      io_service_ = new boost::asio::io_service();
-      work_ = new boost::asio::io_service::work(*io_service_);
-      worker_threads_ = new boost::thread_group();
-      for (unsigned int i = 0; i < 2; ++i) {
-        worker_threads_->create_thread(
-                boost::bind(&boost::asio::io_service::run, io_service_));
-      }
-    }
-  }
-  bot_count_++;
-
   identifier_ = createIdentifier(username_, package_, server_);
   setProxy(proxy, check_only_first, login_trys);
   if (proxy.empty()) {
     lua_connection::login(this, username_, password_, package_);
   }
-  loadModules(io_service_);
+  loadModules(io_service);
 }
 
 bool bot::checkProxy(std::string proxy, int login_trys) {
@@ -241,19 +221,6 @@ bot::~bot() {
   BOOST_FOREACH(module* module, modules_) {
     module->shutdown();
     delete module;
-  }
-
-  bot_count_--;
-  if (bot_count_ == 0) {
-    // If this was the last bot: de-initialize the io service.
-    boost::lock_guard<boost::mutex> lock(init_mutex_);
-    if (bot_count_ == 0) {
-      delete work_;
-      io_service_->stop();
-      worker_threads_->join_all();
-      delete io_service_;
-      delete worker_threads_;
-    }
   }
 }
 

@@ -32,7 +32,6 @@
 #include "boost/thread.hpp"
 #include "boost/utility.hpp"
 #include "boost/filesystem.hpp"
-#include "boost/shared_ptr.hpp"
 #include "boost/asio/io_service.hpp"
 #include "boost/function.hpp"
 
@@ -67,25 +66,28 @@ class bot : boost::noncopyable {
    *                 (contains at least servers.lua and base.lua)
    * \param server the server address to use
    * \param proxy the proxy to use (empty for direct connection).
-                  (only the first proxy in a list will be checked!)
+   *              (only the first proxy in a list will be checked!)
+   * \param io_service the boost asio io_service
    * \exception lua_exception if loading a module or login script failes
    * \exception bad_login_exception if logging in fails
    * \exception invalid_proxy_exception if we could not connect to the proxy
    */
   bot(const std::string& username, const std::string& password,
       const std::string& package, const std::string& server,
-      const std::string& proxy)
+      const std::string& proxy, boost::asio::io_service* io_service)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   /**
    * Loads the given bot configuration.
    *
    * \param configuration JSON configuration string
+   * \param io_service the boost asio io_service
    * \exception lua_exception if loading a module or login script failes
    * \exception bad_login_exception if logging in fails
    * \exception invalid_proxy_exception if we could not connect to the proxy
    */
-  explicit bot(const std::string& configuration)
+  explicit bot(const std::string& configuration,
+               boost::asio::io_service* io_service)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   virtual ~bot();
@@ -193,7 +195,8 @@ class bot : boost::noncopyable {
   void connectionWorked();
 
  private:
-  void init(const std::string& proxy, int login_trys, bool check_only_first)
+  void init(const std::string& proxy, int login_trys, bool check_only_first,
+            boost::asio::io_service* io_service)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   bool checkProxy(std::string proxy, int login_trys);
