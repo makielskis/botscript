@@ -482,6 +482,12 @@ void bot::log(int type, const std::string& source, const std::string& message) {
   callback(identifier_, "log", msg.str());
 }
 
+void bot::callback(std::string id, std::string k, std::string v) {
+  if (callback_ != NULL) {
+    callback_(id, k, v);
+  }
+}
+
 std::string bot::log_msgs() {
   std::stringstream log;
   BOOST_FOREACH(std::string msg, log_msgs_) {

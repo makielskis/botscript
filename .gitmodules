@@ -1,6 +1,6 @@
 [submodule "packages/pg"]
 	path = packages/pg
-	url = https://bitbucket.org/deskjet/pg_botscript.git
+	url = https://bitbucket.org/makielski/pg_botscript.git
 [submodule "packages/kv"]
 	path = packages/kv
-	url = https://bitbucket.org/deskjet/kv_botscript.git
+	url = https://bitbucket.org/makielski/kv_botscript.git

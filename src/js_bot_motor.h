@@ -2,7 +2,7 @@
  * This code contains to one of the Makielski projects.
  * Visit http://makielski.net for more information.
  * 
- * Copyright (C) 23. June 2012  makielskis@gmail.com
+ * Copyright (C) 24. June 2012  makielskis@gmail.com
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,46 +18,58 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef BOT_FACTORY_H_
-#define BOT_FACTORY_H_
+#ifndef JS_BOT_MOTOR_H
+#define JS_BOT_MOTOR_H
+
+#include <string>
 
 #include "boost/asio/io_service.hpp"
-#include "boost/shared_ptr.hpp"
 #include "boost/thread.hpp"
-#include "boost/make_shared.hpp"
+#include "node.h"
 
-#include "bot.h"
-
-namespace botscript {
-
-class bot_factory {
+class js_bot_motor : public node::ObjectWrap {
  public:
-  bot_factory() : work_(io_service_) {
+  js_bot_motor() : work_(io_service_) {
   }
 
-  ~bot_factory() {
+  ~js_bot_motor() {
     io_service_.stop();
     worker_threads_.join_all();
   }
 
-  void init(size_t thread_count) {
+  static void Init(v8::Handle<v8::Object> target) {
+    v8::Local<v8::FunctionTemplate> tpl = v8::FunctionTemplate::New(New);
+    tpl->SetClassName(v8::String::NewSymbol("BotMotor"));
+    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+
+    v8::Persistent<v8::Function> constructor =
+        v8::Persistent<v8::Function>::New(tpl->GetFunction());
+    target->Set(v8::String::NewSymbol("BotMotor"), constructor);
+  }
+
+  static v8::Handle<v8::Value> New(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    // Let's extract some arguments.
+    assert(args[0]->IsNumber());
+    double thread_count = args[0]->NumberValue();
+
+    js_bot_motor* motor = new js_bot_motor();
+    motor->init_motor(static_cast<size_t>(thread_count));
+    motor->Wrap(args.Holder());
+
+    return args.Holder();
+  }
+
+  void init_motor(size_t thread_count) {
     for (unsigned int i = 0; i < thread_count; ++i) {
       worker_threads_.create_thread(
          boost::bind(&boost::asio::io_service::run, &io_service_));
     }
   }
 
-  boost::shared_ptr<bot> create_bot(const std::string& username,
-                                    const std::string& password,
-                                    const std::string& package,
-                                    const std::string& server,
-                                    const std::string& proxy) {
-    return boost::make_shared<bot>(username, password, package, server, proxy,
-                                   &io_service_);
-  }
-
-  boost::shared_ptr<bot> create_bot(const std::string& configuration) {
-    return boost::make_shared<bot>(configuration, &io_service_);
+  boost::asio::io_service* io_service() {
+    return &io_service_;
   }
 
  private:
@@ -66,6 +78,4 @@ class bot_factory {
   boost::thread_group worker_threads_;
 };
 
-}  // namespace botscript
-
-#endif  // BOT_FACTORY_H_
+#endif  // JS_BOT_MOTOR_H

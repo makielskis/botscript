@@ -164,7 +164,7 @@ class bot : boost::noncopyable {
    * \param k the key that changed
    * \param v the new value
    */
-  virtual void callback(std::string id, std::string k, std::string v) { if (k == "log") std::cout << v; }
+  void callback(std::string id, std::string k, std::string v);
 
   /**
    * Returns the status (value) of the given key.
@@ -193,6 +193,9 @@ class bot : boost::noncopyable {
 
   /// Called when something worked indicating that the current proxy is good.
   void connectionWorked();
+
+  /// This is the callback function for status updates.
+  boost::function<void (std::string, std::string, std::string)> callback_;
 
  private:
   void init(const std::string& proxy, int login_trys, bool check_only_first,
@@ -234,12 +237,6 @@ class bot : boost::noncopyable {
 
   static std::map<std::string, std::string> interface_;
   static boost::mutex interface_mutex_;
-
-  static int bot_count_;
-  static boost::mutex init_mutex_;
-  static boost::asio::io_service* io_service_;
-  static boost::asio::io_service::work* work_;
-  static boost::thread_group* worker_threads_;
 };
 
 }  // namespace botscript
