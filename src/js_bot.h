@@ -43,6 +43,12 @@ class js_bot : public node::ObjectWrap {
   explicit js_bot(boost::shared_ptr<botscript::bot> bot) : bot_(bot) {
   }
 
+  /// DEBUG DESTRUCTOR - remove for productive use
+  // TODO(felix) remove
+  ~js_bot() {
+    std::cerr << "deleting " << bot_->identifier() << "\n";
+  }
+
   /// Init function registers the bot object and its member functions at Node.js
   static void Init(v8::Handle<v8::Object> target) {
     // Register Bot symbol.
