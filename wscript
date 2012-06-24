@@ -1,6 +1,3 @@
-import os
-import sys
-
 BOOST_PATH = '/home/wasabi/boost_1_48_0/'
 BUILD_PATH = '/home/wasabi/Development/cppbot/botscript_new/'
 
@@ -15,5 +12,5 @@ def configure(ctx):
 def build(ctx):
 	t = ctx.new_task_gen('cxx', 'shlib', 'node_addon')
 	t.target = 'addon'
-	t.source = 'nodejs_botscript.cc lua_connection.cpp bot.cpp module.cpp'
-	t.includes = BOOST_PATH + ' ../external_lib/rapidjson-r64/include ../external_lib/lua-5.2.0/src ../external_lib/tidy/include ../external_lib/pugixml-1.0/src'
+	t.source = 'src/nodejs_botscript.cc src/lua_connection.cpp src/bot.cpp src/module.cpp'
+	t.includes = BOOST_PATH + ' ' + BUILD_PATH + 'external_lib/rapidjson-r64/include ' + BUILD_PATH + 'external_lib/lua-5.2.0/src ' + BUILD_PATH + 'external_lib/tidy/include ' + BUILD_PATH + 'external_lib/pugixml-1.0/src'
