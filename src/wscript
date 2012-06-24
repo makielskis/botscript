@@ -1,13 +1,19 @@
+import os
+import sys
+
+BOOST_PATH = '/home/wasabi/boost_1_48_0/'
+BUILD_PATH = '/home/wasabi/Development/cppbot/botscript_new/'
+
 def set_options(ctx):
 	ctx.tool_options('compiler_cxx')
 
 def configure(ctx):
 	ctx.check_tool('compiler_cxx')
 	ctx.check_tool('node_addon')
-	ctx.env.append_value('LINKFLAGS', ['-L/home/simon/devel/botscript', '-L/home/simon/boost_1_49_0/stage/lib/', '-lboost_system', '-lboost_thread', '-lboost_regex', '-lboost_iostreams', '-lboost_filesystem', '-pthread', '-ltidy', '-lpugixml', '-llua', '-lz'])
+	ctx.env.append_value('LINKFLAGS', ['-L' + BUILD_PATH, '-L' + BOOST_PATH + '/stage/lib/', '-lboost_system', '-lboost_thread', '-lboost_regex', '-lboost_iostreams', '-lboost_filesystem', '-pthread', '-ltidy', '-lpugixml', '-llua', '-lz'])
 
 def build(ctx):
 	t = ctx.new_task_gen('cxx', 'shlib', 'node_addon')
 	t.target = 'addon'
 	t.source = 'nodejs_botscript.cc lua_connection.cpp bot.cpp module.cpp'
-	t.includes = '/home/simon/boost_1_49_0/ ../external_lib/rapidjson-r64/include ../external_lib/lua-5.2.0/src ../external_lib/tidy/include ../external_lib/pugixml-1.0/src'
+	t.includes = BOOST_PATH + ' ../external_lib/rapidjson-r64/include ../external_lib/lua-5.2.0/src ../external_lib/tidy/include ../external_lib/pugixml-1.0/src'
