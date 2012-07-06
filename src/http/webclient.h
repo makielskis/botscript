@@ -42,7 +42,7 @@
 
 #define MAX_REDIRECTS 3
 
-namespace botscript {
+namespace http {
 
 /**
  * Exception thrown when an element (for example a web form)
@@ -117,7 +117,7 @@ class webclient : boost::noncopyable {
    */
   std::string request_get(std::string url)
   throw(std::ios_base::failure) {
-    return request(url, botscript::http_source::GET, NULL, 0);
+    return request(url, http::http_source::GET, NULL, 0);
   }
 
   /**
@@ -132,7 +132,7 @@ class webclient : boost::noncopyable {
   std::string request_post(std::string url,
                            const void* content, const size_t content_length)
   throw(std::ios_base::failure) {
-    return request(url, botscript::http_source::POST, content, content_length);
+    return request(url, http::http_source::POST, content, content_length);
   }
 
   /**
@@ -234,7 +234,7 @@ class webclient : boost::noncopyable {
       url.append(action);
     }
 
-    return request(url, botscript::http_source::POST,
+    return request(url, http::http_source::POST,
                    params_str.c_str(), params_str.length());
   }
 
@@ -301,7 +301,7 @@ class webclient : boost::noncopyable {
       path = path.length() == 0 ? "/" : path;
 
       // Do web request.
-      botscript::request r(host, proxy_port_.empty() ? port : proxy_port_,
+      http::request r(host, proxy_port_.empty() ? port : proxy_port_,
                            path, method, headers_,
                            !redirect_count ? content : NULL,
                            !redirect_count ? content_length : 0, proxy_host_);
@@ -534,7 +534,7 @@ class webclient : boost::noncopyable {
   std::map<std::string, std::string> cookies_;
 };
 
-}  // namespace botscript
+}  // namespace http
 
 #endif  // WEBCLIENT_H_
 

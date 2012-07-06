@@ -28,13 +28,11 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
-#include "./webclient.h"
-
 namespace botscript {
 
 std::map<std::string, bot*> lua_connection::bots_;
 boost::mutex lua_connection::bots_mutex_;
-webclient* lua_connection::webclient_ = NULL;
+http::webclient* lua_connection::webclient_ = NULL;
 
 jsonval_ptr lua_connection::toJSON(lua_State* state, int stack_index,
     rapidjson::Document::AllocatorType& allocator) {
@@ -324,7 +322,7 @@ bot* lua_connection::getBot(lua_State* state) {
   return bot;
 }
 
-webclient* lua_connection::getWebClient(lua_State* state) {
+http::webclient* lua_connection::getWebClient(lua_State* state) {
   return webclient_ != NULL ? webclient_ : getBot(state)->webclient();
 }
 
@@ -359,7 +357,7 @@ int lua_connection::doRequest(lua_State* state, bool path) {
   try {
     if (path) {
       bot* bot = getBot(state);
-      webclient* wc = bot->webclient();
+      http::webclient* wc = bot->webclient();
       response = wc->request_get(bot->server() + url);
     } else {
       response = getWebClient(state)->request_get(url);
@@ -422,11 +420,11 @@ int lua_connection::m_submit_form(lua_State* state) {
   std::string response;
   try {
       bot* bot = getBot(state);
-      webclient* wc = bot->webclient();
+      http::webclient* wc = bot->webclient();
       response = wc->submit(xpath, content, parameters, action);
   } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "#con %s", e.what());
-  } catch(const element_not_found_exception& e) {
+  } catch(const http::element_not_found_exception& e) {
     return luaL_error(state, "#nof %s", e.what());
   }
 

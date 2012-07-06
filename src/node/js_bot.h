@@ -29,8 +29,11 @@
 #include "boost/lambda/lambda.hpp"
 #include "node.h"
 
-#include "./bot.h"
+#include "../bot.h"
 #include "./js_bot_motor.h"
+
+namespace botscript {
+namespace node_bot {
 
 /// js_bot wraps the botscript::bot class for Node.js
 class js_bot : public node::ObjectWrap {
@@ -64,10 +67,12 @@ class js_bot : public node::ObjectWrap {
     tpl->InstanceTemplate()->Set(v8::String::NewSymbol("setCallback"),
         v8::FunctionTemplate::New(bot_set_callback)->GetFunction());
 
-    // Register Bot constructor.
-    v8::Persistent<v8::Function> constructor =
-        v8::Persistent<v8::Function>::New(tpl->GetFunction());
-    target->Set(v8::String::NewSymbol("Bot"), constructor);
+    // Create Bot constructor.
+    constructor_ = v8::Persistent<v8::Function>::New(tpl->GetFunction());
+
+    // Create factory function.
+    target->Set(v8::String::NewSymbol("createBot"),
+                v8::FunctionTemplate::New(js_bot::NewInstance)->GetFunction());
   }
 
  private:
@@ -79,31 +84,49 @@ class js_bot : public node::ObjectWrap {
     uv_work_t request;
   };
 
-  static v8::Handle<v8::Value> New(const v8::Arguments& args) {
+  static v8::Handle<v8::Value> NewInstance(const v8::Arguments& args) {
     v8::HandleScope scope;
 
+    const unsigned argc = args.Length();
+
     // Force either 2 or 6 arguments.
-    if (!(args.Length() == 2 || args.Length() == 6)) {
+    if (!(argc == 2 || argc == 6)) {
       v8::ThrowException(v8::Exception::TypeError(
                              v8::String::New("Wrong number of arguments")));
       return scope.Close(v8::Undefined());
     }
 
     // Check aruguments: first=io_service(Object), second=configuration(String).
-    if (args.Length() == 2 && !(args[0]->IsObject() && args[1]->IsString())) {
+    if (argc == 2 && !(args[0]->IsObject() && args[1]->IsString())) {
       v8::ThrowException(v8::Exception::TypeError(
                              v8::String::New("Wrong arguments")));
       return scope.Close(v8::Undefined());
     }
 
     // Check aruguments: first=io_service(Object), all other=Strings.
-    if (args.Length() == 6 &&
+    if (argc == 6 &&
         !(args[0]->IsObject() && args[1]->IsString() && args[2]->IsString() &&
           args[3]->IsString() && args[4]->IsString() && args[5]->IsString())) {
       v8::ThrowException(v8::Exception::TypeError(
                              v8::String::New("Wrong arguments")));
       return scope.Close(v8::Undefined());
     }
+
+    // Call corresponding constructor.
+    if (argc == 2) {
+      v8::Handle<v8::Value> argv[argc] = { args[0], args[1] };
+      v8::Local<v8::Object> instance = constructor_->NewInstance(argc, argv);
+      return scope.Close(instance);
+    } else {
+      v8::Handle<v8::Value> argv[argc] = { args[0], args[1], args[2],
+                                           args[3], args[4], args[5] };
+      v8::Local<v8::Object> instance = constructor_->NewInstance(argc, argv);
+      return scope.Close(instance);
+    }
+  }
+
+  static v8::Handle<v8::Value> New(const v8::Arguments& args) {
+    v8::HandleScope scope;
 
     // Extract io_service.
     v8::Local<v8::Object> motor_holder = v8::Local<v8::Object>::Cast(args[0]);
@@ -119,10 +142,8 @@ class js_bot : public node::ObjectWrap {
         std::string configuration = v8String2stdString(args[1]);
         bot_ptr = boost::make_shared<botscript::bot>(configuration,
                                                      io_service_ptr);
-      }
-
-      // Create bot from login information.
-      if (args.Length() == 6) {
+      } else {
+        // Create bot from login information.
         // Extract arguments.
         std::string username = v8String2stdString(args[1]);
         std::string password = v8String2stdString(args[2]);
@@ -240,8 +261,14 @@ class js_bot : public node::ObjectWrap {
     uv_queue_work(uv_default_loop(), &req->request, do_nothing, after_callback);
   }
 
+  static v8::Persistent<v8::Function> constructor_;
   boost::shared_ptr<botscript::bot> bot_;
   v8::Persistent<v8::Function> callback_;
 };
+
+v8::Persistent<v8::Function> js_bot::constructor_;
+
+}  // namespace node_bot
+}  // namespace botscript
 
 #endif  // JS_BOT_H

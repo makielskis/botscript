@@ -33,7 +33,7 @@
 
 #include "rapidjson/document.h"
 
-#include "./webclient.h"
+#include "./http/webclient.h"
 #include "./bot.h"
 #include "./exceptions/lua_exception.h"
 #include "./exceptions/bad_login_exception.h"
@@ -190,7 +190,7 @@ class lua_connection {
    * \param state the script state to extract the bot identifier from
    * \return a pointer to the webclient of the given bot
    */
-  static webclient* getWebClient(lua_State* state);
+  static http::webclient* getWebClient(lua_State* state);
 
   /**
    * Removes the bot with the given identifier from the bot map (does locking).
@@ -338,7 +338,7 @@ class lua_connection {
 
   static std::map<std::string, bot*> bots_;
   static boost::mutex bots_mutex_;
-  static webclient* webclient_;
+  static http::webclient* webclient_;
 };
 
 }  // namespace botscript

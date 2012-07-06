@@ -27,6 +27,9 @@
 #include "boost/thread.hpp"
 #include "node.h"
 
+namespace botscript {
+namespace node_bot {
+
 /// Motor class containing a boost::asio::io_service fueled by a thread group.
 class js_bot_motor : public node::ObjectWrap {
  public:
@@ -86,5 +89,8 @@ class js_bot_motor : public node::ObjectWrap {
   boost::asio::io_service::work work_;
   boost::thread_group worker_threads_;
 };
+
+}  // namespace node_bot
+}  // namespace botscript
 
 #endif  // JS_BOT_MOTOR_H

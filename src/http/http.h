@@ -46,7 +46,7 @@
 #include "boost/lexical_cast.hpp"
 #include "boost/exception/exception.hpp"
 
-namespace botscript {
+namespace http {
 
 /**
  * Boost.Iostreams HTTP source stream.
@@ -72,7 +72,7 @@ class http_source {
    * \param host the host to request
    * \param port the port to use (use proxy port if proxy is used)
    * \param path the path to send the request to
-   * \param method the method to use botscript::http_source::GET/POST
+   * \param method the method to use http::http_source::GET/POST
    * \param headers the headers to send
    * \param content the request body to send (for POST requests)
    * \param content_length the content length (for content != nullptr)
@@ -638,13 +638,13 @@ class request : boost::noncopyable {
   std::string& location() { return src_.location(); }
 
  private:
-  typedef boost::reference_wrapper<botscript::http_source> http_stream_ref;
+  typedef boost::reference_wrapper<http::http_source> http_stream_ref;
   boost::asio::io_service io_service_;
   http_source src_;
   boost::iostreams::stream<http_stream_ref> s_;
 };
 
-}  // namespace botscript
+}  // namespace http
 
 #endif  // HTTP_H_
 

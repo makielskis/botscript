@@ -36,7 +36,7 @@
 #include "boost/function.hpp"
 
 #include "./module.h"
-#include "./webclient.h"
+#include "./http/webclient.h"
 #include "./lua_connection.h"
 #include "./exceptions/lua_exception.h"
 #include "./exceptions/bad_login_exception.h"
@@ -134,7 +134,7 @@ class bot : boost::noncopyable {
   std::string identifier() const { return identifier_; }
 
   /// Returns the bots webclient.
-  botscript::webclient* webclient() { return &webclient_; }
+  http::webclient* webclient() { return &webclient_; }
 
   /// Returns the bots server address.
   std::string server() const { return server_; }
@@ -208,7 +208,7 @@ class bot : boost::noncopyable {
 
   void loadModules(boost::asio::io_service* io_service);
 
-  botscript::webclient webclient_;
+  http::webclient webclient_;
   std::string username_;
   std::string password_;
   std::string package_;
