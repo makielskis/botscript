@@ -114,12 +114,12 @@ class js_bot : public node::ObjectWrap {
 
     // Call corresponding constructor.
     if (argc == 2) {
-      v8::Handle<v8::Value> argv[argc] = { args[0], args[1] };
+      v8::Handle<v8::Value> argv[2] = { args[0], args[1] };
       v8::Local<v8::Object> instance = constructor_->NewInstance(argc, argv);
       return scope.Close(instance);
     } else {
-      v8::Handle<v8::Value> argv[argc] = { args[0], args[1], args[2],
-                                           args[3], args[4], args[5] };
+      v8::Handle<v8::Value> argv[6] = { args[0], args[1], args[2],
+                                        args[3], args[4], args[5] };
       v8::Local<v8::Object> instance = constructor_->NewInstance(argc, argv);
       return scope.Close(instance);
     }
