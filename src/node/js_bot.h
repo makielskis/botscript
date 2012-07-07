@@ -30,10 +30,61 @@
 #include "node.h"
 
 #include "../bot.h"
+#include "./async.h"
 #include "./js_bot_motor.h"
 
 namespace botscript {
 namespace node_bot {
+
+class async_load : public async_action {
+ public:
+  async_load(v8::Handle<v8::Value> callback,
+             boost::shared_ptr<botscript::bot> bot,
+             const std::string& configuration)
+    : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
+      bot_(bot),
+      configuration_(configuration),
+      success_(false) {
+  }
+
+  void background() {
+    try {
+      bot_->loadConfiguration(configuration_);
+      success_ = true;
+    } catch(const botscript::lua_exception& e) {
+      error_ = e.what();
+    } catch(const botscript::bad_login_exception& e) {
+      error_ = "Bad Login";
+    } catch(const botscript::invalid_proxy_exception& e) {
+      error_ = "Proxy Error";
+    }
+  }
+
+  virtual void foreground() {
+    v8::HandleScope scope;
+
+    if (!success_) {
+      v8::Local<v8::Value> args[2] = {
+          v8::String::New(error_.c_str()),
+          v8::Local<v8::Value>::New(v8::Boolean::New(false))
+      };
+      callback_->Call(v8::Undefined().As<v8::Object>(), 2, args);
+    } else {
+      v8::Local<v8::Value> args[2] = {
+          v8::Local<v8::Value>::New(v8::Undefined()),
+          v8::Local<v8::Value>::New(v8::Boolean::New(true))
+      };
+      callback_->Call(v8::Undefined().As<v8::Object>(), 2, args);
+    }
+  }
+
+ private:
+  v8::Persistent<v8::Function> callback_;
+  boost::shared_ptr<botscript::bot> bot_;
+  std::string configuration_;
+  bool success_;
+  std::string error_;
+};
 
 /// js_bot wraps the botscript::bot class for Node.js
 class js_bot : public node::ObjectWrap {
@@ -59,20 +110,18 @@ class js_bot : public node::ObjectWrap {
     tpl->SetClassName(v8::String::NewSymbol("Bot"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
+    // Register loadConfiguration member function.
+    tpl->InstanceTemplate()->Set(v8::String::NewSymbol("load"),
+        v8::FunctionTemplate::New(bot_load)->GetFunction());
+
     // Register execute member function.
     tpl->InstanceTemplate()->Set(v8::String::NewSymbol("execute"),
         v8::FunctionTemplate::New(bot_execute)->GetFunction());
 
-    // Register setCallback member function.
-    tpl->InstanceTemplate()->Set(v8::String::NewSymbol("setCallback"),
-        v8::FunctionTemplate::New(bot_set_callback)->GetFunction());
-
-    // Create Bot constructor.
-    constructor_ = v8::Persistent<v8::Function>::New(tpl->GetFunction());
-
-    // Create factory function.
-    target->Set(v8::String::NewSymbol("createBot"),
-                v8::FunctionTemplate::New(js_bot::NewInstance)->GetFunction());
+    // Register Bot constructor.
+    v8::Persistent<v8::Function> constructor =
+        v8::Persistent<v8::Function>::New(tpl->GetFunction());
+    target->Set(v8::String::NewSymbol("Bot"), constructor);
   }
 
  private:
@@ -84,49 +133,24 @@ class js_bot : public node::ObjectWrap {
     uv_work_t request;
   };
 
-  static v8::Handle<v8::Value> NewInstance(const v8::Arguments& args) {
+  static v8::Handle<v8::Value> New(const v8::Arguments& args) {
     v8::HandleScope scope;
 
-    const unsigned argc = args.Length();
-
-    // Force either 2 or 6 arguments.
-    if (!(argc == 2 || argc == 6)) {
+    // Check argument count.
+    if (args.Length() != 2) {
       v8::ThrowException(v8::Exception::TypeError(
                              v8::String::New("Wrong number of arguments")));
       return scope.Close(v8::Undefined());
     }
 
-    // Check aruguments: first=io_service(Object), second=configuration(String).
-    if (argc == 2 && !(args[0]->IsObject() && args[1]->IsString())) {
+    // Check aruguments types:
+    // [0] = io_service (Object)
+    // [1] = logging/update callback (Function)
+    if (!args[0]->IsObject() || !args[1]->IsFunction()) {
       v8::ThrowException(v8::Exception::TypeError(
                              v8::String::New("Wrong arguments")));
       return scope.Close(v8::Undefined());
     }
-
-    // Check aruguments: first=io_service(Object), all other=Strings.
-    if (argc == 6 &&
-        !(args[0]->IsObject() && args[1]->IsString() && args[2]->IsString() &&
-          args[3]->IsString() && args[4]->IsString() && args[5]->IsString())) {
-      v8::ThrowException(v8::Exception::TypeError(
-                             v8::String::New("Wrong arguments")));
-      return scope.Close(v8::Undefined());
-    }
-
-    // Call corresponding constructor.
-    if (argc == 2) {
-      v8::Handle<v8::Value> argv[2] = { args[0], args[1] };
-      v8::Local<v8::Object> instance = constructor_->NewInstance(argc, argv);
-      return scope.Close(instance);
-    } else {
-      v8::Handle<v8::Value> argv[6] = { args[0], args[1], args[2],
-                                        args[3], args[4], args[5] };
-      v8::Local<v8::Object> instance = constructor_->NewInstance(argc, argv);
-      return scope.Close(instance);
-    }
-  }
-
-  static v8::Handle<v8::Value> New(const v8::Arguments& args) {
-    v8::HandleScope scope;
 
     // Extract io_service.
     v8::Local<v8::Object> motor_holder = v8::Local<v8::Object>::Cast(args[0]);
@@ -134,40 +158,19 @@ class js_bot : public node::ObjectWrap {
         node::ObjectWrap::Unwrap<js_bot_motor>(motor_holder);
     boost::asio::io_service* io_service_ptr = motor_ptr->io_service();
 
-    boost::shared_ptr<botscript::bot> bot_ptr;
-    try {
-      // Create bot from configuration.
-      if (args.Length() == 2) {
-        // Extract configuration and create bot with configuration.
-        std::string configuration = v8String2stdString(args[1]);
-        bot_ptr = boost::make_shared<botscript::bot>(configuration,
-                                                     io_service_ptr);
-      } else {
-        // Create bot from login information.
-        // Extract arguments.
-        std::string username = v8String2stdString(args[1]);
-        std::string password = v8String2stdString(args[2]);
-        std::string package = v8String2stdString(args[3]);
-        std::string server = v8String2stdString(args[4]);
-        std::string proxy = v8String2stdString(args[5]);
+    // Create bot.
+    boost::shared_ptr<botscript::bot> bot_ptr =
+        boost::make_shared<botscript::bot>(io_service_ptr);
+    js_bot* js_bot_ptr = new js_bot(bot_ptr);
 
-        // Create bot with login information.
-        bot_ptr = boost::make_shared<botscript::bot>(username, password,
-                                                     package, server, proxy,
-                                                     io_service_ptr);
-      }
-    } catch(const botscript::lua_exception& e) {
-      v8::ThrowException(v8::Exception::Error(v8::String::New(e.what())));
-    } catch(const botscript::bad_login_exception& e) {
-      v8::ThrowException(v8::Exception::Error(v8::String::New("Bad Login")));
-    } catch(const botscript::invalid_proxy_exception& e) {
-      v8::ThrowException(v8::Exception::Error(v8::String::New("Proxy Error")));
-    }
+    // Extract and logging callback.
+    v8::Local<v8::Function> cb_local = v8::Local<v8::Function>::Cast(args[1]);
+    js_bot_ptr->callback_ = v8::Persistent<v8::Function>::New(cb_local);
+    bot_ptr->callback_ = boost::bind(&js_bot::call_callback, js_bot_ptr,
+                                     _1, _2, _3);
 
-    // Make Javascript Object from bot.
-    js_bot* jsbot_ptr = new js_bot(bot_ptr);
-    jsbot_ptr->Wrap(args.This());
-
+    // Return wrapped bot.
+    js_bot_ptr->Wrap(args.This());
     return args.This();
   }
 
@@ -189,27 +192,28 @@ class js_bot : public node::ObjectWrap {
     }
 
     // Execute command.
-    jsbot_ptr->bot()->execute(command, argument);
+    jsbot_ptr->bot_ptr()->execute(command, argument);
 
     return scope.Close(v8::Undefined());
   }
 
-  static v8::Handle<v8::Value> bot_set_callback(const v8::Arguments& args) {
+  static v8::Handle<v8::Value> bot_load(const v8::Arguments& args) {
     v8::HandleScope scope;
 
     // Unwrap bot.
     js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
 
-    // Get function.
-    if (!args[0]->IsFunction()) {
+    // Check aruguments.
+    if (!args[0]->IsString() || !args[1]->IsFunction()) {
       v8::ThrowException(v8::Exception::TypeError(
-                            v8::String::New("No function")));
+                            v8::String::New("Wrong arguments")));
     }
 
-    v8::Local<v8::Function> cb_local = v8::Local<v8::Function>::Cast(args[0]);
-    jsbot_ptr->set_callback(v8::Persistent<v8::Function>::New(cb_local));
-    jsbot_ptr->bot()->callback_ =
-        boost::bind(&js_bot::call_callback, jsbot_ptr, _1, _2, _3);
+    // Execute command asynchronously.
+    async_load* load = new async_load(args[1], jsbot_ptr->bot(),
+                                      v8String2stdString(args[0]));
+    async_action::invoke(load);
+    
 
     return scope.Close(v8::Undefined());
   }
@@ -243,12 +247,12 @@ class js_bot : public node::ObjectWrap {
     return output;
   }
 
-  botscript::bot* bot() {
+  botscript::bot* bot_ptr() {
     return bot_.get();
   }
 
-  void set_callback(v8::Persistent<v8::Function> cb) {
-    callback_ = cb;
+  boost::shared_ptr<botscript::bot> bot() {
+    return bot_;
   }
 
   void call_callback(std::string id, std::string k, std::string v) {
@@ -261,12 +265,9 @@ class js_bot : public node::ObjectWrap {
     uv_queue_work(uv_default_loop(), &req->request, do_nothing, after_callback);
   }
 
-  static v8::Persistent<v8::Function> constructor_;
   boost::shared_ptr<botscript::bot> bot_;
   v8::Persistent<v8::Function> callback_;
 };
-
-v8::Persistent<v8::Function> js_bot::constructor_;
 
 }  // namespace node_bot
 }  // namespace botscript

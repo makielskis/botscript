@@ -69,26 +69,16 @@ boost::mutex bot::log_mutex_;
 std::map<std::string, std::string> bot::interface_;
 boost::mutex bot::interface_mutex_;
 
-bot::bot(const std::string& username, const std::string& password,
-         const std::string& package, const std::string& server,
-         const std::string& proxy, boost::asio::io_service* io_service)
-throw(lua_exception, bad_login_exception, invalid_proxy_exception)
-  : username_(username),
-    password_(password),
-    package_(package),
-    server_(server),
-    wait_time_factor_(1),
-    stopped_(false),
-    connection_status_(1) {
-  status_["base_wait_time_factor"] = "1";
-  init(proxy, 2, true, io_service);
-}
-
-bot::bot(const std::string& configuration, boost::asio::io_service* io_service)
-throw(lua_exception, bad_login_exception, invalid_proxy_exception)
+bot::bot(boost::asio::io_service* io_service)
   : wait_time_factor_(1),
     stopped_(false),
-    connection_status_(1) {
+    connection_status_(1),
+    io_service_(io_service) {
+  status_["base_wait_time_factor"] = "1";
+}
+
+void bot::loadConfiguration(const std::string& configuration, int login_tries)
+throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   rapidjson::Document document;
   if (document.Parse<0>(configuration.c_str()).HasParseError()) {
     // Configuration is not valid JSON. This should NOT happen!
@@ -99,46 +89,73 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception)
   password_ = document["password"].GetString();
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
-  std::string wait_time_factor = document["wait_time_factor"].GetString();
+  std::string wait_time_factor = document.HasMember("wait_time_factor")
+                                 ? document["wait_time_factor"].GetString()
+                                 : "1";
 
   // Read proxy settings.
-  std::string proxy = document["proxy"].GetString();
+  std::string proxy = document.HasMember("proxy")
+                      ? document["proxy"].GetString() : "";
 
   // Create bot.
-  init(proxy, 3, false, io_service);
-  execute("base_set_wait_time_factor", wait_time_factor);
+  init(proxy, 3, false);
+  if (wait_time_factor != "1") {
+    execute("base_set_wait_time_factor", wait_time_factor);
+  }
 
   // Load module configuration.
-  const rapidjson::Value& a = document["modules"];
-  for (rapidjson::Value::ConstMemberIterator i = a.MemberBegin();
-       i != a.MemberEnd(); ++i) {
-    const rapidjson::Value& m = i->value;
-    std::string module = i->name.GetString();
-    rapidjson::Value::ConstMemberIterator it = m.MemberBegin();
-    for (; it != m.MemberEnd(); ++it) {
-      std::string name = it->name.GetString();
-      if (name == "name" || name == "active") {
-        continue;
+  if (document.HasMember("modules")) {
+    const rapidjson::Value& a = document["modules"];
+    for (rapidjson::Value::ConstMemberIterator i = a.MemberBegin();
+         i != a.MemberEnd(); ++i) {
+      const rapidjson::Value& m = i->value;
+      std::string module = i->name.GetString();
+      rapidjson::Value::ConstMemberIterator it = m.MemberBegin();
+      for (; it != m.MemberEnd(); ++it) {
+        std::string name = it->name.GetString();
+        if (name == "name" || name == "active") {
+          continue;
+        }
+        std::string value = it->value.GetString();
+        execute(module + "_set_" + name, value);
       }
-      std::string value = it->value.GetString();
-      execute(module + "_set_" + name, value);
-    }
-    std::string active = m["active"].GetString();
-    if (active == "1") {
-      execute(module + "_set_active", "1");
+      std::string active = m["active"].GetString();
+      if (active == "1") {
+        execute(module + "_set_active", "1");
+      }
     }
   }
 }
 
-void bot::init(const std::string& proxy, int login_trys, bool check_only_first,
-               boost::asio::io_service* io_service)
+void bot::init(const std::string& proxy, int login_trys, bool check_only_first)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
+  // Set identifier.
   identifier_ = createIdentifier(username_, package_, server_);
+
+  // Set proxy - if a proxy was used the bot is already logged in.
   setProxy(proxy, check_only_first, login_trys);
   if (proxy.empty()) {
     lua_connection::login(this, username_, password_, package_);
   }
-  loadModules(io_service);
+
+  // Load modules
+  using boost::filesystem::directory_iterator;
+  if (boost::filesystem::is_directory(package_)) {
+    for (directory_iterator i = directory_iterator(package_);
+         i != directory_iterator(); ++i) {
+      std::string path = i->path().relative_path().generic_string();
+      if (!boost::algorithm::ends_with(path, "servers.lua") &&
+          !boost::algorithm::ends_with(path, "base.lua") &&
+          !boost::starts_with(i->path().filename().string(), ".")) {
+        try {
+          module* new_module = new module(path, this, io_service_);
+          modules_.insert(new_module);
+        } catch(const lua_exception& e) {
+          log(ERROR, "base", e.what());
+        }
+      }
+    }
+  }
 }
 
 bool bot::checkProxy(std::string proxy, int login_trys) {
@@ -425,26 +442,6 @@ std::string bot::loadPackages(const std::string& folder) {
   document.Accept(writer);
 
   return buffer.GetString();
-}
-
-void bot::loadModules(boost::asio::io_service* io_service) {
-  using boost::filesystem::directory_iterator;
-  if (boost::filesystem::is_directory(package_)) {
-    for (directory_iterator i = directory_iterator(package_);
-         i != directory_iterator(); ++i) {
-      std::string path = i->path().relative_path().generic_string();
-      if (!boost::algorithm::ends_with(path, "servers.lua") &&
-          !boost::algorithm::ends_with(path, "base.lua") &&
-          !boost::starts_with(i->path().filename().string(), ".")) {
-        try {
-          module* new_module = new module(path, this, io_service);
-          modules_.insert(new_module);
-        } catch(const lua_exception& e) {
-          log(ERROR, "base", e.what());
-        }
-      }
-    }
-  }
 }
 
 int bot::randomWait(int a, int b) {

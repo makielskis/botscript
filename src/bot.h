@@ -49,48 +49,57 @@ namespace botscript {
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
 class module;
-typedef boost::function<void (std::string id, std::string k, std::string v) >
-        update_ptr;
 
 /// Bot class.
 class bot : boost::noncopyable {
  public:
   enum { INFO, ERROR };
 
+  typedef boost::function<void (std::string, std::string, std::string)>
+          update_callback;
+
   /**
    * Creates a new bot.
+   * Warning! Don't forget to call bot::loadConfiguration()
+   * to initialize the bot.
    *
-   * \param username the login username
-   * \param password the login password
-   * \param package the lua scrip package
-   *                 (contains at least servers.lua and base.lua)
-   * \param server the server address to use
-   * \param proxy the proxy to use (empty for direct connection).
-   *              (only the first proxy in a list will be checked!)
+   * \param callback logging and status change update callback
    * \param io_service the boost asio io_service
-   * \exception lua_exception if loading a module or login script failes
-   * \exception bad_login_exception if logging in fails
-   * \exception invalid_proxy_exception if we could not connect to the proxy
    */
-  bot(const std::string& username, const std::string& password,
-      const std::string& package, const std::string& server,
-      const std::string& proxy, boost::asio::io_service* io_service)
-  throw(lua_exception, bad_login_exception, invalid_proxy_exception);
-
-  /**
-   * Loads the given bot configuration.
-   *
-   * \param configuration JSON configuration string
-   * \param io_service the boost asio io_service
-   * \exception lua_exception if loading a module or login script failes
-   * \exception bad_login_exception if logging in fails
-   * \exception invalid_proxy_exception if we could not connect to the proxy
-   */
-  explicit bot(const std::string& configuration,
-               boost::asio::io_service* io_service)
-  throw(lua_exception, bad_login_exception, invalid_proxy_exception);
+  bot(boost::asio::io_service* io_service);
 
   virtual ~bot();
+
+  /**
+   * Loads the JSON configuration and initializes the bot.
+   * Warning! This is needed to use the bot. Otherwise no modules are loaded
+   * and the bot will not be logged in.
+   *
+   * A minimalistic configuration can look like this
+   * \code{.py}
+   * { "username":".", "password":".", "package":".", "server":"." }
+   * \endcode
+   *
+   * Further configuration values are: proxy, wait_time_factor and modules
+   * \code{.py}
+   * {
+   *   # basic configuration values
+   *   "modules":{
+   *     "a": {
+   *        "active":"1",
+   *        "do":"nothing"
+   *      }
+   * }
+   * \endcode
+   * 
+   * \param configuration the configuration to load
+   * \param login_tries the count of login tries until failure is propagated
+   * \exception lua_exception if loading a module or login script failes
+   * \exception bad_login_exception if logging in fails
+   * \exception invalid_proxy_exception if we could not connect to the proxy
+   */
+  void loadConfiguration(const std::string& configuration, int login_tries = 2)
+  throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   /**
    * Creates a unique identifier with the given information
@@ -194,19 +203,18 @@ class bot : boost::noncopyable {
   /// Called when something worked indicating that the current proxy is good.
   void connectionWorked();
 
-  /// This is the callback function for status updates.
-  boost::function<void (std::string, std::string, std::string)> callback_;
+  /// This is the update/status change callback.
+  update_callback callback_;
 
  private:
-  void init(const std::string& proxy, int login_trys, bool check_only_first,
-            boost::asio::io_service* io_service)
+  void init(const std::string& proxy, int login_trys, bool check_only_first)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   bool checkProxy(std::string proxy, int login_trys);
   void setProxy(const std::string& proxy, bool check_only_first, int login_trys)
   throw(invalid_proxy_exception);
 
-  void loadModules(boost::asio::io_service* io_service);
+  void loadModules();
 
   http::webclient webclient_;
   std::string username_;
@@ -230,6 +238,8 @@ class bot : boost::noncopyable {
   boost::mutex connection_status_mutex_;
 
   std::vector<std::string> proxies_;
+
+  boost::asio::io_service* io_service_;
 
   static boost::mutex server_mutex_;
   static std::vector<std::string> server_lists_;
