@@ -43,6 +43,7 @@ addon.createIdentifier("oclife", "packages/pg", "http://www.pennergame.de", func
       var interface = bot.interface();
       var interface_nice = JSON.stringify(JSON.parse(interface), ' ', 3);
       console.log("\nINTERFACE: " + interface_nice + "\n");
+      console.log("\nLOG: " + bot.log() + "\n");
     } else {
       console.log("error: " + err);
     }
