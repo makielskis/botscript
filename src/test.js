@@ -15,6 +15,11 @@ function callback(id, k, v) {
   }
 }
 
+addon.loadPackages("packages", function(err, packages) {
+  var packages_nice = JSON.stringify(JSON.parse(packages), ' ', 3);
+  console.log("\nPACKAGES: " + packages_nice + "\n");
+});
+
 console.log("go!");
 addon.createIdentifier("oclife", "packages/pg", "http://www.pennergame.de", function(err, id) {
   console.log("creating " + id + " ...");

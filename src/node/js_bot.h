@@ -171,6 +171,34 @@ class async_create_identifier : public async_action {
   std::string identifier_;
 };
 
+class async_load_packages : public async_action {
+ public:
+  async_load_packages(v8::Handle<v8::Value> callback,
+                     const std::string& path)
+    : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
+      path_(path) {
+  }
+
+  void background() {
+    packages_ = botscript::bot::loadPackages(path_);
+  }
+
+  void foreground() {
+    v8::HandleScope scope;
+
+    v8::Local<v8::Value> args[2] = {
+        v8::Local<v8::Value>::New(v8::Undefined()),
+        v8::Local<v8::Value>::New(v8::String::New(packages_.c_str()))
+    };
+    callback_->Call(v8::Undefined().As<v8::Object>(), 2, args);
+  }
+
+ private:
+  v8::Persistent<v8::Function> callback_;
+  std::string path_;
+  std::string packages_;
+};
+
 /// js_bot wraps the botscript::bot class for Node.js
 class js_bot : public node::ObjectWrap {
  public:
@@ -193,6 +221,10 @@ class js_bot : public node::ObjectWrap {
     // Register isolated createIdentifier() function.
     target->Set(v8::String::NewSymbol("createIdentifier"),
         v8::FunctionTemplate::New(createIdentifier)->GetFunction());
+
+    // Register isolated loadPackages() function.
+    target->Set(v8::String::NewSymbol("loadPackages"),
+        v8::FunctionTemplate::New(loadPackages)->GetFunction());
 
     // Register Bot symbol.
     v8::Local<v8::FunctionTemplate> tpl = v8::FunctionTemplate::New(New);
@@ -252,6 +284,26 @@ class js_bot : public node::ObjectWrap {
                                     v8String2stdString(args[1]),
                                     v8String2stdString(args[2]));
     async_action::invoke(create_identifier);
+
+    return scope.Close(v8::Undefined());
+  }
+
+  static v8::Handle<v8::Value> loadPackages(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    // Check aruguments types:
+    // [0] = path (String)
+    // [1] = function callback (Function)
+    if (!args[0]->IsString() || !args[1]->IsFunction()) {
+      v8::ThrowException(v8::Exception::TypeError(
+                             v8::String::New("Wrong arguments")));
+      return scope.Close(v8::Undefined());
+    }
+
+    // Create identifier asynchronously.
+    async_load_packages* load_packages =
+        new async_load_packages(args[1], v8String2stdString(args[0]));
+    async_action::invoke(load_packages);
 
     return scope.Close(v8::Undefined());
   }
