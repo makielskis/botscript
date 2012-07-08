@@ -86,6 +86,54 @@ class async_load : public async_action {
   std::string error_;
 };
 
+class async_execute : public async_action {
+ public:
+  async_execute(boost::shared_ptr<botscript::bot> bot,
+                const std::string& command, const std::string& argument)
+    : bot_(bot),
+      command_(command),
+      argument_(argument) {
+  }
+
+  void background() {
+    bot_->execute(command_, argument_);
+  }
+
+  void foreground() {
+  }
+
+ private:
+  boost::shared_ptr<botscript::bot> bot_;
+  std::string command_;
+  std::string argument_;
+};
+
+class async_get_config : public async_action {
+ public:
+  async_get_config(v8::Handle<v8::Value> callback,
+                   boost::shared_ptr<botscript::bot> bot)
+    : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
+      bot_(bot) {
+  }
+
+  void background() {
+    configuration_ = bot_->configuration(true);
+  }
+
+  void foreground() {
+    v8::Local<v8::Value> args[2] = {
+        v8::Local<v8::Value>::New(v8::Undefined()),
+        v8::Local<v8::Value>::New(v8::String::New(configuration_.c_str()))
+    };
+    callback_->Call(v8::Undefined().As<v8::Object>(), 2, args);
+  }
+
+ private:
+  v8::Persistent<v8::Function> callback_;
+  boost::shared_ptr<botscript::bot> bot_;
+  std::string configuration_;
+};
+
 /// js_bot wraps the botscript::bot class for Node.js
 class js_bot : public node::ObjectWrap {
  public:
@@ -117,6 +165,14 @@ class js_bot : public node::ObjectWrap {
     // Register execute member function.
     tpl->InstanceTemplate()->Set(v8::String::NewSymbol("execute"),
         v8::FunctionTemplate::New(bot_execute)->GetFunction());
+
+    // Register identifier getter.
+    tpl->InstanceTemplate()->Set(v8::String::NewSymbol("identifier"),
+        v8::FunctionTemplate::New(bot_identifier)->GetFunction());
+
+    // Register configuration getter.
+    tpl->InstanceTemplate()->Set(v8::String::NewSymbol("configuration"),
+        v8::FunctionTemplate::New(bot_configuration)->GetFunction());
 
     // Register Bot constructor.
     v8::Persistent<v8::Function> constructor =
@@ -177,22 +233,23 @@ class js_bot : public node::ObjectWrap {
   static v8::Handle<v8::Value> bot_execute(const v8::Arguments& args) {
     v8::HandleScope scope;
 
-    // Unwrap bot.
-    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
-
-    // Get aruguments.
-    std::string command;
-    std::string argument;
-    if (args[0]->IsString() && args[1]->IsString()) {
-      command = v8String2stdString(args[0]);
-      argument = v8String2stdString(args[1]);
-    } else {
+    // Check aruguments.
+    if (!args[0]->IsString() || !args[1]->IsString()) {
       v8::ThrowException(v8::Exception::TypeError(
                             v8::String::New("Wrong arguments")));
     }
 
+    // Get command and argument.
+    std::string command = v8String2stdString(args[0]);
+    std::string argument = v8String2stdString(args[1]);
+
+    // Unwrap bot.
+    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
+
     // Execute command.
-    jsbot_ptr->bot_ptr()->execute(command, argument);
+    async_execute* execute = new async_execute(jsbot_ptr->bot(),
+                                               command, argument);
+    async_action::invoke(execute);
 
     return scope.Close(v8::Undefined());
   }
@@ -200,20 +257,50 @@ class js_bot : public node::ObjectWrap {
   static v8::Handle<v8::Value> bot_load(const v8::Arguments& args) {
     v8::HandleScope scope;
 
-    // Unwrap bot.
-    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
-
     // Check aruguments.
     if (!args[0]->IsString() || !args[1]->IsFunction()) {
       v8::ThrowException(v8::Exception::TypeError(
                             v8::String::New("Wrong arguments")));
     }
 
+    // Unwrap bot.
+    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
+
     // Execute command asynchronously.
     async_load* load = new async_load(args[1], jsbot_ptr->bot(),
                                       v8String2stdString(args[0]));
     async_action::invoke(load);
     
+
+    return scope.Close(v8::Undefined());
+  }
+
+  static v8::Handle<v8::Value> bot_identifier(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    // Unwrap bot.
+    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
+
+    // Return identifier.
+    return scope.Close(v8::String::New(jsbot_ptr->bot()->identifier().c_str()));
+  }
+
+  static v8::Handle<v8::Value> bot_configuration(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    // Check aruguments.
+    if (!args[0]->IsFunction()) {
+      v8::ThrowException(v8::Exception::TypeError(
+                            v8::String::New("Wrong argument")));
+    }
+
+    // Unwrap bot.
+    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
+    
+    // Read configuration asynchronously
+    async_get_config* get_config = new async_get_config(args[0],
+                                                        jsbot_ptr->bot());
+    async_action::invoke(get_config);
 
     return scope.Close(v8::Undefined());
   }

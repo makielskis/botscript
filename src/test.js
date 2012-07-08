@@ -27,6 +27,11 @@ console.log("loading...");
 bot.load(config, function(err, success) {
   if (!err) {
     bot.execute("collect_set_active", "1");
+    console.log("yeah! " + bot.identifier());
+    bot.configuration(function(err, config) {
+      var config_nice = JSON.stringify(JSON.parse(config), ' ', 3);
+      console.log("\nCONFIGURATION: " + config_nice + "\n");
+    });
   } else {
     console.log("error: " + err);
   }
