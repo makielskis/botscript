@@ -18,8 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ASYNC_H
-#define ASYNC_H
+#ifndef ASYNC_H_
+#define ASYNC_H_
 
 #include "node.h"
 

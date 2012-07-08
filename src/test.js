@@ -15,24 +15,28 @@ function callback(id, k, v) {
   }
 }
 
-config = JSON.stringify({
-  username: 'oclife',
-  password: 'blabla',
-  package: 'packages/pg',
-  server: 'http://www.pennergame.de'
-});
-motor = new addon.BotMotor(2);
-bot = new addon.Bot(motor, callback);
-console.log("loading...");
-bot.load(config, function(err, success) {
-  if (!err) {
-    bot.execute("collect_set_active", "1");
-    console.log("yeah! " + bot.identifier());
-    bot.configuration(function(err, config) {
-      var config_nice = JSON.stringify(JSON.parse(config), ' ', 3);
-      console.log("\nCONFIGURATION: " + config_nice + "\n");
-    });
-  } else {
-    console.log("error: " + err);
-  }
+console.log("go!");
+addon.createIdentifier("oclife", "packages/pg", "http://www.pennergame.de", function(err, id) {
+  console.log("creating " + id + " ...");
+  config = JSON.stringify({
+    username: 'oclife',
+    password: 'blabla',
+    package: 'packages/pg',
+    server: 'http://www.pennergame.de'
+  });
+  motor = new addon.BotMotor(2);
+  bot = new addon.Bot(motor, callback);
+  console.log("loading...");
+  bot.load(config, function(err, success) {
+    if (!err) {
+      bot.execute("collect_set_active", "1");
+      console.log("yeah! " + bot.identifier());
+      bot.configuration(function(err, config) {
+        var config_nice = JSON.stringify(JSON.parse(config), ' ', 3);
+        console.log("\nCONFIGURATION: " + config_nice + "\n");
+      });
+    } else {
+      console.log("error: " + err);
+    }
+  });
 });

@@ -60,7 +60,7 @@ class async_load : public async_action {
     }
   }
 
-  virtual void foreground() {
+  void foreground() {
     v8::HandleScope scope;
 
     if (!success_) {
@@ -121,6 +121,8 @@ class async_get_config : public async_action {
   }
 
   void foreground() {
+    v8::HandleScope scope;
+
     v8::Local<v8::Value> args[2] = {
         v8::Local<v8::Value>::New(v8::Undefined()),
         v8::Local<v8::Value>::New(v8::String::New(configuration_.c_str()))
@@ -132,6 +134,41 @@ class async_get_config : public async_action {
   v8::Persistent<v8::Function> callback_;
   boost::shared_ptr<botscript::bot> bot_;
   std::string configuration_;
+};
+
+class async_create_identifier : public async_action {
+ public:
+  async_create_identifier(v8::Handle<v8::Value> callback,
+                          const std::string& username,
+                          const std::string& package,
+                          const std::string& server)
+    : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
+      username_(username),
+      package_(package),
+      server_(server) {
+  }
+
+  void background() {
+    identifier_ = botscript::bot::createIdentifier(username_, package_,
+                                                   server_);
+    }
+
+  void foreground() {
+    v8::HandleScope scope;
+
+    v8::Local<v8::Value> args[2] = {
+        v8::Local<v8::Value>::New(v8::Undefined()),
+        v8::Local<v8::Value>::New(v8::String::New(identifier_.c_str()))
+    };
+    callback_->Call(v8::Undefined().As<v8::Object>(), 2, args);
+  }
+
+ private:
+  v8::Persistent<v8::Function> callback_;
+  std::string username_;
+  std::string package_;
+  std::string server_;
+  std::string identifier_;
 };
 
 /// js_bot wraps the botscript::bot class for Node.js
@@ -153,6 +190,10 @@ class js_bot : public node::ObjectWrap {
 
   /// Init function registers the bot object and its member functions at Node.js
   static void Init(v8::Handle<v8::Object> target) {
+    // Register isolated createIdentifier() function.
+    target->Set(v8::String::NewSymbol("createIdentifier"),
+        v8::FunctionTemplate::New(createIdentifier)->GetFunction());
+
     // Register Bot symbol.
     v8::Local<v8::FunctionTemplate> tpl = v8::FunctionTemplate::New(New);
     tpl->SetClassName(v8::String::NewSymbol("Bot"));
@@ -188,6 +229,32 @@ class js_bot : public node::ObjectWrap {
     v8::Persistent<v8::Function> callback;
     uv_work_t request;
   };
+
+  static v8::Handle<v8::Value> createIdentifier(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    // Check aruguments types:
+    // [0] = username (String)
+    // [1] = package (String)
+    // [2] = server (String)
+    // [3] = function callback (Function)
+    if (!args[0]->IsString() || !args[1]->IsString() || !args[2]->IsString() ||
+        !args[3]->IsFunction()) {
+      v8::ThrowException(v8::Exception::TypeError(
+                             v8::String::New("Wrong arguments")));
+      return scope.Close(v8::Undefined());
+    }
+
+    // Create identifier asynchronously.
+    async_create_identifier* create_identifier =
+        new async_create_identifier(args[3],
+                                    v8String2stdString(args[0]),
+                                    v8String2stdString(args[1]),
+                                    v8String2stdString(args[2]));
+    async_action::invoke(create_identifier);
+
+    return scope.Close(v8::Undefined());
+  }
 
   static v8::Handle<v8::Value> New(const v8::Arguments& args) {
     v8::HandleScope scope;
@@ -270,7 +337,6 @@ class js_bot : public node::ObjectWrap {
     async_load* load = new async_load(args[1], jsbot_ptr->bot(),
                                       v8String2stdString(args[0]));
     async_action::invoke(load);
-    
 
     return scope.Close(v8::Undefined());
   }
