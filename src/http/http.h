@@ -173,13 +173,26 @@ class http_source {
       return response_content_;
     }
 
-    // Do transfer.
-    io_service_->reset();
-    transfer_all_ = true;
-    if (transfer_encoding_chunked_) {
-      handleReadChunkSize(boost::system::error_code(), 0);
+    if (!transfer_encoding_chunked_ &&
+        response_buffer_.size() == content_length_) {
+      // Copy bytes already transferred if this was all.
+      size_t buffer_size = response_buffer_.size();
+      const char* buf =
+              boost::asio::buffer_cast<const char*>(response_buffer_.data());
+      response_content_.resize(buffer_size);
+      std::memcpy(&(response_content_[bytes_transferred_]), buf, buffer_size);
+      bytes_transferred_ += buffer_size;
+      response_buffer_.consume(buffer_size);
+      content_length_ -= buffer_size;
     } else {
-      handleRead(boost::system::error_code(), 0);
+      // Do transfer.
+      io_service_->reset();
+      transfer_all_ = true;
+      if (transfer_encoding_chunked_) {
+        handleReadChunkSize(boost::system::error_code(), 0);
+      } else {
+        handleRead(boost::system::error_code(), 0);
+      }
     }
 
     // Set timeout and transfer.
