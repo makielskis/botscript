@@ -35,12 +35,12 @@ boost::mutex lua_connection::bots_mutex_;
 http::webclient* lua_connection::webclient_ = NULL;
 
 jsonval_ptr lua_connection::toJSON(lua_State* state, int stack_index,
-    rapidjson::Document::AllocatorType& allocator) {
+    rapidjson::Document::AllocatorType* allocator) {
   switch (lua_type(state, stack_index)) {
     // Convert lua string to JSON string.
     case LUA_TSTRING: {
       const char* str = luaL_checkstring(state, stack_index);
-      return jsonval_ptr(new rapidjson::Value(str, allocator));
+      return jsonval_ptr(new rapidjson::Value(str, *allocator));
     }
 
     // Convert lua table to JSON object.
@@ -53,9 +53,9 @@ jsonval_ptr lua_connection::toJSON(lua_State* state, int stack_index,
       jsonval_ptr obj = jsonval_ptr(
           new rapidjson::Value(rapidjson::kObjectType));
       while (lua_next(state, stack_index) != 0) {
-        rapidjson::Value key(luaL_checkstring(state, -2), allocator);
+        rapidjson::Value key(luaL_checkstring(state, -2), *allocator);
         jsonval_ptr val = toJSON(state, -1, allocator);
-        obj->AddMember(key, *val.get(), allocator);
+        obj->AddMember(key, *val.get(), *allocator);
 
         // Pop the value, key stays for lua_next.
         lua_pop(state, 1);
@@ -70,26 +70,37 @@ jsonval_ptr lua_connection::toJSON(lua_State* state, int stack_index,
   }
 }
 
-std::string lua_connection::toJSON(lua_State* state, const std::string& lua_var,
-                                   const std::string& var_name) {
+jsonval_ptr lua_connection::interface(const std::string& script,
+    rapidjson::Document::AllocatorType* allocator)
+throw(lua_exception) {
+  // Initialize lua_State.
+  lua_State* state = luaL_newstate();
+  if (NULL == state) {
+    throw lua_exception("could not create script state");
+  }
+  luaL_openlibs(state);
+
+  // Execute script.
+  if (0 != luaL_dofile(state, script.c_str())) {
+    lua_close(state);
+    throw lua_exception("could not execute script");
+  }
+
+  // Discover module name.
+  using boost::filesystem::path;
+  std::string filename = path(script).filename().generic_string();
+  std::string stem = filename.substr(0, filename.length() - 4);
+
   // Push lua variable to stack.
-  lua_getglobal(state, lua_var.c_str());
+  lua_getglobal(state, (std::string("interface_") + stem).c_str());
 
-  // Setup document and get allocator.
-  rapidjson::Document document;
-  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
-  document.SetObject();
+  // Read interface description as rapid-json value.
+  jsonval_ptr interface = toJSON(state, -1, allocator);
 
-  // Turn lua object to rapidjson.
-  jsonval_ptr val = toJSON(state, -1, allocator);
-  document.AddMember(var_name.c_str(), *val.get(), allocator);
+  // Free lua script resources.
+  lua_close(state);
 
-  // Convert to string.
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  document.Accept(writer);
-
-  return buffer.GetString();
+  return interface;
 }
 
 void lua_connection::luaStringTableToMap(lua_State* state, int stack_index,

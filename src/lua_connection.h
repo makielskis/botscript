@@ -54,16 +54,20 @@ typedef boost::shared_ptr<rapidjson::Value> jsonval_ptr;
 class lua_connection {
  public:
   /**
-   * Converts lua tables containing either string or tables to JSON.
+   * Reads the interface description of the module script.
    *
-   * \param state the script state
-   * \param lua_var the variable to convert to JSON
-   * \param var_name the name to be used for the JSON value in the JSON object\n
-   *                 result: { "var_name": $converted_variable }
-   * \return the converted variable as JSON string
+   * The interface description variable name is
+   * 'interface_' + {script path stem}
+   * example: 'packages/pg/sell.lua' -> interface_sell
+   *
+   * \param script the script path to load
+   * \param allocator the rapid-json allocator to use
+   * \exception lua_exception if the execution of the lua script fails
+   * \return the interface description in JSON format
    */
-  static std::string toJSON(lua_State* state, const std::string& lua_var,
-                            const std::string& var_name);
+  static jsonval_ptr interface(const std::string& script,
+      rapidjson::Document::AllocatorType* allocator)
+  throw(lua_exception);
 
   /**
    * Reads the table at the specified stack_index to a std::map.
@@ -331,10 +335,10 @@ class lua_connection {
    *
    * \param state the lua script state
    * \param stack_index the index of the element that should be converted
-   * \param allocator the rapid-json memory allocator
+   * \param allocator the pointer to the rapid-json memory allocator to use
    */
   static jsonval_ptr toJSON(lua_State* state, int stack_index,
-      rapidjson::Document::AllocatorType& allocator);
+      rapidjson::Document::AllocatorType* allocator);
 
   static std::map<std::string, bot*> bots_;
   static boost::mutex bots_mutex_;

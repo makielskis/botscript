@@ -247,10 +247,6 @@ class js_bot : public node::ObjectWrap {
     tpl->InstanceTemplate()->Set(v8::String::NewSymbol("configuration"),
         v8::FunctionTemplate::New(bot_configuration)->GetFunction());
 
-    // Register interface description getter function.
-    tpl->InstanceTemplate()->Set(v8::String::NewSymbol("interface"),
-        v8::FunctionTemplate::New(bot_interface)->GetFunction());
-
     // Register log_msgs getter function.
     tpl->InstanceTemplate()->Set(v8::String::NewSymbol("log"),
         v8::FunctionTemplate::New(bot_log)->GetFunction());
@@ -429,13 +425,6 @@ class js_bot : public node::ObjectWrap {
     async_action::invoke(get_config);
 
     return scope.Close(v8::Undefined());
-  }
-
-  static v8::Handle<v8::Value> bot_interface(const v8::Arguments& args) {
-    v8::HandleScope scope;
-    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
-    return scope.Close(v8::String::New(
-                          jsbot_ptr->bot()->interface_description().c_str()));
   }
 
   static v8::Handle<v8::Value> bot_log(const v8::Arguments& args) {

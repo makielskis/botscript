@@ -116,7 +116,7 @@ class bot : boost::noncopyable {
    * Loads all packages contained in the folder.
    *
    * \param folder the folder the packages reside in
-   * \return a servers listing for all packages (JSON string)
+   * \return a servers and interface listing for all packages (JSON string)
    */
   static std::string loadPackages(const std::string& folder);
 
@@ -127,9 +127,6 @@ class bot : boost::noncopyable {
    * \return the JSON configuration string
    */
   std::string configuration(bool with_password);
-
-  /// Returns the interface description (JSON).
-  std::string interface_description();
 
   /**
    * Executes the given command.

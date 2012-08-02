@@ -295,25 +295,6 @@ std::string bot::configuration(bool with_password) {
   return buffer.GetString();
 }
 
-std::string bot::interface_description() {
-  boost::lock_guard<boost::mutex> lock(interface_mutex_);
-  if (interface_.find(package_) == interface_.end()) {
-    std::stringstream out;
-    out << "{\"interface\":[";
-    for (std::set<module*>::iterator m = modules_.begin();;) {
-      out << (*m)->interface_description();
-      if (++m == modules_.end()) {
-        break;
-      } else {
-        out << ",";
-      }
-    }
-    out << "]}";
-    interface_[package_] = out.str();
-  }
-  return interface_[package_];
-}
-
 void bot::execute(const std::string& command, const std::string& argument) {
   boost::lock_guard<boost::mutex> lock(execute_mutex_);
   if (stopped_) {
@@ -416,7 +397,8 @@ std::string bot::loadPackages(const std::string& folder) {
     rapidjson::Value package_name(path.filename().string().c_str(), allocator);
     a.AddMember("name", package_name, allocator);
 
-    // Write servers from package.
+    // Write servers from package:
+    // Lua table -> map -> JSON array
     rapidjson::Value l(rapidjson::kArrayType);
     std::map<std::string, std::string> s;
     lua_connection::loadServerList(server_list, &s);
@@ -426,6 +408,31 @@ std::string bot::loadPackages(const std::string& folder) {
       l.PushBack(server_name, allocator);
     }
     a.AddMember("servers", l, allocator);
+
+    // Write interface descriptions from all modules.
+    for (directory_iterator j = directory_iterator(i->path());
+         j != directory_iterator(); ++j) {
+      // Iterate over all module paths but exclude hidden files
+      // and special files (servers.lua and base.lua)
+      std::string mod_path = j->path().relative_path().generic_string();
+      if (!boost::algorithm::ends_with(mod_path, "servers.lua") &&
+          !boost::algorithm::ends_with(mod_path, "base.lua") &&
+          !boost::starts_with(j->path().filename().string(), ".")) {
+        // Extract module name.
+        std::string filename = j->path().filename().string();
+        rapidjson::Value module_name(
+            filename.substr(0, filename.length() - 4).c_str(),
+            allocator);
+
+        // Read interface information from lua script.
+        jsonval_ptr interface = lua_connection::interface(mod_path, &allocator);
+
+        // Write value to package information.
+        a.AddMember(module_name, *interface.get(), allocator);
+      }
+    }
+
+    // Store package information.
     packages.PushBack(a, allocator);
 
     // Store result if not already done.

@@ -40,7 +40,6 @@ throw(lua_exception)
     : bot_(bot),
       lua_run_("run_"),
       lua_status_("status_"),
-      lua_interface_("interface_"),
       lua_state_(NULL),
       io_service_(io_service),
       timer_(*io_service),
@@ -53,7 +52,6 @@ throw(lua_exception)
   // Build basic strings.
   lua_run_ += module_name_;
   lua_status_ += module_name_;
-  lua_interface_ += module_name_;
   lua_active_status_ += module_name_ + "_active";
 
   // Set active status to not running.
@@ -75,10 +73,6 @@ throw(lua_exception)
     bot->status(module_name_ + "_" + s.first, s.second);
   }
   status_.clear();
-
-  // Get user interface definition.
-  interface_description_ = lua_connection::toJSON(lua_state_, lua_interface_,
-                                                  module_name_);
 }
 
 module::~module() {
