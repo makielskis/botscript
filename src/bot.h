@@ -241,9 +241,6 @@ class bot : boost::noncopyable {
   static boost::mutex server_mutex_;
   static std::vector<std::string> server_lists_;
   static std::map<std::string, std::string> servers_;
-
-  static std::map<std::string, std::string> interface_;
-  static boost::mutex interface_mutex_;
 };
 
 }  // namespace botscript

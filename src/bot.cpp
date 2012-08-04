@@ -66,9 +66,6 @@ std::vector<std::string> bot::server_lists_;
 boost::mutex bot::server_mutex_;
 boost::mutex bot::log_mutex_;
 
-std::map<std::string, std::string> bot::interface_;
-boost::mutex bot::interface_mutex_;
-
 bot::bot(boost::asio::io_service* io_service)
   : wait_time_factor_(1),
     stopped_(false),
