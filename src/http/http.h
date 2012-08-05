@@ -538,7 +538,7 @@ class http_source {
 
   void handleTimeout(const boost::system::error_code& ec) {
     if (ec == boost::asio::error::operation_aborted) {
-        return;
+      return;
     }
     if (timeout_timer_.expires_from_now() < boost::posix_time::seconds(0)) {
       finishTransfer();
@@ -549,8 +549,15 @@ class http_source {
   void finishTransfer() {
     if (!transfer_finished_) {
       transfer_finished_ = true;
-      socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-      socket_.close();
+
+      // Shutdown socket.
+      boost::system::error_code ignored_0;
+      socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_0);
+
+      // Close socket.
+      boost::system::error_code ignored_1;
+      socket_.close(ignored_1);
+
       timeout_timer_.cancel();
     }
   }
