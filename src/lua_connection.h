@@ -204,6 +204,14 @@ class lua_connection {
   static void remove(const std::string identifier);
 
   /**
+   * Checks whether a bot with the given identifier exists the bot map (does locking).
+   *
+   * \param identifier the identifier (key) to remove
+   * \return true if found false if not
+   */
+  static bool contains(const std::string identifier);
+
+  /**
    * Calls the log function of the bot registered in the script state.
    * The log message has to reside on the stack on posititon 1.
    *

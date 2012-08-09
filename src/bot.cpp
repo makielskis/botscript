@@ -129,6 +129,11 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   // Set identifier.
   identifier_ = createIdentifier(username_, package_, server_);
 
+  // Do not create a bot that already exists.
+  if (lua_connection::contains(identifier_)) {
+    throw lua_exception("bot already registered");
+  }
+
   // Set proxy - if a proxy was used the bot is already logged in.
   setProxy(proxy, check_only_first, login_trys);
   if (proxy.empty()) {

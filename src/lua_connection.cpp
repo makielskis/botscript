@@ -348,6 +348,19 @@ void lua_connection::remove(const std::string identifier) {
   }
 }
 
+bool lua_connection::contains(const std::string identifier) {
+  // Lock because of bots map r/w access.
+  boost::lock_guard<boost::mutex> lock(bots_mutex_);
+
+  // Search for identifier and delete entry.
+  std::map<std::string, bot*>::iterator i = bots_.find(identifier);
+  if (i != bots_.end()) {
+    return true;
+  }
+
+  return false;
+}
+
 void lua_connection::log(lua_State* state, int log_level) {
   bot* bot = getBot(state);
 
