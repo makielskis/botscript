@@ -267,11 +267,11 @@ void module::shutdown() {
   }
 
   // Cancel timer and ensure that it has finished execution.
-  timer_.cancel();
-
-  boost::unique_lock<boost::mutex> shutdown_lock(shutdown_mutex_);
-  while (!shutdown_) {
-    shutdown_cond_.wait(shutdown_lock);
+  if (timer_.cancel()) {
+    boost::unique_lock<boost::mutex> shutdown_lock(shutdown_mutex_);
+    while (!shutdown_) {
+      shutdown_cond_.wait(shutdown_lock);
+    }
   }
 }
 
