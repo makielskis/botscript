@@ -28,6 +28,7 @@
 #include "boost/algorithm/string/predicate.hpp"
 #include "boost/bind.hpp"
 #include "boost/function.hpp"
+#include "boost/lambda/lambda.hpp"
 
 #include "./bot.h"
 #include "./exceptions/lua_exception.h"
@@ -43,7 +44,8 @@ throw(lua_exception)
       lua_state_(NULL),
       io_service_(io_service),
       timer_(*io_service),
-      stopping_(false) {
+      stopping_(false),
+      shutdown_(false) {
   // Discover module name.
   using boost::filesystem::path;
   std::string filename = path(script).filename().generic_string();
@@ -100,9 +102,17 @@ void module::applyStatus() {
   status_.clear();
 }
 
-void module::run() {
+void module::run(const boost::system::error_code& ec) {
   // Lock to prevent shutdown while execution.
   boost::lock_guard<boost::mutex> lock(run_mutex_);
+
+  // Handle shutdown.
+  if (ec == boost::asio::error::operation_aborted) {
+    boost::lock_guard<boost::mutex> lock(shutdown_mutex_);
+    shutdown_ = true;
+    shutdown_cond_.notify_all();
+    return;
+  }
 
   // Check active status.
   if (stopping_ || bot_->status(lua_active_status_) != "1") {
@@ -150,7 +160,7 @@ void module::run() {
     // Start the timer.
     if (!stopping_) {
       timer_.expires_from_now(boost::posix_time::seconds(sleep));
-      timer_.async_wait(boost::bind(&module::run, this));
+      timer_.async_wait(boost::bind(&module::run, this, _1));
       return;
     }
   } catch(const lua_exception& e) {
@@ -168,7 +178,7 @@ void module::run() {
     // Start the timer.
     if (!stopping_) {
       timer_.expires_from_now(boost::posix_time::seconds(10));
-      timer_.async_wait(boost::bind(&module::run, this));
+      timer_.async_wait(boost::bind(&module::run, this, _1));
       return;
     }
   }
@@ -214,7 +224,8 @@ void module::execute(const std::string& command, const std::string& argument) {
       if (run_mutex_.try_lock()) {
         // Lock acquired - module run() is not running.
         if (!stopping_) {
-          io_service_->post(boost::bind(&module::run, this));
+          boost::system::error_code ignored;
+          io_service_->post(boost::bind(&module::run, this, ignored));
         } else {
           stopping_ = false;
         }
@@ -257,7 +268,11 @@ void module::shutdown() {
 
   // Cancel timer and ensure that it has finished execution.
   timer_.cancel();
-  boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+
+  boost::unique_lock<boost::mutex> shutdown_lock(shutdown_mutex_);
+  while (!shutdown_) {
+    shutdown_cond_.wait(shutdown_lock);
+  }
 }
 
 }  // namespace botscript

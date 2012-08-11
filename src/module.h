@@ -28,6 +28,7 @@
 #include "boost/asio/io_service.hpp"
 #include "boost/asio/basic_deadline_timer.hpp"
 #include "boost/thread.hpp"
+#include "boost/thread/condition_variable.hpp"
 
 #include "./bot.h"
 #include "./exceptions/lua_exception.h"
@@ -75,7 +76,7 @@ class module : boost::noncopyable {
 
  private:
   void applyStatus();
-  void run();
+  void run(const boost::system::error_code& ec);
 
   bot* bot_;
   std::map<std::string, std::string> status_;
@@ -90,6 +91,9 @@ class module : boost::noncopyable {
   boost::mutex run_mutex_;
   boost::mutex execute_mutex_;
   bool stopping_;
+  boost::condition_variable shutdown_cond_;
+  boost::mutex shutdown_mutex_;
+  bool shutdown_;
 };
 
 }  // namespace botscript
