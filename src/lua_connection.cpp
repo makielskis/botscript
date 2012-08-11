@@ -337,7 +337,7 @@ http::webclient* lua_connection::getWebClient(lua_State* state) {
   return webclient_ != NULL ? webclient_ : getBot(state)->webclient();
 }
 
-void lua_connection::remove(const std::string identifier) {
+void lua_connection::remove(const std::string& identifier) {
   // Lock because of bots map r/w access.
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
 
@@ -346,6 +346,14 @@ void lua_connection::remove(const std::string identifier) {
   if (i != bots_.end()) {
     bots_.erase(i);
   }
+}
+
+bool lua_connection::contains(const std::string& identifier) {
+  // Lock because of bots map r/w access.
+  boost::lock_guard<boost::mutex> lock(bots_mutex_);
+
+  // Return whether the bot map contains the specified identifier
+  return bots_.find(identifier) != bots_.end();
 }
 
 void lua_connection::log(lua_State* state, int log_level) {
