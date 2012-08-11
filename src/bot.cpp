@@ -81,6 +81,17 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
     // Configuration is not valid JSON. This should NOT happen!
   }
 
+  if (!document.HasMember("username") ||
+      !document.HasMember("password") ||
+      !document.HasMember("package") ||
+      !document.HasMember("server") ||
+      !document["username"].IsString() ||
+      !document["password"].IsString() ||
+      !document["package"].IsString() ||
+      !document["server"].IsString()) {
+    throw lua_exception("invalid configuration");
+  }
+
   // Read basic configuration values.
   username_ = document["username"].GetString();
   password_ = document["password"].GetString();
