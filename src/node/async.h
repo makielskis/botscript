@@ -21,6 +21,7 @@
 #ifndef ASYNC_H_
 #define ASYNC_H_
 
+#include "boost/thread.hpp"
 #include "node.h"
 
 namespace botscript {
@@ -39,6 +40,8 @@ class async_action {
 
   /// Invokes the given action using the libuv queue.
   static void invoke(async_action* action) {
+    boost::lock_guard<boost::mutex> lock(uv_lock_);
+
     action->work_.data = action;
     uv_queue_work(uv_default_loop(), &action->work_, asyncWork, asyncAfter);
   }
@@ -62,7 +65,10 @@ class async_action {
   }
 
   uv_work_t work_;
+  static boost::mutex uv_lock_;
 };
+
+boost::mutex async_action::uv_lock_;
 
 }  // namespace node_bot
 }  // namespace botscript

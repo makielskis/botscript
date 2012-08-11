@@ -201,6 +201,39 @@ class async_load_packages : public async_action {
   std::string packages_;
 };
 
+class async_call_callback : public async_action {
+ public:
+  async_call_callback(v8::Persistent<v8::Function> callback,
+                      const std::string& identifier,
+                      const std::string& key,
+                      const std::string& value)
+    : callback_(callback),
+      identifier_(identifier),
+      key_(key),
+      value_(value) {
+  }
+
+  void background() {
+  }
+
+  void foreground() {
+    v8::HandleScope scope;
+
+    v8::Local<v8::Value> args[3] = {
+        v8::Local<v8::Value>::New(v8::String::New(identifier_.c_str())),
+        v8::Local<v8::Value>::New(v8::String::New(key_.c_str())),
+        v8::Local<v8::Value>::New(v8::String::New(value_.c_str()))
+    };
+    callback_->Call(v8::Undefined().As<v8::Object>(), 3, args);
+  }
+
+ private:
+  v8::Persistent<v8::Function> callback_;
+  std::string identifier_;
+  std::string key_;
+  std::string value_;
+};
+
 /// js_bot wraps the botscript::bot class for Node.js
 class js_bot : public node::ObjectWrap {
  public:
@@ -260,14 +293,6 @@ class js_bot : public node::ObjectWrap {
   }
 
  private:
-  struct baton {
-    std::string id;
-    std::string k;
-    std::string v;
-    v8::Persistent<v8::Function> callback;
-    uv_work_t request;
-  };
-
   static v8::Handle<v8::Value> createIdentifier(const v8::Arguments& args) {
     v8::HandleScope scope;
 
@@ -420,7 +445,7 @@ class js_bot : public node::ObjectWrap {
 
     // Unwrap bot.
     js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
-    
+
     // Read configuration asynchronously
     async_get_config* get_config = new async_get_config(args[0],
                                                         jsbot_ptr->bot());
@@ -433,27 +458,6 @@ class js_bot : public node::ObjectWrap {
     v8::HandleScope scope;
     js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
     return scope.Close(v8::String::New(jsbot_ptr->bot()->log_msgs().c_str()));
-  }
-
-  static void do_nothing(uv_work_t* req) {
-  }
-
-  static void after_callback(uv_work_t* req) {
-    v8::HandleScope scope;
-
-    // Prepare the parameters for the callback function.
-    baton* data = static_cast<baton*>(req->data);
-    const unsigned argc = 3;
-    v8::Handle<v8::Value> argv[argc];
-    argv[0] = v8::String::New(data->id.c_str());
-    argv[1] = v8::String::New(data->k.c_str());
-    argv[2] = v8::String::New(data->v.c_str());
-
-    v8::TryCatch try_catch;
-    data->callback->Call(v8::Context::GetCurrent()->Global(), argc, argv);
-    if (try_catch.HasCaught()) {
-      node::FatalException(try_catch);
-    }
   }
 
   static std::string v8String2stdString(const v8::Local<v8::Value>& input) {
@@ -473,13 +477,9 @@ class js_bot : public node::ObjectWrap {
   }
 
   void call_callback(std::string id, std::string k, std::string v) {
-    baton* req = new baton();
-    req->callback = callback_;
-    req->id = id;
-    req->k = k;
-    req->v = v;
-    req->request.data = req;
-    uv_queue_work(uv_default_loop(), &req->request, do_nothing, after_callback);
+    async_call_callback* call_callback = new async_call_callback(callback_,
+                                                                 id, k ,v);
+    async_action::invoke(call_callback);
   }
 
   boost::shared_ptr<botscript::bot> bot_;
