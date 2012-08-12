@@ -7,7 +7,7 @@ def set_options(ctx):
 def configure(ctx):
 	ctx.check_tool('compiler_cxx')
 	ctx.check_tool('node_addon')
-	ctx.env.append_value('LINKFLAGS', ['-L' + BUILD_PATH, '-L' + BOOST_PATH + '/stage/lib/', '-lboost_system', '-lboost_thread', '-lboost_regex', '-lboost_iostreams', '-lboost_filesystem', '-pthread', '-ltidy', '-lpugixml', '-llua', '-lz'])
+	ctx.env.append_value('LINKFLAGS', ['-L' + BUILD_PATH, '-L' + BOOST_PATH + '/stage/lib', '-lboost_system', '-lboost_thread', '-lboost_regex', '-lboost_iostreams', '-lboost_filesystem', '-pthread', '-ltidy', '-lpugixml', '-llua', '-lz'])
 
 def build(ctx):
 	t = ctx.new_task_gen('cxx', 'shlib', 'node_addon')

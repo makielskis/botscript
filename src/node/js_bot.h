@@ -27,6 +27,7 @@
 #include "boost/shared_ptr.hpp"
 #include "boost/make_shared.hpp"
 #include "boost/lambda/lambda.hpp"
+#include "boost/tuple/tuple.hpp"
 #include "node.h"
 
 #include "../bot.h"
@@ -477,13 +478,20 @@ class js_bot : public node::ObjectWrap {
   }
 
   void call_callback(std::string id, std::string k, std::string v) {
-    async_call_callback* call_callback = new async_call_callback(callback_,
-                                                                 id, k ,v);
-    async_action::invoke(call_callback);
+    boost::tuples::tuple msg<std::string, std::string, std::string>(id, k, v);
+    update_queue.push_back(msg);
+  }
+
+  static v8::Handle<v8::Value> bot_get_updates() {
+    v8::HandleScope scope;
+
+    Handle<Array> array = Array::New(update_queue.size);
+    std::for_each(update_queue.begin(), update_queue.size.end()
   }
 
   boost::shared_ptr<botscript::bot> bot_;
   v8::Persistent<v8::Function> callback_;
+  static std::deque<boost::tuples::tuple msg<std::string, std::string, std::string>> update_queue_;
 };
 
 }  // namespace node_bot

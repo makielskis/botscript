@@ -479,9 +479,7 @@ void bot::log(int type, const std::string& source, const std::string& message) {
 }
 
 void bot::callback(std::string id, std::string k, std::string v) {
-  if (callback_ != NULL) {
-    callback_(id, k, v);
-  }
+  callback_(id, k, v);
 }
 
 std::string bot::log_msgs() {
