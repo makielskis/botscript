@@ -48,16 +48,6 @@
 
 #include "./lua_connection.h"
 
-namespace std {
-
-// round() is missing in C++ until C++ 2011 standard.
-// But we have one!
-double round(double r) {
-  return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
-}
-
-}  // namespace std
-
 namespace botscript {
 
 // Initialization of the static bot class attributes.

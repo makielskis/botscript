@@ -1,5 +1,5 @@
-BOOST_PATH = '/home/wasabi/boost_1_48_0/'
-BUILD_PATH = '/home/wasabi/Development/cppbot/botscript_new/'
+BOOST_PATH = '/home/simon/boost_1_49_0/'
+BUILD_PATH = '/home/simon/devel/botscript/'
 
 def set_options(ctx):
 	ctx.tool_options('compiler_cxx')
@@ -14,4 +14,4 @@ def build(ctx):
 	t.target = 'addon'
 	t.source = 'src/node/nodejs_botscript.cc src/lua_connection.cpp src/bot.cpp src/module.cpp'
 	t.includes = BOOST_PATH + ' ' + BUILD_PATH + 'external_lib/rapidjson-r64/include ' + BUILD_PATH + 'external_lib/lua-5.2.0/src ' + BUILD_PATH + 'external_lib/tidy/include ' + BUILD_PATH + 'external_lib/pugixml-1.0/src'
-	t.cxxflags = '-g'
+	t.cxxflags = '-std=c++0x'
