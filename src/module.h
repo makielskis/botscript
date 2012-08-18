@@ -2,7 +2,7 @@
  * This code contains to one of the Makielski projects.
  * Visit http://makielski.net for more information.
  * 
- * Copyright (C) 17. April 2012  makielskis@gmail.com
+ * Copyright (C) 14. August 2012  makielskis@gmail.com
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,13 +61,11 @@ class module : boost::noncopyable {
   std::string name() { return module_name_; }
 
   /**
-   * Stops the module.
-   */
-  void shutdown();
-
-  /**
-   * Executes the given command on this module. Does nothing if the command is
-   * not available.
+   * Executes the given command on this module.
+   * Does nothing if the command is not available.
+   *
+   * Warning - do not execute this function in parallel.
+   * It is NOT threadsafe. The bot prevents parallel execution.
    *
    * \param command the command to execute
    * \param argument the argument to deliver
@@ -75,25 +73,39 @@ class module : boost::noncopyable {
   void execute(const std::string& command, const std::string& argument);
 
  private:
+  /*
+   * Enum representing the different states the module can be in.
+   *
+   * OFF     - The module is off (no action)
+   * RUN     - The module is running (executing the run function)
+   * WAITING - The module has a timer waiting to wake up the run funciton
+   */
+  enum { OFF, RUN, WAIT };
+
+  void state(char new_state);
+  char state();
+
   void applyStatus();
+
+  void stop_waiting();
+
   void run(const boost::system::error_code& ec);
 
+  bool stop_;
+  char module_state_;
+  boost::condition_variable state_cond_;
+  boost::mutex state_mutex_;
   bot* bot_;
-  std::map<std::string, std::string> status_;
+  boost::asio::io_service* io_service_;
   std::string module_name_;
   std::string lua_run_;
   std::string lua_status_;
   std::string lua_active_status_;
   lua_State* lua_state_;
-  boost::asio::io_service* io_service_;
-  boost::asio::deadline_timer timer_;
-  boost::mutex status_mutex_;
   boost::mutex run_mutex_;
-  boost::mutex execute_mutex_;
-  bool stopping_;
-  boost::condition_variable shutdown_cond_;
-  boost::mutex shutdown_mutex_;
-  bool shutdown_;
+  std::map<std::string, std::string> status_;
+  boost::mutex status_mutex_;
+  boost::asio::deadline_timer timer_;
 };
 
 }  // namespace botscript

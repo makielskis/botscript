@@ -228,7 +228,6 @@ bot::~bot() {
   stopped_ = true;
   lua_connection::remove(identifier_);
   BOOST_FOREACH(module* module, modules_) {
-    module->shutdown();
     delete module;
   }
 }
