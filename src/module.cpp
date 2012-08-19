@@ -114,6 +114,7 @@ void module::state(char new_state) {
       bot_->status(lua_active_status_, "1");
       break;
     case OFF:
+      stop_ = false;
       bot_->log(bot::INFO, module_name_, "quit");
       bot_->status(lua_active_status_, "0");
       break;
@@ -207,7 +208,6 @@ void module::run(const boost::system::error_code& ec) {
 
   // Since all timer actions end with a return statement:
   // Tell user that the module is stopped now.
-  bot_->log(bot::INFO, module_name_, "quit");
   state(OFF);
 }
 
