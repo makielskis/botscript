@@ -184,6 +184,7 @@ class http_source {
       bytes_transferred_ += buffer_size;
       response_buffer_.consume(buffer_size);
       content_length_ -= buffer_size;
+      return response_content_;
     } else {
       // Do transfer.
       io_service_->reset();
@@ -375,7 +376,7 @@ class http_source {
         size_t buffer_size = response_buffer_.size();
         const char* buf =
                 boost::asio::buffer_cast<const char*>(response_buffer_.data());
-        response_content_.resize(bytes_transferred_ + buffer_size);
+        response_content_.resize(bytes_transferred_ + buffer_size + 1);
         std::memcpy(&(response_content_[bytes_transferred_]), buf, buffer_size);
         bytes_transferred_ += buffer_size;
         response_buffer_.consume(buffer_size);
@@ -628,7 +629,7 @@ class request : boost::noncopyable {
           const std::string& proxy_host)
     throw(std::ios_base::failure)
     : src_(host, port, path, method, headers,
-          content, content_length, proxy_host, &io_service_),
+           content, content_length, proxy_host, &io_service_),
       s_(boost::ref(src_)) {
   }
 
