@@ -55,31 +55,6 @@ class bot_factory {
   }
 
   /**
-   * Creats a bot.
-   *
-   * \param username the login username
-   * \param password the login password
-   * \param package the lua scrip package
-   *                 (contains at least servers.lua and base.lua)
-   * \param server the server address to use
-   * \param proxy the proxy to use (empty for direct connection).
-   *              (only the first proxy in a list will be checked!)
-   * \exception lua_exception if loading a module or login script failes
-   * \exception bad_login_exception if logging in fails
-   * \exception invalid_proxy_exception if we could not connect to the proxy
-   * \return the bot wrapped by a shared pointer
-   */
-  boost::shared_ptr<bot> create_bot(const std::string& username,
-                                    const std::string& password,
-                                    const std::string& package,
-                                    const std::string& server,
-                                    const std::string& proxy)
-  throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
-    return boost::make_shared<bot>(username, password, package, server, proxy,
-                                   &io_service_);
-  }
-
-  /**
    * Creats a bot with the given configuration.
    *
    * \param configuration JSON configuration string
@@ -90,7 +65,9 @@ class bot_factory {
    */
   boost::shared_ptr<bot> create_bot(const std::string& configuration)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
-    return boost::make_shared<bot>(configuration, &io_service_);
+    boost::shared_ptr<bot> bot = boost::make_shared<bot>(&io_service_);
+    bot->loadConfiguration(configuration);
+    return bot;
   }
 
  private:
