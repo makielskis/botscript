@@ -356,6 +356,8 @@ class http_source {
           } catch (const boost::bad_lexical_cast& e) {
             throw std::ios_base::failure("read (contentlength parse) error");
           }
+
+          // Check parse result: not negativ and <= 2MB
           if (content_length_ < 0 || content_length_ >= 0x200000) {
             throw std::ios_base::failure("read (contentlength range) error");
           }
