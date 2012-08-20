@@ -50,7 +50,8 @@ int main(int argc, char* argv[]) {
 
   typedef boost::shared_ptr<botscript::bot> bot_ptr;
   std::set<bot_ptr> bots;
-  botscript::bot_factory factory(2);
+  botscript::bot_factory factory;
+  factory.init(2);
   typedef std::pair<std::string, std::string> str_pair;
   BOOST_FOREACH(str_pair config, configs) {
     try {

@@ -25,6 +25,7 @@
 #include "boost/shared_ptr.hpp"
 #include "boost/thread.hpp"
 #include "boost/make_shared.hpp"
+#include "boost/lambda/lambda.hpp"
 
 #include "bot.h"
 
@@ -65,12 +66,20 @@ class bot_factory {
    */
   boost::shared_ptr<bot> create_bot(const std::string& configuration)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
-    boost::shared_ptr<bot> bot = boost::make_shared<bot>(&io_service_);
-    bot->loadConfiguration(configuration);
-    return bot;
+    boost::shared_ptr<bot> b = boost::make_shared<bot>(&io_service_);
+    b->callback_ = boost::bind(&bot_factory::echo_cb, this, _1, _2, _3);
+    b->loadConfiguration(configuration);
+    return b;
   }
 
  private:
+  void echo_cb(const std::string& id,
+               const std::string& k, const std::string& v) {
+    if (k == "log") {
+      std::cout << v << std::flush;
+    }
+  }
+
   boost::asio::io_service io_service_;
   boost::asio::io_service::work work_;
   boost::thread_group worker_threads_;
