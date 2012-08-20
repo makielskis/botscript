@@ -350,7 +350,15 @@ class http_source {
         } else if (boost::starts_with(header_to_lower, "set-cookie: ")) {
           readCookies(header.substr(12, header.length() - 13));
         } else if (boost::starts_with(header_to_lower, "content-length: ")) {
-          content_length_ = std::atoi(header_to_lower.substr(16).c_str());
+          try {
+            content_length_ = boost::lexical_cast<int>(
+                header_to_lower.substr(16, header_to_lower.length() - 17));
+          } catch (const boost::bad_lexical_cast& e) {
+            throw std::ios_base::failure("read (contentlength parse) error");
+          }
+          if (content_length_ < 0 || content_length_ >= 0x200000) {
+            throw std::ios_base::failure("read (contentlength range) error");
+          }
         } else if (boost::starts_with(header_to_lower, "transfer-encoding: ")) {
           transfer_encoding_chunked_ = header.substr(19, 7) == "chunked";
         } else if (boost::starts_with(header_to_lower, "content-encoding: ")) {
