@@ -384,7 +384,7 @@ class http_source {
       }
 
       // Read incoming bytes if any.
-      size_t to_transfer = 0;
+      int to_transfer = 0;
       if (transfer_all_) {
         to_transfer = content_length_;
       } else {
@@ -392,7 +392,7 @@ class http_source {
                                requested_bytes_ - bytes_transferred_);
       }
 
-      if (to_transfer == 0) {
+      if (to_transfer <= 0) {
         if (content_length_ == 0) {
           finishTransfer();
         }
