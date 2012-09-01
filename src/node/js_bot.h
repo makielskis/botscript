@@ -27,6 +27,7 @@
 #include "boost/shared_ptr.hpp"
 #include "boost/make_shared.hpp"
 #include "boost/lambda/lambda.hpp"
+#include "boost/tuple/tuple.hpp"
 #include "node.h"
 
 #include "../bot.h"
@@ -237,6 +238,9 @@ class async_call_callback : public async_action {
 /// js_bot wraps the botscript::bot class for Node.js
 class js_bot : public node::ObjectWrap {
  public:
+
+  typedef boost::tuples::tuple<std::string, std::string, std::string> upd_msg;
+
   /**
    * Creates a new wrapped bot.
    *
@@ -260,6 +264,10 @@ class js_bot : public node::ObjectWrap {
     // Register isolated loadPackages() function.
     target->Set(v8::String::NewSymbol("loadPackages"),
         v8::FunctionTemplate::New(loadPackages)->GetFunction());
+
+    // Register isolated updates() getter function.
+    target->Set(v8::String::NewSymbol("updates"),
+        v8::FunctionTemplate::New(bot_get_updates)->GetFunction());
 
     // Register Bot symbol.
     v8::Local<v8::FunctionTemplate> tpl = v8::FunctionTemplate::New(New);
@@ -477,14 +485,41 @@ class js_bot : public node::ObjectWrap {
   }
 
   void call_callback(std::string id, std::string k, std::string v) {
-    async_call_callback* call_callback = new async_call_callback(callback_,
-                                                                 id, k ,v);
-    async_action::invoke(call_callback);
+    boost::lock_guard<boost::mutex> lock(update_queue_mutex_);
+    update_queue_.push_back(upd_msg(id, k, v));
+  }
+
+  static v8::Handle<v8::Value> bot_get_updates(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    v8::Handle<v8::Array> array = v8::Array::New(update_queue_.size());
+    int index = 0;
+    boost::lock_guard<boost::mutex> lock(update_queue_mutex_);
+    std::for_each(update_queue_.begin(), update_queue_.end(),
+                  [&array, &index](const upd_msg& msg){
+                    v8::Handle<v8::Object> jsObject = v8::Object::New();
+                    jsObject->Set(v8::String::New("id"),
+                                  v8::String::New(msg.get<0>().c_str()));
+                    jsObject->Set(v8::String::New("key"),
+                                  v8::String::New(msg.get<1>().c_str()));
+                    jsObject->Set(v8::String::New("value"),
+                                  v8::String::New(msg.get<2>().c_str()));
+
+                    array->Set(index++, jsObject);
+                  });
+    update_queue_.clear();
+
+    return scope.Close(array);
   }
 
   boost::shared_ptr<botscript::bot> bot_;
   v8::Persistent<v8::Function> callback_;
+  static std::deque<upd_msg> update_queue_;
+  static boost::mutex update_queue_mutex_;
 };
+
+std::deque<js_bot::upd_msg> js_bot::update_queue_;
+boost::mutex js_bot::update_queue_mutex_;
 
 }  // namespace node_bot
 }  // namespace botscript

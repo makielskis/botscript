@@ -184,6 +184,7 @@ class http_source {
       bytes_transferred_ += buffer_size;
       response_buffer_.consume(buffer_size);
       content_length_ -= buffer_size;
+      return response_content_;
     } else {
       // Do transfer.
       io_service_->reset();
@@ -349,7 +350,17 @@ class http_source {
         } else if (boost::starts_with(header_to_lower, "set-cookie: ")) {
           readCookies(header.substr(12, header.length() - 13));
         } else if (boost::starts_with(header_to_lower, "content-length: ")) {
-          content_length_ = std::atoi(header_to_lower.substr(16).c_str());
+          try {
+            content_length_ = boost::lexical_cast<int>(
+                header_to_lower.substr(16, header_to_lower.length() - 17));
+          } catch (const boost::bad_lexical_cast& e) {
+            throw std::ios_base::failure("read (contentlength parse) error");
+          }
+
+          // Check parse result: not negativ and <= 2MB
+          if (content_length_ < 0 || content_length_ >= 0x200000) {
+            throw std::ios_base::failure("read (contentlength range) error");
+          }
         } else if (boost::starts_with(header_to_lower, "transfer-encoding: ")) {
           transfer_encoding_chunked_ = header.substr(19, 7) == "chunked";
         } else if (boost::starts_with(header_to_lower, "content-encoding: ")) {
@@ -375,7 +386,7 @@ class http_source {
         size_t buffer_size = response_buffer_.size();
         const char* buf =
                 boost::asio::buffer_cast<const char*>(response_buffer_.data());
-        response_content_.resize(bytes_transferred_ + buffer_size);
+        response_content_.resize(bytes_transferred_ + buffer_size + 1);
         std::memcpy(&(response_content_[bytes_transferred_]), buf, buffer_size);
         bytes_transferred_ += buffer_size;
         response_buffer_.consume(buffer_size);
@@ -383,7 +394,7 @@ class http_source {
       }
 
       // Read incoming bytes if any.
-      size_t to_transfer = 0;
+      int to_transfer = 0;
       if (transfer_all_) {
         to_transfer = content_length_;
       } else {
@@ -391,7 +402,7 @@ class http_source {
                                requested_bytes_ - bytes_transferred_);
       }
 
-      if (to_transfer == 0) {
+      if (to_transfer <= 0) {
         if (content_length_ == 0) {
           finishTransfer();
         }
@@ -628,7 +639,7 @@ class request : boost::noncopyable {
           const std::string& proxy_host)
     throw(std::ios_base::failure)
     : src_(host, port, path, method, headers,
-          content, content_length, proxy_host, &io_service_),
+           content, content_length, proxy_host, &io_service_),
       s_(boost::ref(src_)) {
   }
 

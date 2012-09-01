@@ -25,6 +25,7 @@
 #include "boost/shared_ptr.hpp"
 #include "boost/thread.hpp"
 #include "boost/make_shared.hpp"
+#include "boost/lambda/lambda.hpp"
 
 #include "bot.h"
 
@@ -55,31 +56,6 @@ class bot_factory {
   }
 
   /**
-   * Creats a bot.
-   *
-   * \param username the login username
-   * \param password the login password
-   * \param package the lua scrip package
-   *                 (contains at least servers.lua and base.lua)
-   * \param server the server address to use
-   * \param proxy the proxy to use (empty for direct connection).
-   *              (only the first proxy in a list will be checked!)
-   * \exception lua_exception if loading a module or login script failes
-   * \exception bad_login_exception if logging in fails
-   * \exception invalid_proxy_exception if we could not connect to the proxy
-   * \return the bot wrapped by a shared pointer
-   */
-  boost::shared_ptr<bot> create_bot(const std::string& username,
-                                    const std::string& password,
-                                    const std::string& package,
-                                    const std::string& server,
-                                    const std::string& proxy)
-  throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
-    return boost::make_shared<bot>(username, password, package, server, proxy,
-                                   &io_service_);
-  }
-
-  /**
    * Creats a bot with the given configuration.
    *
    * \param configuration JSON configuration string
@@ -90,10 +66,20 @@ class bot_factory {
    */
   boost::shared_ptr<bot> create_bot(const std::string& configuration)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
-    return boost::make_shared<bot>(configuration, &io_service_);
+    boost::shared_ptr<bot> b = boost::make_shared<bot>(&io_service_);
+    b->callback_ = boost::bind(&bot_factory::echo_cb, this, _1, _2, _3);
+    b->loadConfiguration(configuration);
+    return b;
   }
 
  private:
+  void echo_cb(const std::string& id,
+               const std::string& k, const std::string& v) {
+    if (k == "log") {
+      std::cout << v << std::flush;
+    }
+  }
+
   boost::asio::io_service io_service_;
   boost::asio::io_service::work work_;
   boost::thread_group worker_threads_;

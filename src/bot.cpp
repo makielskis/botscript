@@ -48,16 +48,6 @@
 
 #include "./lua_connection.h"
 
-namespace std {
-
-// round() is missing in C++ until C++ 2011 standard.
-// But we have one!
-double round(double r) {
-  return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
-}
-
-}  // namespace std
-
 namespace botscript {
 
 // Initialization of the static bot class attributes.
@@ -249,7 +239,6 @@ bot::~bot() {
   stopped_ = true;
   lua_connection::remove(identifier_);
   BOOST_FOREACH(module* module, modules_) {
-    module->shutdown();
     delete module;
   }
 }
@@ -500,9 +489,7 @@ void bot::log(int type, const std::string& source, const std::string& message) {
 }
 
 void bot::callback(std::string id, std::string k, std::string v) {
-  if (callback_ != NULL) {
-    callback_(id, k, v);
-  }
+  callback_(id, k, v);
 }
 
 std::string bot::log_msgs() {
