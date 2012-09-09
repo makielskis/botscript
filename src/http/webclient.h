@@ -187,7 +187,7 @@ class webclient : boost::noncopyable {
 
     // Create parameters string.
     std::vector<std::pair<std::string, std::string> > form_params =
-            getParameters(form, submit, false);
+        getParameters(form, submit, false);
     std::string params_str;
     typedef std::pair<std::string, std::string> str_pair;
     BOOST_FOREACH(str_pair param, form_params) {
@@ -302,9 +302,9 @@ class webclient : boost::noncopyable {
 
       // Do web request.
       http::request r(host, proxy_port_.empty() ? port : proxy_port_,
-                           path, method, headers_,
-                           !redirect_count ? content : NULL,
-                           !redirect_count ? content_length : 0, proxy_host_);
+                      path, method, headers_,
+                      !redirect_count ? content : NULL,
+                      !redirect_count ? content_length : 0, proxy_host_);
       std::string response = r.do_request(timeout_);
 
       // Store cookies.
