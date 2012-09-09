@@ -7,7 +7,7 @@ It comes with a handy Node.js API that can be used to build
 nifty user interfaces or other services around botscript.
 
 Botscript makes heavy use of the Boost C++ extensions.  
-Other external libraries used are: Lua 5.2, pugixml 1.0 and HTML Tidy.
+Other external libraries used are: Lua 5.2, pugixml 1.0, rapidjson and HTML Tidy.
 
 Build external libraries
 ------------------------
@@ -21,7 +21,7 @@ You need either to be root or prepend `sudo` to use `apt-get`.
   - Get zlib-dev for boost-iostreams: `apt-get install libz-dev`
   - Download Boost (>= 1.48.0) from boost.org
   - Build bjam according to the Boost introductions (`sh ./bootstrap.sh`).
-  - `NO_BZIP2=1 ./b2 --layout=system --with-system --with-python --with-thread --with-regex --with-iostreams --with-filesystem cxxflags=-fPIC variant=release link=static threading=multi runtime-link=static`
+  - `NO_BZIP2=1 ./b2 --layout=system --with-system --with-thread --with-regex --with-iostreams --with-filesystem cxxflags=-fPIC variant=release link=static threading=multi runtime-link=static`
 
 ### Lua 5.2
   - Get readline: `apt-get install libreadline-dev`
