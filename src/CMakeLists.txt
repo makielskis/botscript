@@ -12,6 +12,7 @@ SET (CMAKE_CXX_FLAGS                "-std=c++0x")
 #SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 add_executable(botscript main.cpp lua_connection.cpp bot.cpp module.cpp)
+add_executable(download download.cpp)
 
 include_directories(${BOOST_PATH})
 include_directories("../external_lib/rapidjson-r64/include")
@@ -20,5 +21,7 @@ include_directories("../external_lib/tidy/include")
 include_directories("../external_lib/pugixml-1.0/src")
 
 set_target_properties(botscript PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
+set_target_properties(download PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 
 target_link_libraries(botscript boost_system boost_thread boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml lua dl z)
+target_link_libraries(download boost_system boost_regex boost_iostreams boost_filesystem z -pthread)
