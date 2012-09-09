@@ -35,9 +35,15 @@ int main(int argc, char* argv[]) {
   using http::http_source;
   typedef boost::reference_wrapper<http_source> http_stream_ref;
 
+  std::string proxy_host = "localhost";
+  std::string proxy_port = "3128";
+
   std::string host = "pugixml.googlecode.com";
   std::string port = "80";
   std::string path = "/files/pugixml-0.1.zip";
+
+  path = "http://pugixml.googlecode.com/files/pugixml-0.1.zip";
+
   int method = http_source::GET;
   std::map<std::string, std::string> headers;
   boost::asio::io_service io_service;
@@ -46,9 +52,10 @@ int main(int argc, char* argv[]) {
   std::ofstream response;
   response.open("test.zip");
 
-  http_source src_(host, port, path, method, headers, NULL, 0, "", &io_service);
+  http_source src_(proxy_host.empty() ? host : proxy_host,
+                   proxy_port.empty() ? port : proxy_port,
+                   path, method, headers, NULL, 0, "", &io_service);
   boost::iostreams::stream<http_stream_ref> s_(boost::ref(src_));
-  src_.read(timeout);
   boost::iostreams::copy(s_, response);
 
   io_service.run();
