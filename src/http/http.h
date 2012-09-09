@@ -95,6 +95,7 @@ class http_source {
       content_encoding_gzip_(false),
       transfer_encoding_chunked_(false),
       content_length_(0),
+      content_length_read_(0),
       bytes_transferred_(0),
       requested_bytes_(0),
       transfer_all_(false),
@@ -124,19 +125,16 @@ class http_source {
    */
   std::streamsize read(char_type* s, std::streamsize n)
   throw(std::ios_base::failure) {
-    // Check for empty response buffer.
-    if (response_content_.size() == 0) {
-      return 0;
-    }
-
     if (!transfer_finished_) {
       // Fill buffer.
       requested_bytes_ = n;
       io_service_->reset();
       if (transfer_encoding_chunked_) {
         handleReadChunkSize(boost::system::error_code(), 0);
-      } else {
+      } else if (content_length_read_) {
         handleRead(boost::system::error_code(), 0);
+      } else {
+        handleReadUntilClose(boost::system::error_code(), 0);
       }
       io_service_->run();
     }
@@ -168,12 +166,12 @@ class http_source {
     }
 
     // Nothing to transfer - return empty buffer.
-    if (!transfer_encoding_chunked_ && !content_length_) {
+    if (content_length_read_ && content_length_ == 0) {
       response_content_.clear();
       return response_content_;
     }
 
-    if (!transfer_encoding_chunked_ &&
+    if (!transfer_encoding_chunked_ && content_length_read_ &&
         response_buffer_.size() == content_length_) {
       // Copy bytes already transferred if this was all.
       size_t buffer_size = response_buffer_.size();
@@ -191,8 +189,10 @@ class http_source {
       transfer_all_ = true;
       if (transfer_encoding_chunked_) {
         handleReadChunkSize(boost::system::error_code(), 0);
-      } else {
+      } else if (content_length_read_) {
         handleRead(boost::system::error_code(), 0);
+      } else {
+        handleReadUntilClose(boost::system::error_code(), 0);
       }
     }
 
@@ -361,6 +361,8 @@ class http_source {
           if (content_length_ < 0 || content_length_ >= 0x200000) {
             throw std::ios_base::failure("read (contentlength range) error");
           }
+
+          content_length_read_ = true;
         } else if (boost::starts_with(header_to_lower, "transfer-encoding: ")) {
           transfer_encoding_chunked_ = header.substr(19, 7) == "chunked";
         } else if (boost::starts_with(header_to_lower, "content-encoding: ")) {
@@ -386,7 +388,7 @@ class http_source {
         size_t buffer_size = response_buffer_.size();
         const char* buf =
                 boost::asio::buffer_cast<const char*>(response_buffer_.data());
-        response_content_.resize(bytes_transferred_ + buffer_size + 1);
+        response_content_.resize(bytes_transferred_ + buffer_size);
         std::memcpy(&(response_content_[bytes_transferred_]), buf, buffer_size);
         bytes_transferred_ += buffer_size;
         response_buffer_.consume(buffer_size);
@@ -421,6 +423,46 @@ class http_source {
       content_length_ -= to_transfer;
     } else {
       throw std::ios_base::failure("read (content) error");
+    }
+  }
+
+  void handleReadUntilClose(const boost::system::error_code& ec,
+                            std::size_t bytes_transferred)
+  throw(std::ios_base::failure) {
+    if (!ec || ec == boost::asio::error::eof) {
+      // Copy transferred bytes from response buffer to stream buffer.
+      if (response_buffer_.size() > 0) {
+        size_t buffer_size = response_buffer_.size();
+        const char* buf =
+            boost::asio::buffer_cast<const char*>(response_buffer_.data());
+        response_content_.resize(bytes_transferred_ + buffer_size);
+        std::memcpy(&(response_content_[bytes_transferred_]), buf, buffer_size);
+        bytes_transferred_ += buffer_size;
+        response_buffer_.consume(buffer_size);
+      }
+    } else {
+      throw std::ios_base::failure("read (until close) error");
+    }
+
+    // Finish transfer on EOF.
+    if (ec == boost::asio::error::eof) {
+      finishTransfer();
+      return;
+    }
+
+    // Transfer next part if requested.
+    if (transfer_all_ || response_content_.size() < requested_bytes_) {
+      // Start timeout if no global timeout is used.
+      if (!transfer_all_) {
+        startTimeout(30);
+      }
+
+      // Continue reading remaining data until EOF.
+      boost::asio::async_read(socket_, response_buffer_,
+          boost::asio::transfer_at_least(1),
+          boost::bind(&http_source::handleReadUntilClose, this,
+                      boost::asio::placeholders::error,
+                      boost::asio::placeholders::bytes_transferred));
     }
   }
 
@@ -613,6 +655,7 @@ class http_source {
   bool content_encoding_gzip_;
   bool transfer_encoding_chunked_;
   int content_length_;
+  bool content_length_read_;
   std::string response_location_;
   size_t bytes_transferred_;
   std::vector<char> response_content_;
