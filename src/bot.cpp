@@ -138,7 +138,12 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   // Set proxy - if a proxy was used the bot is already logged in.
   setProxy(proxy, check_only_first, login_trys);
   if (proxy.empty()) {
-    lua_connection::login(this, username_, password_, package_);
+    try {
+      lua_connection::login(this, username_, password_, package_);
+    } catch(const lua_exception& e) {
+      log(ERROR, "base", e.what());
+      throw e;
+    }
   }
 
   // Load modules
@@ -177,7 +182,6 @@ bool bot::checkProxy(std::string proxy, int login_trys) {
   webclient_.proxy(proxy_split[0], proxy_split[1]);
 
   // Try to login.
-  std::cout << login_trys << " login trys\n";
   for (int i = 0; i < login_trys; i++) {
     try {
       std::string t = boost::lexical_cast<std::string>(i + 1);
@@ -202,6 +206,7 @@ throw(invalid_proxy_exception) {
 
   // Use direct connection for empty proxy.
   if (proxy.empty()) {
+    log(INFO, "base", "setting no proxy");
     webclient_.proxy("", "");
     return;
   }
@@ -241,6 +246,7 @@ bot::~bot() {
   BOOST_FOREACH(module* module, modules_) {
     delete module;
   }
+  std::cout << identifier_ << " deleted\n";
 }
 
 std::string bot::configuration(bool with_password) {
