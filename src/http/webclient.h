@@ -39,6 +39,7 @@
 #include "pugixml.hpp"
 
 #include "./http.h"
+#include "./useragents.h"
 
 #define MAX_REDIRECTS 3
 
@@ -339,17 +340,7 @@ class webclient : boost::noncopyable {
   }
 
   std::map<std::string, std::string> randomHeaders() {
-    std::map<std::string, std::string> headers;
-    headers["User-Agent"]      = "Mozilla/5.0 (Windows; U; Windows NT 6.1; de;"\
-                                 "rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8";
-    headers["Accept"]          = "text/html,image/*,application/xhtml+xml,"\
-                                 "application/xml;q=0.9,*/*;q=0.8";
-    headers["Accept-Language"] = "de-de,de;q=0.8,en-us;q=0.5,en;q=0.3";
-    headers["Accept-Encoding"] = "gzip,deflate";
-    headers["Accept-Charset"]  = "ISO-8859-1,utf-8;q=0.7,*;q=0.7";
-    headers["Keep-Alive"]      = "115";
-    headers["Connection"]      = "keep-alive";
-    return headers;
+    return useragents::random_ua();
   }
 
   void storeCookies(const std::map<std::string, std::string>& cookies) {
@@ -489,9 +480,9 @@ class webclient : boost::noncopyable {
           for (pugi::xml_node::iterator options = iter->begin();
                options != iter->end(); options++) {
             if (options->attribute("selected").as_bool()) {
-              parameters.push_back(
-                      std::pair<std::string, std::string > (name,
-                              options->attribute("value").value()));
+              std::pair<std::string, std::string> param = std::make_pair(name,
+                  options->attribute("value").value());
+              parameters.push_back(param);
             }
           }
         }
@@ -508,7 +499,7 @@ class webclient : boost::noncopyable {
 
   std::string urlEncode(const std::string &s) {
     const std::string unreserved = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"\
-            "abcdefghijklmnopqrstuvwxyz0123456789-_.~";
+        "abcdefghijklmnopqrstuvwxyz0123456789-_.~";
 
     std::string escaped = "";
     for (size_t i = 0; i < s.length(); i++) {
