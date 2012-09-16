@@ -48,6 +48,7 @@
 
 namespace http {
 
+
 /**
  * Boost.Iostreams HTTP source stream.
  * \sa request class for convenience usage
@@ -103,6 +104,7 @@ class http_source {
     buildRequest(host, path, method, content, content_length,
                  headers, !proxy_host.empty());
 
+    startTimeout(5);
     boost::asio::ip::tcp::resolver::query query(
             proxy_host.empty() ? host : proxy_host, port);
     resolver_.async_resolve(query,
@@ -217,6 +219,17 @@ class http_source {
   std::string& location() { return response_location_; }
 
  private:
+  const char* strnchr(const char* s, int c, int n) {
+	  while (n--) {
+		  if (*s == c) {
+         return s;
+      } else {
+        ++s;
+      }
+    }
+	  return NULL;
+  }
+
   void buildRequest(const std::string host, const std::string path,
                     const int method,
                     const void* content, const size_t content_length,
@@ -517,7 +530,7 @@ class http_source {
           // Remove this chunk from the response buffer and continue reading.
           response_buffer_.consume(chunksize);
           std::size_t buf_length = response_buffer_.size();
-          if (buf_length <= 2) {
+          if (buf_length <= 3) {
             handleReadChunked(boost::system::error_code(), 0);
             return;
           }
@@ -526,7 +539,7 @@ class http_source {
           // Check if this is a full chunk size declaration.
           const char* buf =
                 boost::asio::buffer_cast<const char*>(response_buffer_.data());
-          if (std::strchr(buf + 2, '\n') == NULL) {
+          if (strnchr(buf + 2, '\n', buf_length - 2) == NULL) {
             // Transfer missing bytes
             handleReadChunked(boost::system::error_code(), 0);
             return;
