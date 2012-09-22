@@ -29,7 +29,7 @@ namespace http {
 /// Class providing random useragent identification headers.
 class useragents {
  public:
-  enum { IE8_WINXP };
+  enum { FF_WINXP, IE8_WIN7, OPERA_WINXP };
 
   /// Convenience alias for header key value map.
   typedef std::map<std::string, std::string> header;
@@ -56,11 +56,11 @@ class useragents {
    * \param id the id of the useragent
    * \return the header of the specified useragent
    */
-  static header ua(int id) {
+  static header ua(const int id) {
     header h;
 
     switch(id) {
-      case FF_WINXP
+      case FF_WINXP:
         h["User-Agent"] = "Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8";
         h["Accept"] = "text/html,image/*,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
         h["Accept-Language"] = "de-de,de;q=0.8,en-us;q=0.5,en;q=0.3";
