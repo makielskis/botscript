@@ -78,12 +78,10 @@ void bot::shutdown() {
     std::cerr << "fatal: don't call shutdown() twice\n";
     return;
   }
-
-  log(INFO, "base", "shutting down - destructing modules");
   stopped_ = true;
+  log(INFO, "base", "shutting down - destructing modules");
 
-  // Remove identifier from lua_connection.
-  lua_connection::remove(identifier_);
+  // Delete modules.
   BOOST_FOREACH(module* module, modules_) {
     delete module;
   }
@@ -93,11 +91,14 @@ void bot::shutdown() {
   log(INFO, "base", "shutting down - waiting for state to turn zero");
   boost::unique_lock<boost::mutex> state_lock(state_mutex_);
   while (state_ != 0x00) {
-    std::stringstream s;
-    s << "state: " << static_cast<int>(state_);
-    log(INFO, "base", s.str());
+    log(INFO, "base",
+        std::string("state: ") + boost::lexical_cast<std::string>(state_));
     state_cond_.wait(state_lock);
   }
+
+  // Remove identifier from lua_connection.
+  lua_connection::remove(identifier_);
+
   log(INFO, "base", "shutdown completed");
 }
 
