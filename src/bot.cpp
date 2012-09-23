@@ -59,18 +59,68 @@ boost::mutex bot::log_mutex_;
 bot::bot(boost::asio::io_service* io_service)
   : wait_time_factor_(1),
     stopped_(false),
+    state_(0x00),
     connection_status_(1),
     io_service_(io_service) {
   status_["base_wait_time_factor"] = "1";
 }
 
+bot::~bot() {
+  if (!stopped_) {
+    std::cerr << "error: no shutdown() before bot::~bot()\n";
+    shutdown();
+  }
+  std::cout << identifier_ << " deleted\n";
+}
+
+void bot::shutdown() {
+  log(INFO, "base", "shutting down - destructing modules");
+  stopped_ = true;
+
+  // Remove identifier from lua_connection.
+  lua_connection::remove(identifier_);
+  BOOST_FOREACH(module* module, modules_) {
+    delete module;
+  }
+  modules_.clear();
+
+  // Wait for operations to finish.
+  log(INFO, "base", "shutting down - waiting for state to turn zero");
+  boost::unique_lock<boost::mutex> state_lock(state_mutex_);
+  while (state_ != 0x00) {
+    state_cond_.wait(state_lock);
+  }
+  log(INFO, "base", "shutdown completed");
+}
+
+void bot::state_on(char s) {
+  boost::lock_guard<boost::mutex> lock(state_mutex_);
+  state_ |= s;
+  state_cond_.notify_all();
+}
+
+void bot::state_off(char s) {
+  boost::lock_guard<boost::mutex> lock(state_mutex_);
+  state_ &= s;
+  state_cond_.notify_all();
+}
+
 void bot::loadConfiguration(const std::string& configuration, int login_tries)
 throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
+  // Prevent execution when bot is already stopped.
+  if (stopped_) {
+    return;
+  }
+
+  // Make sure the bot won't stop while execution.
+  on_off_lock oolock(LOAD_ON, LOAD_OFF, this);
+
   rapidjson::Document document;
   if (document.Parse<0>(configuration.c_str()).HasParseError()) {
     // Configuration is not valid JSON. This should NOT happen!
   }
 
+  // Check if all necessary configuration values are available.
   if (!document.HasMember("username") ||
       !document.HasMember("password") ||
       !document.HasMember("package") ||
@@ -240,15 +290,6 @@ throw(invalid_proxy_exception) {
   }
 }
 
-bot::~bot() {
-  stopped_ = true;
-  lua_connection::remove(identifier_);
-  BOOST_FOREACH(module* module, modules_) {
-    delete module;
-  }
-  std::cout << identifier_ << " deleted\n";
-}
-
 std::string bot::configuration(bool with_password) {
   // Lock for status r/w access.
   boost::lock_guard<boost::mutex> lock(status_mutex_);
@@ -304,10 +345,16 @@ std::string bot::configuration(bool with_password) {
 }
 
 void bot::execute(const std::string& command, const std::string& argument) {
-  boost::lock_guard<boost::mutex> lock(execute_mutex_);
+  // Prevent execution when bot is already stopped.
   if (stopped_) {
     return;
   }
+
+  // Make sure the bot won't stop while execution.
+  on_off_lock oolock(EXEC_ON, EXEC_OFF, this);
+
+  // Lock to prevent parallel execution.
+  boost::lock_guard<boost::mutex> lock(execute_mutex_);
 
   // Handle wait time factor command.
   if (command == "base_set_wait_time_factor") {

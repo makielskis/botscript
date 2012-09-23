@@ -3,27 +3,38 @@ var net = require('net');
 
 var addon = require('../build/Release/addon.node');
 
+bots = {};
 function callback(id, k, v) {
   if (k == 'log') {
     console.log(v.substring(0, v.length - 1));
   }
 }
-
-var bots = {};
+function pull_updates() {
+  var updates = addon.updates();
+  for (var i in updates) {
+    var id = updates[i].id;
+    var k = updates[i].key;
+    var v = updates[i].value;
+    callback(id, k, v);
+  }
+}
+setInterval(pull_updates, 100, this);
 
 var server = net.createServer(function (socket) {
   socket.write('Echo!\r\n');
-  bots['bot'] = undefined;
-  delete bots['bot'];
-//  if (global.gc) {
-//    console.log("GC!")
-//    global.gc()
-//  }
+  bots['bot'].shutdown(function() {
+    console.log("removing bot");
+    bots['bot'] = undefined;
+    delete bots['bot'];
+    if (global.gc) {
+      console.log("GC!");
+      global.gc();
+    }
+  });
   socket.pipe(socket);
 });
 
 server.listen(1337, '127.0.0.1');
-
 
 addon.loadPackages("packages", function(err, packages) {
   var packages_nice = JSON.stringify(JSON.parse(packages), ' ', 3);
@@ -51,7 +62,7 @@ addon.createIdentifier("oclife", "packages/pg", "http://www.pennergame.de", func
       console.log("yeah! " + bots['bot'].identifier());
       bots['bot'].configuration(function(err, config) {
         var config_nice = JSON.stringify(JSON.parse(config), ' ', 3);
-        //console.log("\nCONFIGURATION: " + config_nice + "\n");
+        // console.log("\nCONFIGURATION: " + config_nice + "\n");
       });
       //console.log("\nLOG: " + bot.log() + "\n");
     } else {

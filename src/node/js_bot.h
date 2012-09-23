@@ -89,6 +89,29 @@ class async_load : public async_action {
   std::string error_;
 };
 
+class async_shutdown : public async_action {
+ public:
+  async_shutdown(boost::shared_ptr<botscript::bot> bot,
+                 v8::Handle<v8::Value> callback)
+    : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
+      bot_(bot) {
+  }
+
+  void background() {
+    bot_->shutdown();
+  }
+
+  void foreground() {
+    v8::HandleScope scope;
+    v8::Local<v8::Value> args[0] = {};
+    callback_->Call(v8::Undefined().As<v8::Object>(), 0, args);
+  }
+
+ private:
+  v8::Persistent<v8::Function> callback_;
+  boost::shared_ptr<botscript::bot> bot_;
+};
+
 class async_execute : public async_action {
  public:
   async_execute(boost::shared_ptr<botscript::bot> bot,
@@ -249,8 +272,7 @@ class js_bot : public node::ObjectWrap {
   explicit js_bot(boost::shared_ptr<botscript::bot> bot) : bot_(bot) {
   }
 
-  /// DEBUG DESTRUCTOR - remove for productive use
-  // TODO(felix) remove
+  /// Destructor (currently for debugging purposes only).
   ~js_bot() {
     std::cerr << "deleting " << bot_->identifier() << "\n";
   }
@@ -277,6 +299,10 @@ class js_bot : public node::ObjectWrap {
     // Register loadConfiguration member function.
     tpl->InstanceTemplate()->Set(v8::String::NewSymbol("load"),
         v8::FunctionTemplate::New(bot_load)->GetFunction());
+
+    // Register shutdown member function.
+    tpl->InstanceTemplate()->Set(v8::String::NewSymbol("shutdown"),
+        v8::FunctionTemplate::New(bot_shutdown)->GetFunction());
 
     // Register execute member function.
     tpl->InstanceTemplate()->Set(v8::String::NewSymbol("execute"),
@@ -427,6 +453,25 @@ class js_bot : public node::ObjectWrap {
     // Execute command asynchronously.
     async_load* load = new async_load(args[1], jsbot_ptr->bot(),
                                       v8String2stdString(args[0]));
+    async_action::invoke(load);
+
+    return scope.Close(v8::Undefined());
+  }
+
+  static v8::Handle<v8::Value> bot_shutdown(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    // Check aruguments.
+    if (!args[0]->IsFunction()) {
+      v8::ThrowException(v8::Exception::TypeError(
+                            v8::String::New("Wrong argument")));
+    }
+
+    // Unwrap bot.
+    js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
+
+    // Execute command asynchronously.
+    async_shutdown* load = new async_shutdown(jsbot_ptr->bot(), args[0]);
     async_action::invoke(load);
 
     return scope.Close(v8::Undefined());

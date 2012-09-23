@@ -48,6 +48,11 @@ namespace botscript {
 
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
+#define LOAD_ON  (0x01) // 0000 0001
+#define LOAD_OFF (0xFE) // 1111 1110
+#define EXEC_ON  (0x02) // 0000 0010
+#define EXEC_OFF (0xFD) // 1111 1101
+
 class module;
 
 /// Bot class.
@@ -68,7 +73,19 @@ class bot : boost::noncopyable {
    */
   bot(boost::asio::io_service* io_service);
 
+  /**
+   * Destructor.
+   *
+   * Will do shutdown() if not already executed.
+   * Call shutdown() yourself if you want to prevent blocking in the destructor.
+   */
   virtual ~bot();
+
+  /**
+   * Stops all actions, will block until all actions are stopped.
+   * After this the bot won't do anything. Ready for destruction.
+   */
+  void shutdown();
 
   /**
    * Loads the JSON configuration and initializes the bot.
@@ -204,12 +221,32 @@ class bot : boost::noncopyable {
   update_callback callback_;
 
  private:
+  class on_off_lock {
+   public:
+    on_off_lock(char on_mask, char off_mask, bot* bot)
+      : off_mask_(off_mask),
+        bot_(bot) {
+      bot->state_on(on_mask);
+    }
+
+    ~on_off_lock() {
+      bot_->state_off(off_mask_);
+    }
+
+   private:
+    char off_mask_;
+    bot* bot_;
+  };
+
   void init(const std::string& proxy, int login_trys, bool check_only_first)
   throw(lua_exception, bad_login_exception, invalid_proxy_exception);
 
   bool checkProxy(std::string proxy, int login_trys);
   void setProxy(const std::string& proxy, bool check_only_first, int login_trys)
   throw(invalid_proxy_exception);
+
+  void state_on(char s);
+  void state_off(char s);
 
   void loadModules();
 
@@ -220,8 +257,11 @@ class bot : boost::noncopyable {
   std::string server_;
   std::string identifier_;
   double wait_time_factor_;
-  bool stopped_;
   std::set<module*> modules_;
+  bool stopped_;
+  char state_;
+  boost::mutex state_mutex_;
+  boost::condition_variable state_cond_;
 
   boost::mutex execute_mutex_;
 
