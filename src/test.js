@@ -18,19 +18,27 @@ function pull_updates() {
     callback(id, k, v);
   }
 }
-setInterval(pull_updates, 100, this);
+setInterval(pull_updates, 20, this);
 
-var server = net.createServer(function (socket) {
+deleting = false;
+server = net.createServer(function (socket) {
   socket.write('Echo!\r\n');
-  bots['bot'].shutdown(function() {
-    console.log("removing bot");
-    bots['bot'] = undefined;
-    delete bots['bot'];
-    if (global.gc) {
-      console.log("GC!");
-      global.gc();
-    }
-  });
+  console.log("server called");
+
+  if (!deleting) {
+    deleting = true;
+    console.log("deleting bot");
+    bots['bot'].shutdown(function() {
+      console.log("removing bot");
+      bots['bot'] = undefined;
+      delete bots['bot'];
+      if (global.gc) {
+        console.log("GC!");
+        global.gc();
+      }
+    });
+  }
+
   socket.pipe(socket);
 });
 
@@ -56,15 +64,22 @@ addon.createIdentifier("oclife", "packages/pg", "http://www.pennergame.de", func
   console.log("loading...");
   bots['bot'].load(config, function (err, success) {
     if (!err) {
+      bots['bot'].execute("base_set_proxy", "localhost:1337");
+      console.log(bots['bot'].identifier() + " executed base_set_proxy");
+      bots['bot'].execute("sell_set_amount", "1");
+      console.log(bots['bot'].identifier() + " executed sell_set_amount");
+
+      /*
       bots['bot'].execute("sell_set_amount", "1");
       bots['bot'].execute("sell_set_price", "1000");
       bots['bot'].execute("sell_set_active", "1");
       console.log("yeah! " + bots['bot'].identifier());
       bots['bot'].configuration(function(err, config) {
         var config_nice = JSON.stringify(JSON.parse(config), ' ', 3);
-        // console.log("\nCONFIGURATION: " + config_nice + "\n");
+        console.log("\nCONFIGURATION: " + config_nice + "\n");
       });
-      //console.log("\nLOG: " + bot.log() + "\n");
+      console.log("\nLOG: " + bot.log() + "\n");
+      */
     } else {
       console.log("error: " + err);
     }
