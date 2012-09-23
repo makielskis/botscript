@@ -355,6 +355,7 @@ std::string bot::configuration(bool with_password) {
 void bot::execute(const std::string& command, const std::string& argument) {
   // Prevent execution when bot is already stopped.
   if (stopped_) {
+    std::cerr << "fatal: execution though bot was stopped\n";
     return;
   }
 
