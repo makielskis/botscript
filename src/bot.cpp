@@ -91,8 +91,9 @@ void bot::shutdown() {
   log(INFO, "base", "shutting down - waiting for state to turn zero");
   boost::unique_lock<boost::mutex> state_lock(state_mutex_);
   while (state_ != 0x00) {
+    std::string s = "state: ";
     log(INFO, "base",
-        std::string("state: ") + boost::lexical_cast<std::string>(state_));
+        s + boost::lexical_cast<std::string>(static_cast<int>(state_)));
     state_cond_.wait(state_lock);
   }
 
