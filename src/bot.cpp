@@ -67,13 +67,18 @@ bot::bot(boost::asio::io_service* io_service)
 
 bot::~bot() {
   if (!stopped_) {
-    std::cerr << "error: no shutdown() before bot::~bot()\n";
+    std::cerr << "fatal: no shutdown() before bot::~bot()\n";
     shutdown();
   }
   std::cout << identifier_ << " deleted\n";
 }
 
 void bot::shutdown() {
+  if (stopped_) {
+    std::cerr << "fatal: don't call shutdown() twice\n";
+    return;
+  }
+
   log(INFO, "base", "shutting down - destructing modules");
   stopped_ = true;
 
@@ -88,6 +93,9 @@ void bot::shutdown() {
   log(INFO, "base", "shutting down - waiting for state to turn zero");
   boost::unique_lock<boost::mutex> state_lock(state_mutex_);
   while (state_ != 0x00) {
+    std::stringstream s;
+    s << "state: " << static_cast<int>(state_);
+    log(INFO, "base", s.str());
     state_cond_.wait(state_lock);
   }
   log(INFO, "base", "shutdown completed");
@@ -235,7 +243,7 @@ bool bot::checkProxy(std::string proxy, int login_trys) {
   for (int i = 0; i < login_trys; i++) {
     try {
       std::string t = boost::lexical_cast<std::string>(i + 1);
-      log(INFO, "base", t + ". try - checking proxy - login");
+      log(INFO, "base", t + ". try - checking " + proxy + " - login");
       lua_connection::login(this, username_, password_, package_);
       return true;
     } catch(const bad_login_exception& e) {
