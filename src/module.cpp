@@ -68,17 +68,25 @@ throw(lua_exception)
 module::~module() {
   stop_ = true;
   switch(module_state_) {
-    case WAIT:
+    case WAIT: {
+      bot_->log(bot::INFO, module_name_, "shutdown: stop waiting");
       stop_waiting();
       break;
-    case RUN:
+    }
+    case RUN: {
       boost::unique_lock<boost::mutex> state_lock(state_mutex_);
+      bot_->log(bot::INFO, module_name_, "shutdown: waiting for run to finish");
       while (module_state_ != OFF) {
         state_cond_.wait(state_lock);
       }
       break;
+    }
+    default: {
+      bot_->log(bot::INFO, module_name_, "shutdown: nothing to do");
+    }
   }
   lua_close(lua_state_);
+  bot_->log(bot::INFO, module_name_, "shutdown finished");
 }
 
 void module::applyStatus() {
@@ -249,7 +257,7 @@ void module::execute(const std::string& command, const std::string& argument) {
         }
       }
     } else {
-      // Condition: stop_ flag is not set.
+      // Condition: stop_ flag is set.
       if (start) {
         // Handle START command.
         switch(module_state_) {
