@@ -24,7 +24,6 @@
 #include <string>
 #include <map>
 
-#include "boost/utility.hpp"
 #include "boost/asio/io_service.hpp"
 #include "boost/asio/basic_deadline_timer.hpp"
 #include "boost/thread.hpp"
@@ -76,35 +75,49 @@ class module : boost::noncopyable {
   /*
    * Enum representing the different states the module can be in.
    *
-   * OFF     - The module is off (no action)
-   * RUN     - The module is running (executing the run function)
-   * WAITING - The module has a timer waiting to wake up the run funciton
+   * OFF       - The module is off (no action)
+   * RUN       - The module is running (executing the run function)
+   * STOP_RUN  - The module is running but will be stopped after this run
+   * WAIT      - The module has a timer waiting to wake up the run funciton
    */
-  enum { OFF, RUN, WAIT };
+  enum { OFF, RUN, STOP_RUN, WAIT };
 
-  void state(char new_state);
-  char state();
+  /**
+   * \param s the state to turn into a string
+   * \return the string representation of s
+   */
+  std::string state2s(char s) {
+    switch (s) {
+      case OFF:       return "OFF";
+      case RUN:       return "RUN";
+      case STOP_RUN:  return "STOP_RUN";
+      case WAIT:      return "WAIT";
+      default:        return "UNKNOWN";
+    }
+  }
 
   void applyStatus();
-
-  void stop_waiting();
-
   void run(const boost::system::error_code& ec);
 
-  bool stop_;
+  boost::mutex shutdown_mutex_;
+
   char module_state_;
   boost::condition_variable state_cond_;
   boost::mutex state_mutex_;
+
   bot* bot_;
   boost::asio::io_service* io_service_;
+
   std::string module_name_;
   std::string lua_run_;
   std::string lua_status_;
   std::string lua_active_status_;
+
   lua_State* lua_state_;
-  boost::mutex run_mutex_;
+
   std::map<std::string, std::string> status_;
   boost::mutex status_mutex_;
+
   boost::asio::deadline_timer timer_;
 };
 
