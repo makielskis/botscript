@@ -67,24 +67,31 @@ throw(lua_exception)
 }
 
 module::~module() {
-  boost::unique_lock<boost::mutex> state_lock(state_mutex_);
   boost::lock_guard<boost::mutex> shutdown_lock(shutdown_mutex_);
 
   switch(module_state_) {
     case WAIT: {
       bot_->log(bot::INFO, module_name_, "shutdown: waiting (WAIT)");
-      timer_.cancel();
-      while (module_state_ != OFF) {
-        state_cond_.wait(state_lock);
+      int cancelled = timer_.cancel();
+      if (cancelled > 0) {
+        boost::unique_lock<boost::mutex> state_lock(state_mutex_);
+        while (module_state_ != OFF) {
+          state_cond_.wait(state_lock);
+        }
+      } else {
+        std::cerr << "fatal: cancelled = " << cancelled << "\n";
       }
       break;
     }
 
     case RUN: {
-      module_state_ = STOP_RUN;
       bot_->log(bot::INFO, module_name_, "shutdown: waiting (RUN)");
-      while (module_state_ != OFF) {
-        state_cond_.wait(state_lock);
+      {
+        boost::unique_lock<boost::mutex> state_lock(state_mutex_);
+        module_state_ = STOP_RUN;
+        while (module_state_ != OFF) {
+          state_cond_.wait(state_lock);
+        }
       }
       break;
     }
@@ -122,14 +129,17 @@ void module::applyStatus() {
 void module::run(const boost::system::error_code& ec) {
   // Handle stop.
   if (ec == boost::asio::error::operation_aborted) {
-    // Lock because of write access to module_state_.
-    boost::lock_guard<boost::mutex> lock(state_mutex_);
-    bot_->status(lua_active_status_, "0");
-    module_state_ = OFF;
+    {
+      // Change module state.
+      boost::lock_guard<boost::mutex> lock(state_mutex_);
+      module_state_ = OFF;
+    }
 
-    // Notify everyone waiting for the module to stop.
+    // Inform everyone waiting for the module to stop.
     state_cond_.notify_all();
 
+    // Inform user.
+    bot_->status(lua_active_status_, "0");
     bot_->log(bot::INFO, module_name_, "stop waiting - exit");
     return;
   }
@@ -224,8 +234,6 @@ void module::run(const boost::system::error_code& ec) {
 }
 
 void module::execute(const std::string& command, const std::string& argument) {
-  boost::unique_lock<boost::mutex> state_lock(state_mutex_);
-
   // Stop execute if module is about to shutdown.
   if (!shutdown_mutex_.try_lock()) {
     std::cerr << "fatal: execute(), shutdown_ = true\n";
@@ -236,6 +244,7 @@ void module::execute(const std::string& command, const std::string& argument) {
 
   {
     boost::lock_guard<boost::mutex> lock(shutdown_mutex_);
+    boost::unique_lock<boost::mutex> state_lock(state_mutex_);
 
     if (!boost::starts_with(command, module_name_ + "_set_")) {
       // Don't handle commands for other modules.
@@ -273,9 +282,13 @@ void module::execute(const std::string& command, const std::string& argument) {
         switch(module_state_) {
           case WAIT: {
             bot_->log(bot::INFO, module_name_, "WAIT -> stop: STOP_WAIT");
-            timer_.cancel();
-            while (module_state_ != OFF) {
-              state_cond_.wait(state_lock);
+            int cancelled = timer_.cancel();
+            if (cancelled > 0) {
+              while (module_state_ != OFF) {
+                state_cond_.wait(state_lock);
+              }
+            } else {
+              std::cerr << "fatal: cancelled = " << cancelled << "\n";
             }
             bot_->log(bot::INFO, module_name_, "STOP_WAIT -> OFF");
             bot_->status(lua_active_status_, "0");
