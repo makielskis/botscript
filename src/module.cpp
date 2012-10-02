@@ -259,7 +259,8 @@ void module::execute(const std::string& command, const std::string& argument) {
         // Handle start command.
         switch(module_state_) {
           case OFF: {
-            bot_->log(bot::INFO, module_name_, "OFF -> start: run()");
+            bot_->log(bot::INFO, module_name_, "OFF -> start: RUN");
+            module_state_ = RUN;
             boost::system::error_code ignored;
             io_service_->post(boost::bind(&module::run, this, ignored));
             bot_->status(lua_active_status_, "1");
