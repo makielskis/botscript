@@ -81,9 +81,11 @@ throw(lua_exception) {
   luaL_openlibs(state);
 
   // Execute script.
-  if (0 != luaL_dofile(state, script.c_str())) {
+  int ret;
+  if (0 != (ret = luaL_dofile(state, script.c_str()))) {
+    std::string error = lua_tostring(state, -1);
     lua_close(state);
-    throw lua_exception("could not execute script");
+    throw lua_exception(error);
   }
 
   // Discover module name.
@@ -461,7 +463,7 @@ int lua_connection::m_get_by_xpath(lua_State* state) {
   std::string value;
   try {
     pugi::xml_document doc;
-    pugi::xml_parse_result result = doc.load(str.c_str());
+    doc.load(str.c_str());
     pugi::xpath_query query(xpath);
     value = query.evaluate_string(doc);
   } catch(const pugi::xpath_exception& e) {
