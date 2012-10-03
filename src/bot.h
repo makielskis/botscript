@@ -21,7 +21,6 @@
 #ifndef BOT_H_
 #define BOT_H_
 
-#include <inttypes.h>
 #include <string>
 #include <set>
 #include <vector>
