@@ -15,18 +15,21 @@
       ],
       "ldflags": [
         "-L <(build_path)",
-        "-L <(boost_path)stage/lib/",
-        "-lboost_system",
-        "-lboost_thread",
-        "-lboost_regex",
-        "-lboost_iostreams",
-        "-lboost_filesystem",
-        "-pthread",
-        "-ltidy",
-        "-lpugixml",
-        "-llua",
-        "-lz"
+        "-L <(boost_path)stage/lib/"
       ],
+      "link_settings": {
+        "libraries": [
+          "-lboost_system",
+          "-lboost_thread",
+          "-lboost_regex",
+          "-lboost_iostreams",
+          "-lboost_filesystem",
+          "-ltidy",
+          "-lpugixml",
+          "-llua",
+          "-lz"
+        ]
+      },
       "cflags!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags": [ "-std=c++0x" ],
