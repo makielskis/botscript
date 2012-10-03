@@ -174,7 +174,7 @@ class http_source {
     }
 
     if (!transfer_encoding_chunked_ && content_length_read_ &&
-        response_buffer_.size() == content_length_) {
+        static_cast<int>(response_buffer_.size()) == content_length_) {
       // Copy bytes already transferred if this was all.
       size_t buffer_size = response_buffer_.size();
       const char* buf =
