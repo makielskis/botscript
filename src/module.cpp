@@ -27,13 +27,13 @@ namespace botscript {
 module::module(const std::string& script, bot* bot,
                boost::asio::io_service* io_service)
 throw(lua_exception)
-    : bot_(bot),
+    : module_state_(OFF),
+      bot_(bot),
+      io_service_(io_service),
       lua_run_("run_"),
       lua_status_("status_"),
       lua_state_(NULL),
-      io_service_(io_service),
-      timer_(*io_service),
-      module_state_(OFF) {
+      timer_(*io_service) {
   // Discover module name.
   using boost::filesystem::path;
   std::string filename = path(script).filename().generic_string();
