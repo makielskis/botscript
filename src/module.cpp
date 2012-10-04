@@ -144,7 +144,6 @@ void module::run(const boost::system::error_code& ec) {
 
   // Turn off and inform waiting instances if needed.
   if (new_module_state == OFF) {
-    bot_->log(bot::INFO, module_name_, "run() exiting");
     state_cond_.notify_all();
     return;
   }
@@ -227,6 +226,8 @@ void module::run(const boost::system::error_code& ec) {
     // Lock because of write access to module_state_.
     boost::lock_guard<boost::mutex> lock(state_mutex_);
     bot_->status(lua_active_status_, "0");
+    bot_->log(bot::INFO, module_name_,
+              state2s(module_state_) + " -> run(): OFF");
     module_state_ = OFF;
 
     // Notify everyone waiting for the module to stop.
