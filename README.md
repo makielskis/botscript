@@ -60,10 +60,12 @@ Build BotScript Node.js extension
 
   - Install Node.js following the steps on:
     https://github.com/joyent/node/wiki/Installing-Node.js-via-package-manager
-  - Adjust the Boost path (`BOOST_PATH`) and the current project path (`BUILD_PATH`) in the "wscript" file
-  - Execute `node-waf configure`
-    (or `node-waf configure build` and leave out the next step)
-  - Execute `node-waf build`
+  - Adjust the Boost path (`boost_path`) and the current project path (`build_path`) in the "bindings.gyp" file
+  - We use C++11. An up-to-date compiler is required.
+  - Install node-gyp: `npm install -g node-gyp`
+  - Execute `node-gyp configure`
+    (or `node-gyp configure build` and leave out the next step)
+  - Execute `node-gyp build`
   - Use the resulting addon.node file in `build/Release`
 
 How to Use the BotScript Node.js extension
