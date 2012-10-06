@@ -44,8 +44,8 @@ class useragents {
     seed *= 31;
     seed %= 32768;
 
-    double random = static_cast<double>(rand_r(&seed)) / RAND_MAX;
-    int id = std::round(random * ua_count);
+    double random = static_cast<double>(seed) / 32768;
+    int id = std::floor(random * ua_count);
 
     return ua(id);
   }

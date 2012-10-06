@@ -21,7 +21,6 @@
 #ifndef BOT_H_
 #define BOT_H_
 
-#include <inttypes.h>
 #include <string>
 #include <set>
 #include <vector>
@@ -34,6 +33,7 @@
 #include "boost/filesystem.hpp"
 #include "boost/asio/io_service.hpp"
 #include "boost/function.hpp"
+#include "boost/date_time/posix_time/posix_time.hpp"
 
 #include "./module.h"
 #include "./http/webclient.h"
@@ -58,7 +58,7 @@ class module;
 /// Bot class.
 class bot : boost::noncopyable {
  public:
-  enum { INFO, ERROR };
+  enum { BS_LOG_NFO, BS_LOG_ERR };
 
   typedef boost::function<void (std::string, std::string, std::string)>
           update_callback;
@@ -174,7 +174,7 @@ class bot : boost::noncopyable {
   /**
    * Logs a log message.
    *
-   * \param type INFO or ERROR
+   * \param type BS_LOG_NFO or BS_LOG_ERR
    * \param source the logging source (module)
    * \param message the message to log
    */

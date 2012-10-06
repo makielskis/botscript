@@ -21,9 +21,11 @@
 #ifndef LUA_CONNECTION_H_
 #define LUA_CONNECTION_H_
 
+extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+}
 
 #include <map>
 #include <string>
@@ -65,7 +67,7 @@ class lua_connection {
    * \exception lua_exception if the execution of the lua script fails
    * \return the interface description in JSON format
    */
-  static jsonval_ptr interface(const std::string& script,
+  static jsonval_ptr iface(const std::string& script,
       rapidjson::Document::AllocatorType* allocator)
   throw(lua_exception);
 
@@ -216,7 +218,7 @@ class lua_connection {
    * The log message has to reside on the stack on posititon 1.
    *
    * \param state the script state
-   * \param log_level the log level to use (INFO or ERROR)
+   * \param log_level the log level to use (BS_LOG_NFO or BS_LOG_ERR)
    */
   static void log(lua_State* state, int log_level);
 
@@ -312,7 +314,7 @@ class lua_connection {
 
   /**
    * BOTSCRIPT API FUNCTION\n
-   * m_log(message) logs the given message as INFO message.
+   * m_log(message) logs the given message as BS_LOG_NFO message.
    *
    * \param state the lua script state (with parameters on the stack)
    * \return the count of return values pushed to the stack
@@ -321,7 +323,7 @@ class lua_connection {
 
   /**
    * BOTSCRIPT API FUNCTION\n
-   * m_log_error(message) logs the given message as ERROR message.
+   * m_log_error(message) logs the given message as BS_LOG_ERR message.
    *
    * \param state the lua script state (with parameters on the stack)
    * \return the count of return values pushed to the stack

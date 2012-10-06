@@ -510,7 +510,7 @@ class webclient : boost::noncopyable {
       } else {
         escaped.append("%");
         char buf[3];
-        snprintf(buf, sizeof(buf), "%.2X", (unsigned char) s[i]);
+        sprintf(buf, "%.2X", (unsigned char) s[i]);
         escaped.append(buf);
       }
     }

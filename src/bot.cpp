@@ -28,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <set>
 #include <algorithm>
@@ -47,6 +48,18 @@
 #include "rapidjson/stringbuffer.h"
 
 #include "./lua_connection.h"
+
+#if defined _WIN32 || defined _WIN64
+namespace std {
+
+// round() is missing in C++ until C++ 2011 standard.
+// But we have one!
+double round(double r) {
+  return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);
+}
+
+}  // namespace std
+#endif
 
 namespace botscript {
 
@@ -79,7 +92,7 @@ void bot::shutdown() {
     return;
   }
   stopped_ = true;
-  log(INFO, "base", "shutting down - destructing modules");
+  log(BS_LOG_NFO, "base", "shutting down - destructing modules");
 
   // Delete modules.
   BOOST_FOREACH(module* module, modules_) {
@@ -88,11 +101,11 @@ void bot::shutdown() {
   modules_.clear();
 
   // Wait for operations to finish.
-  log(INFO, "base", "shutting down - waiting for state to turn zero");
+  log(BS_LOG_NFO, "base", "shutting down - waiting for state to turn zero");
   boost::unique_lock<boost::mutex> state_lock(state_mutex_);
   while (state_ != 0x00) {
     std::string s = "state: ";
-    log(INFO, "base",
+    log(BS_LOG_NFO, "base",
         s + boost::lexical_cast<std::string>(static_cast<int>(state_)));
     state_cond_.wait(state_lock);
   }
@@ -100,7 +113,7 @@ void bot::shutdown() {
   // Remove identifier from lua_connection.
   lua_connection::remove(identifier_);
 
-  log(INFO, "base", "shutdown completed");
+  log(BS_LOG_NFO, "base", "shutdown completed");
 }
 
 void bot::state_on(char s) {
@@ -201,7 +214,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
     try {
       lua_connection::login(this, username_, password_, package_);
     } catch(const lua_exception& e) {
-      log(ERROR, "base", e.what());
+      log(BS_LOG_ERR, "base", e.what());
       throw e;
     }
   }
@@ -219,7 +232,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
           module* new_module = new module(path, this, io_service_);
           modules_.insert(new_module);
         } catch(const lua_exception& e) {
-          log(ERROR, "base", e.what());
+          log(BS_LOG_ERR, "base", e.what());
         }
       }
     }
@@ -236,7 +249,7 @@ bool bot::checkProxy(std::string proxy, int login_trys) {
   std::vector<std::string> proxy_split;
   boost::split(proxy_split, proxy, boost::is_any_of(":"));
   if (proxy_split.size() != 2) {
-    log(ERROR, "base", "unknown proxy format");
+    log(BS_LOG_ERR, "base", "unknown proxy format");
     return false;
   }
   webclient_.proxy(proxy_split[0], proxy_split[1]);
@@ -245,13 +258,13 @@ bool bot::checkProxy(std::string proxy, int login_trys) {
   for (int i = 0; i < login_trys; i++) {
     try {
       std::string t = boost::lexical_cast<std::string>(i + 1);
-      log(INFO, "base", t + ". try - checking " + proxy + " - login");
+      log(BS_LOG_NFO, "base", t + ". try - checking " + proxy + " - login");
       lua_connection::login(this, username_, password_, package_);
       return true;
     } catch(const bad_login_exception& e) {
-      log(ERROR, "base", "bad login");
+      log(BS_LOG_ERR, "base", "bad login");
     } catch(const lua_exception& e) {
-      log(ERROR, "base", e.what());
+      log(BS_LOG_ERR, "base", e.what());
     }
   }
 
@@ -266,7 +279,7 @@ throw(invalid_proxy_exception) {
 
   // Use direct connection for empty proxy.
   if (proxy.empty()) {
-    log(INFO, "base", "setting no proxy");
+    log(BS_LOG_NFO, "base", "setting no proxy");
     webclient_.proxy("", "");
     return;
   }
@@ -293,10 +306,10 @@ throw(invalid_proxy_exception) {
   // Check result.
   if (proxy_it == proxies_.end()) {
     webclient_.proxy(original_proxy_host, original_proxy_port);
-    log(ERROR, "base", "no working proxy found");
+    log(BS_LOG_ERR, "base", "no working proxy found");
     throw invalid_proxy_exception();
   } else {
-    log(INFO, "base", std::string("proxy set to ") + (*proxy_it));
+    log(BS_LOG_NFO, "base", std::string("proxy set to ") + (*proxy_it));
   }
 }
 
@@ -375,9 +388,9 @@ void bot::execute(const std::string& command, const std::string& argument) {
     }
     wait_time_factor_ = atof(new_wait_time_factor.c_str());
     char buf[5];
-    snprintf(buf, sizeof(buf), "%.2f", wait_time_factor_);
+    sprintf(buf, "%.2f", wait_time_factor_);
     status("base_wait_time_factor", buf);
-    log(INFO, "base", std::string("set wait time factor to ") + buf);
+    log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + buf);
     return;
   }
 
@@ -388,7 +401,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
     try {
       setProxy(argument, false, 1);
     } catch(const invalid_proxy_exception& e) {
-      log(INFO, "base", "new proxy failed - resetting");
+      log(BS_LOG_NFO, "base", "new proxy failed - resetting");
       webclient_.proxy(proxy_host, proxy_port);
     }
     return;
@@ -491,7 +504,7 @@ std::string bot::loadPackages(const std::string& folder) {
             allocator);
 
         // Read interface information from lua script.
-        jsonval_ptr interface = lua_connection::interface(mod_path, &allocator);
+        jsonval_ptr interface = lua_connection::iface(mod_path, &allocator);
 
         // Write value to package information.
         a.AddMember(module_name, *interface.get(), allocator);
@@ -521,8 +534,7 @@ int bot::randomWait(int a, int b) {
   static unsigned int seed = 6753;
   seed *= 31;
   seed %= 32768;
-  double random = static_cast<double>(rand_r(&seed)) / RAND_MAX;
-  int wait_time = a + std::round(random * (b - a) * wait_time_factor_);
+  int wait_time = a + std::round(seed/32768 * (b - a) * wait_time_factor_);
   return wait_time;
 }
 
@@ -530,17 +542,18 @@ void bot::log(int type, const std::string& source, const std::string& message) {
   boost::lock_guard<boost::mutex> lock(log_mutex_);
 
   // Build date string.
-  time_t timestamp;
-  std::time(&timestamp);
-  struct std::tm current;
-  localtime_r(&timestamp, &current);
-  char time_str[9];
-  std::snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d",
-                current.tm_hour, current.tm_min, current.tm_sec);
+  std::stringstream time;
+  boost::posix_time::time_facet* p_time_output =
+	  new boost::posix_time::time_facet;
+  std::locale special_locale(std::locale(""), p_time_output);
+  // special_locale takes ownership of the p_time_output facet
+  time.imbue(special_locale);
+  p_time_output->format("%d.%m %H:%M:%S");
+  time << boost::posix_time::second_clock::local_time();
 
   // Build log string.
   std::stringstream msg;
-  msg << "[" << time_str << "]["\
+  msg << "[" << time.str() << "]["\
       << std::left << std::setw(20) << identifier_
       << "][" << std::left << std::setw(8) << source << "] " << message << "\n";
 
@@ -569,7 +582,7 @@ void bot::connectionFailed(bool connection_error) {
   connection_status_ -= (connection_error ? 0.1 : 0.025);
   if (connection_status_ <= 0) {
     connection_status_ = 0;
-    log(ERROR, "base", "problems - trying to relogin");
+    log(BS_LOG_ERR, "base", "problems - trying to relogin");
     try {
       lua_connection::login(this, username_, password_, package_);
     } catch(const lua_exception& e) {

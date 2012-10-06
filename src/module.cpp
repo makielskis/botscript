@@ -71,7 +71,7 @@ module::~module() {
 
   switch(module_state_) {
     case WAIT: {
-      bot_->log(bot::INFO, module_name_, "shutdown: waiting (WAIT)");
+      bot_->log(bot::BS_LOG_NFO, module_name_, "shutdown: waiting (WAIT)");
       int cancelled = timer_.cancel();
       if (cancelled > 0) {
         boost::unique_lock<boost::mutex> state_lock(state_mutex_);
@@ -85,7 +85,7 @@ module::~module() {
     }
 
     case RUN: {
-      bot_->log(bot::INFO, module_name_, "shutdown: waiting (RUN)");
+      bot_->log(bot::BS_LOG_NFO, module_name_, "shutdown: waiting (RUN)");
       {
         boost::unique_lock<boost::mutex> state_lock(state_mutex_);
         module_state_ = STOP_RUN;
@@ -97,12 +97,12 @@ module::~module() {
     }
 
     default: {
-      bot_->log(bot::INFO, module_name_, "shutdown: nothing to do");
+      bot_->log(bot::BS_LOG_NFO, module_name_, "shutdown: nothing to do");
     }
   }
 
   lua_close(lua_state_);
-  bot_->log(bot::INFO, module_name_, "shutdown finished");
+  bot_->log(bot::BS_LOG_NFO, module_name_, "shutdown finished");
 }
 
 void module::applyStatus() {
@@ -117,7 +117,7 @@ void module::applyStatus() {
     } catch(const lua_exception& e) {
       std::stringstream msg;
       msg << "could not set status " << s.first << " = " << s.second;
-      bot_->log(bot::INFO, module_name_, msg.str());
+      bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
       return;
     }
   }
@@ -140,7 +140,7 @@ void module::run(const boost::system::error_code& ec) {
 
     // Inform user.
     bot_->status(lua_active_status_, "0");
-    bot_->log(bot::INFO, module_name_, "stop waiting - exit");
+    bot_->log(bot::BS_LOG_NFO, module_name_, "stop waiting - exit");
     return;
   }
 
@@ -149,7 +149,7 @@ void module::run(const boost::system::error_code& ec) {
     boost::lock_guard<boost::mutex> lock(state_mutex_);
     module_state_ = RUN;
   }
-  bot_->log(bot::INFO, module_name_, "starting");
+  bot_->log(bot::BS_LOG_NFO, module_name_, "starting");
   bot_->status(lua_active_status_, "1");
 
   // Apply status changes to lua module state.
@@ -182,7 +182,7 @@ void module::run(const boost::system::error_code& ec) {
         int sleep = (n1 == -1) ? n0 : bot_->randomWait(n1, n0);
         std::stringstream msg;
         msg << "sleeping " << sleep << "s";
-        bot_->log(bot::INFO, module_name_, msg.str());
+        bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
 
         // Tell bot that the connection worked.
         bot_->connectionWorked();
@@ -196,8 +196,8 @@ void module::run(const boost::system::error_code& ec) {
     }
   } catch(const lua_exception& e) {
     // Log error.
-    bot_->log(bot::ERROR, module_name_, e.what());
-    bot_->log(bot::ERROR, module_name_, "restarting in 30s");
+    bot_->log(bot::BS_LOG_ERR, module_name_, e.what());
+    bot_->log(bot::BS_LOG_ERR, module_name_, "restarting in 30s");
 
     // Check and count error.
     if (boost::starts_with(e.what(), "#con")) {
@@ -259,7 +259,7 @@ void module::execute(const std::string& command, const std::string& argument) {
         // Handle start command.
         switch(module_state_) {
           case OFF: {
-            bot_->log(bot::INFO, module_name_, "OFF -> start: RUN");
+            bot_->log(bot::BS_LOG_NFO, module_name_, "OFF -> start: RUN");
             module_state_ = RUN;
             boost::system::error_code ignored;
             io_service_->post(boost::bind(&module::run, this, ignored));
@@ -268,13 +268,13 @@ void module::execute(const std::string& command, const std::string& argument) {
           }
 
           case STOP_RUN: {
-            bot_->log(bot::INFO, module_name_, "STOP_RUN -> start: RUN");
+            bot_->log(bot::BS_LOG_NFO, module_name_, "STOP_RUN -> start: RUN");
             module_state_ = RUN;
             bot_->status(lua_active_status_, "1");
           }
 
           default: {
-            bot_->log(bot::INFO, module_name_,
+            bot_->log(bot::BS_LOG_NFO, module_name_,
                       state2s(module_state_) + " -> start: nothing to do");
           }
         }
@@ -282,7 +282,7 @@ void module::execute(const std::string& command, const std::string& argument) {
         // Handle stop command.
         switch(module_state_) {
           case WAIT: {
-            bot_->log(bot::INFO, module_name_, "WAIT -> stop: STOP_WAIT");
+            bot_->log(bot::BS_LOG_NFO, module_name_, "WAIT -> stop: STOP_WAIT");
             int cancelled = timer_.cancel();
             if (cancelled > 0) {
               while (module_state_ != OFF) {
@@ -291,20 +291,20 @@ void module::execute(const std::string& command, const std::string& argument) {
             } else {
               std::cerr << "fatal: cancelled = " << cancelled << "\n";
             }
-            bot_->log(bot::INFO, module_name_, "STOP_WAIT -> OFF");
+            bot_->log(bot::BS_LOG_NFO, module_name_, "STOP_WAIT -> OFF");
             bot_->status(lua_active_status_, "0");
             break;
           }
 
           case RUN: {
             module_state_ = STOP_RUN;
-            bot_->log(bot::INFO, module_name_, "RUN -> stop: STOP_RUN");
+            bot_->log(bot::BS_LOG_NFO, module_name_, "RUN -> stop: STOP_RUN");
             bot_->status(lua_active_status_, "0");
             break;
           }
 
           default: {
-            bot_->log(bot::INFO, module_name_,
+            bot_->log(bot::BS_LOG_NFO, module_name_,
                       state2s(module_state_) + " -> stop: nothing to do");
           }
         }
@@ -321,7 +321,7 @@ void module::execute(const std::string& command, const std::string& argument) {
       if (bot_->status(full_key) != argument) {
         std::stringstream msg;
         msg << "setting " << var << " to " << argument;
-        bot_->log(bot::INFO, module_name_, msg.str());
+        bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
         status_[var] = argument;
         bot_->status(full_key, argument);
       }

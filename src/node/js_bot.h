@@ -103,7 +103,7 @@ class async_shutdown : public async_action {
 
   void foreground() {
     v8::HandleScope scope;
-    v8::Local<v8::Value> args[0] = {};
+    v8::Local<v8::Value>* args = nullptr;
     callback_->Call(v8::Undefined().As<v8::Object>(), 0, args);
   }
 

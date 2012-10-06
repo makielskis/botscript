@@ -70,7 +70,7 @@ jsonval_ptr lua_connection::toJSON(lua_State* state, int stack_index,
   }
 }
 
-jsonval_ptr lua_connection::interface(const std::string& script,
+jsonval_ptr lua_connection::iface(const std::string& script,
     rapidjson::Document::AllocatorType* allocator)
 throw(lua_exception) {
   // Initialize lua_State.
