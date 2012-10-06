@@ -27,13 +27,13 @@ namespace botscript {
 module::module(const std::string& script, bot* bot,
                boost::asio::io_service* io_service)
 throw(lua_exception)
-    : bot_(bot),
+    : module_state_(OFF),
+      bot_(bot),
+      io_service_(io_service),
       lua_run_("run_"),
       lua_status_("status_"),
       lua_state_(NULL),
-      io_service_(io_service),
-      timer_(*io_service),
-      module_state_(OFF) {
+      timer_(*io_service) {
   // Discover module name.
   using boost::filesystem::path;
   std::string filename = path(script).filename().generic_string();
@@ -71,19 +71,17 @@ module::~module() {
 
   switch(module_state_) {
     case WAIT: {
+      boost::unique_lock<boost::mutex> state_lock(state_mutex_);
+      module_state_ = STOP_RUN;
+      timer_.cancel();
       bot_->log(bot::BS_LOG_NFO, module_name_, "shutdown: waiting (WAIT)");
-      int cancelled = timer_.cancel();
-      if (cancelled > 0) {
-        boost::unique_lock<boost::mutex> state_lock(state_mutex_);
-        while (module_state_ != OFF) {
-          state_cond_.wait(state_lock);
-        }
-      } else {
-        std::cerr << "fatal: cancelled = " << cancelled << "\n";
+      while (module_state_ != OFF) {
+        state_cond_.wait(state_lock);
       }
       break;
     }
 
+    case STOP_RUN:
     case RUN: {
       bot_->log(bot::BS_LOG_NFO, module_name_, "shutdown: waiting (RUN)");
       {
@@ -127,28 +125,30 @@ void module::applyStatus() {
 }
 
 void module::run(const boost::system::error_code& ec) {
-  // Handle stop.
-  if (ec == boost::asio::error::operation_aborted) {
-    {
-      // Change module state.
-      boost::lock_guard<boost::mutex> lock(state_mutex_);
+  // Check module state.
+  char new_module_state;
+  {
+    boost::lock_guard<boost::mutex> lock(state_mutex_);
+    if (module_state_ == STOP_RUN) {
+      // Module state is STOP_RUN - stop!
+      bot_->log(bot::BS_LOG_NFO, module_name_, "STOP_RUN -> run(): OFF");
       module_state_ = OFF;
+      new_module_state = OFF;
+    } else {
+      // Switch from WAIT to RUN.
+      // If it was OFF, the module will stop.
+      new_module_state = module_state_;
+      module_state_ = RUN;
     }
+  }
 
-    // Inform everyone waiting for the module to stop.
+  // Turn off and inform waiting instances if needed.
+  if (new_module_state == OFF) {
     state_cond_.notify_all();
-
-    // Inform user.
-    bot_->status(lua_active_status_, "0");
-    bot_->log(bot::BS_LOG_NFO, module_name_, "stop waiting - exit");
     return;
   }
 
-  // Set module state to running.
-  {
-    boost::lock_guard<boost::mutex> lock(state_mutex_);
-    module_state_ = RUN;
-  }
+  // Inform user about module start.
   bot_->log(bot::BS_LOG_NFO, module_name_, "starting");
   bot_->status(lua_active_status_, "1");
 
@@ -226,6 +226,8 @@ void module::run(const boost::system::error_code& ec) {
     // Lock because of write access to module_state_.
     boost::lock_guard<boost::mutex> lock(state_mutex_);
     bot_->status(lua_active_status_, "0");
+    bot_->log(bot::BS_LOG_NFO, module_name_,
+              state2s(module_state_) + " -> run(): OFF");
     module_state_ = OFF;
 
     // Notify everyone waiting for the module to stop.
@@ -282,16 +284,9 @@ void module::execute(const std::string& command, const std::string& argument) {
         // Handle stop command.
         switch(module_state_) {
           case WAIT: {
-            bot_->log(bot::BS_LOG_NFO, module_name_, "WAIT -> stop: STOP_WAIT");
-            int cancelled = timer_.cancel();
-            if (cancelled > 0) {
-              while (module_state_ != OFF) {
-                state_cond_.wait(state_lock);
-              }
-            } else {
-              std::cerr << "fatal: cancelled = " << cancelled << "\n";
-            }
-            bot_->log(bot::BS_LOG_NFO, module_name_, "STOP_WAIT -> OFF");
+            bot_->log(bot::BS_LOG_NFO, module_name_, "WAIT -> stop: STOP_RUN");
+            timer_.cancel();
+            module_state_ = STOP_RUN;
             bot_->status(lua_active_status_, "0");
             break;
           }
