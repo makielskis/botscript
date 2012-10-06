@@ -21,11 +21,9 @@
 #ifndef LUA_CONNECTION_H_
 #define LUA_CONNECTION_H_
 
-extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-}
 
 #include <map>
 #include <string>
