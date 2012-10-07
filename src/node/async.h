@@ -21,8 +21,9 @@
 #ifndef ASYNC_H_
 #define ASYNC_H_
 
+#include <node.h>
+
 #include "boost/thread.hpp"
-#include "node.h"
 
 namespace botscript {
 namespace node_bot {
@@ -34,7 +35,6 @@ namespace node_bot {
  */
 class async_action {
  public:
-
   /// Destructor.
   virtual ~async_action() {}
 
@@ -54,12 +54,12 @@ class async_action {
 
  private:
   static void asyncWork(uv_work_t* work) {
-    async_action* action = (async_action*) work->data;
+    async_action* action = reinterpret_cast<async_action*>(work->data);
     action->background();
   }
 
   static void asyncAfter(uv_work_t* work) {
-    async_action* action = (async_action*) work->data;
+    async_action* action = reinterpret_cast<async_action*>(work->data);
     action->foreground();
     delete action;
   }

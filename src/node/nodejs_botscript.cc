@@ -18,7 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "node.h"
+#include <node.h>
 
 #include "./js_bot_motor.h"
 #include "./js_bot.h"

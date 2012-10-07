@@ -18,6 +18,10 @@
  * along with this program.  If not, see .
  */
 
+#include <utility>
+#include <string>
+#include <algorithm>
+#include <set>
 #include <map>
 #include <iostream>
 #include <fstream>
@@ -66,6 +70,10 @@ int main(int argc, char* argv[]) {
   }
 
   while (true) { boost::this_thread::sleep(boost::posix_time::hours(24)); }
+
+  BOOST_FOREACH(bot_ptr b, bots) {
+    b->shutdown();
+  }
 
   return 0;
 }

@@ -20,6 +20,9 @@
 
 #include "./module.h"
 
+#include <string>
+#include <utility>
+
 #include "boost/utility.hpp"
 
 namespace botscript {
@@ -69,7 +72,7 @@ throw(lua_exception)
 module::~module() {
   boost::lock_guard<boost::mutex> shutdown_lock(shutdown_mutex_);
 
-  switch(module_state_) {
+  switch (module_state_) {
     case WAIT: {
       boost::unique_lock<boost::mutex> state_lock(state_mutex_);
       module_state_ = STOP_RUN;
@@ -259,7 +262,7 @@ void module::execute(const std::string& command, const std::string& argument) {
       bool start = (argument == "1");
       if (start) {
         // Handle start command.
-        switch(module_state_) {
+        switch (module_state_) {
           case OFF: {
             bot_->log(bot::BS_LOG_NFO, module_name_, "OFF -> start: RUN");
             module_state_ = RUN;
@@ -282,7 +285,7 @@ void module::execute(const std::string& command, const std::string& argument) {
         }
       } else {
         // Handle stop command.
-        switch(module_state_) {
+        switch (module_state_) {
           case WAIT: {
             bot_->log(bot::BS_LOG_NFO, module_name_, "WAIT -> stop: STOP_RUN");
             timer_.cancel();

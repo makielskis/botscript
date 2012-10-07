@@ -21,14 +21,16 @@
 #ifndef JS_BOT_H
 #define JS_BOT_H
 
+#include <node.h>
+
 #include <string>
+#include <deque>
 
 #include "boost/asio/io_service.hpp"
 #include "boost/shared_ptr.hpp"
 #include "boost/make_shared.hpp"
 #include "boost/lambda/lambda.hpp"
 #include "boost/tuple/tuple.hpp"
-#include "node.h"
 
 #include "../bot.h"
 #include "./async.h"
@@ -37,8 +39,13 @@
 namespace botscript {
 namespace node_bot {
 
+/// Class providing functionality to asynchronously load bot configurations
 class async_load : public async_action {
  public:
+  /// Constructor.
+  /// \param callback the callback to call, when the load operation has finsihed
+  /// \param bot the bot to load the configuration to
+  /// \param configuration the configuration to load
   async_load(v8::Handle<v8::Value> callback,
              boost::shared_ptr<botscript::bot> bot,
              const std::string& configuration)
@@ -89,8 +96,12 @@ class async_load : public async_action {
   std::string error_;
 };
 
+/// Class providing functionality to asynchronously shutdown a bot
 class async_shutdown : public async_action {
  public:
+  /// Constructor.
+  /// \param bot the bot to shutdown
+  /// \param callback callback function to call when the shutdown has finished
   async_shutdown(boost::shared_ptr<botscript::bot> bot,
                  v8::Handle<v8::Value> callback)
     : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
@@ -112,8 +123,12 @@ class async_shutdown : public async_action {
   boost::shared_ptr<botscript::bot> bot_;
 };
 
+/// Class providing functionality to asynchronously execute bot commands
 class async_execute : public async_action {
  public:
+  /// \param bot the bot to execute the command on
+  /// \param command the command to execute
+  /// \param argument the argument to pass
   async_execute(boost::shared_ptr<botscript::bot> bot,
                 const std::string& command, const std::string& argument)
     : bot_(bot),
@@ -134,8 +149,11 @@ class async_execute : public async_action {
   std::string argument_;
 };
 
+/// Class providing functionality to asynchronously ask for a bot configuration
 class async_get_config : public async_action {
  public:
+  /// \param callback the callback to call with the configuration as parameter
+  /// \param bot the bot to get the configuration for
   async_get_config(v8::Handle<v8::Value> callback,
                    boost::shared_ptr<botscript::bot> bot)
     : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
@@ -162,8 +180,13 @@ class async_get_config : public async_action {
   std::string configuration_;
 };
 
+/// Class providing functionality to asynchronously create an identifier
 class async_create_identifier : public async_action {
  public:
+  /// \param callback the callback to be called with the created identifier
+  /// \param username the username
+  /// \param package the package
+  /// \param server the server address
   async_create_identifier(v8::Handle<v8::Value> callback,
                           const std::string& username,
                           const std::string& package,
@@ -197,10 +220,13 @@ class async_create_identifier : public async_action {
   std::string identifier_;
 };
 
+/// Class providing functionality to asynchronously load package information.
 class async_load_packages : public async_action {
  public:
+  /// \param callback the callback to call
+  /// \param path the path to load the package information from
   async_load_packages(v8::Handle<v8::Value> callback,
-                     const std::string& path)
+                      const std::string& path)
     : callback_(v8::Persistent<v8::Function>::New(callback.As<v8::Function>())),
       path_(path) {
   }
@@ -225,43 +251,10 @@ class async_load_packages : public async_action {
   std::string packages_;
 };
 
-class async_call_callback : public async_action {
- public:
-  async_call_callback(v8::Persistent<v8::Function> callback,
-                      const std::string& identifier,
-                      const std::string& key,
-                      const std::string& value)
-    : callback_(callback),
-      identifier_(identifier),
-      key_(key),
-      value_(value) {
-  }
-
-  void background() {
-  }
-
-  void foreground() {
-    v8::HandleScope scope;
-
-    v8::Local<v8::Value> args[3] = {
-        v8::Local<v8::Value>::New(v8::String::New(identifier_.c_str())),
-        v8::Local<v8::Value>::New(v8::String::New(key_.c_str())),
-        v8::Local<v8::Value>::New(v8::String::New(value_.c_str()))
-    };
-    callback_->Call(v8::Undefined().As<v8::Object>(), 3, args);
-  }
-
- private:
-  v8::Persistent<v8::Function> callback_;
-  std::string identifier_;
-  std::string key_;
-  std::string value_;
-};
-
 /// js_bot wraps the botscript::bot class for Node.js
 class js_bot : public node::ObjectWrap {
  public:
-
+  /// Update message: identifier, key, value
   typedef boost::tuples::tuple<std::string, std::string, std::string> upd_msg;
 
   /**
@@ -541,7 +534,7 @@ class js_bot : public node::ObjectWrap {
     int index = 0;
     boost::lock_guard<boost::mutex> lock(update_queue_mutex_);
     std::for_each(update_queue_.begin(), update_queue_.end(),
-                  [&array, &index](const upd_msg& msg){
+                  [&array, &index](const upd_msg& msg) {
                     v8::Handle<v8::Object> jsObject = v8::Object::New();
                     jsObject->Set(v8::String::New("id"),
                                   v8::String::New(msg.get<0>().c_str()));

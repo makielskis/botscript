@@ -94,13 +94,13 @@ int main(int argc, char* argv[]) {
   boost::asio::io_service io_service;
   boost::shared_ptr<boost::asio::io_service::work> work(
       new boost::asio::io_service::work(io_service));
-  for(unsigned int i = 0; i < 5; ++i) {
+  for (unsigned int i = 0; i < 5; ++i) {
     threads.create_thread(
         boost::bind(&boost::asio::io_service::run, &io_service));
   }
 
   // Prepare proxy information depository.
-	std::set<std::string> proxies;
+  std::set<std::string> proxies;
   std::set<proxy_check*> checks;
 
   // Open file.
@@ -119,8 +119,8 @@ int main(int argc, char* argv[]) {
     std::cout << "reading " << line << "\n";
 
     // Read page.
-	  http::webclient wc;
-	  std::string page;
+    http::webclient wc;
+    std::string page;
     try {
       page = wc.request_get(line);
     } catch(const std::ios_base::failure& e) {
@@ -129,18 +129,18 @@ int main(int argc, char* argv[]) {
     }
 
     // Extract proxies with regular expression.
-	  boost::regex regex(
+    boost::regex regex(
         "((\\d{1, 3}\\.\\d{1, 3}\\.\\d{1, 3}\\.\\d{1, 3}):(\\d{1, 5}))");
-	  boost::sregex_iterator regex_iter(page.begin(), page.end(), regex), end;
-	  for (; regex_iter != end; ++regex_iter) {
+    boost::sregex_iterator regex_iter(page.begin(), page.end(), regex), end;
+    for (; regex_iter != end; ++regex_iter) {
       std::string proxy = (*regex_iter)[1].str();
-		  if (proxies.find(proxy) == proxies.end()) {
-		    std::string host = (*regex_iter)[2].str();
+      if (proxies.find(proxy) == proxies.end()) {
+        std::string host = (*regex_iter)[2].str();
         std::string port = (*regex_iter)[3].str();
         checks.insert(new proxy_check(host, port, &io_service));
-      	proxies.insert(proxy);
+        proxies.insert(proxy);
       }
-	  }
+    }
   }
 
   // Close file.

@@ -21,11 +21,12 @@
 #ifndef JS_BOT_MOTOR_H
 #define JS_BOT_MOTOR_H
 
+#include <node.h>
+
 #include <string>
 
 #include "boost/asio/io_service.hpp"
 #include "boost/thread.hpp"
-#include "node.h"
 
 namespace botscript {
 namespace node_bot {

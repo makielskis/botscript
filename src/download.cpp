@@ -22,12 +22,12 @@
 #include <set>
 #include <string>
 #include <iostream>
+#include <algorithm>
 #include <fstream>
 
 #include "boost/asio/io_service.hpp"
 #include "boost/iostreams/copy.hpp"
 #include "boost/utility.hpp"
-#include "boost/asio/io_service.hpp"
 
 #include "./http/webclient.h"
 

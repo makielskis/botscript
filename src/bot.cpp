@@ -544,7 +544,7 @@ void bot::log(int type, const std::string& source, const std::string& message) {
   // Build date string.
   std::stringstream time;
   boost::posix_time::time_facet* p_time_output =
-	  new boost::posix_time::time_facet;
+      new boost::posix_time::time_facet;
   std::locale special_locale(std::locale(""), p_time_output);
   // special_locale takes ownership of the p_time_output facet
   time.imbue(special_locale);

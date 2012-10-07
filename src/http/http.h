@@ -220,14 +220,14 @@ class http_source {
 
  private:
   const char* strnchr(const char* s, int c, int n) {
-	  while (n--) {
-		  if (*s == c) {
+    while (n--) {
+      if (*s == c) {
          return s;
       } else {
         ++s;
       }
     }
-	  return NULL;
+    return NULL;
   }
 
   void buildRequest(const std::string host, const std::string path,
@@ -366,7 +366,7 @@ class http_source {
           try {
             content_length_ = boost::lexical_cast<int>(
                 header_to_lower.substr(16, header_to_lower.length() - 17));
-          } catch (const boost::bad_lexical_cast& e) {
+          } catch(const boost::bad_lexical_cast& e) {
             throw std::ios_base::failure("read (contentlength parse) error");
           }
 

@@ -48,10 +48,10 @@ namespace botscript {
 
 #define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
-#define LOAD_ON  (0x01) // 0000 0001
-#define LOAD_OFF (0xFE) // 1111 1110
-#define EXEC_ON  (0x02) // 0000 0010
-#define EXEC_OFF (0xFD) // 1111 1101
+#define LOAD_ON  (0x01)  // 0000 0001
+#define LOAD_OFF (0xFE)  // 1111 1110
+#define EXEC_ON  (0x02)  // 0000 0010
+#define EXEC_OFF (0xFD)  // 1111 1101
 
 class module;
 
@@ -71,7 +71,7 @@ class bot : boost::noncopyable {
    * \param callback logging and status change update callback
    * \param io_service the boost asio io_service
    */
-  bot(boost::asio::io_service* io_service);
+  explicit bot(boost::asio::io_service* io_service);
 
   /**
    * Destructor.
@@ -83,7 +83,8 @@ class bot : boost::noncopyable {
 
   /**
    * Stops all actions, will block until all actions are stopped.
-   * After this the bot won't do anything. Ready for destruction.
+   * After this the bot won't do anything, ready for destruction.
+   * Don't call this method twice!
    */
   void shutdown();
 
@@ -93,12 +94,12 @@ class bot : boost::noncopyable {
    * and the bot will not be logged in.
    *
    * A minimalistic configuration can look like this
-   * \code{.py}
+   * \code
    * { "username":".", "password":".", "package":".", "server":"." }
    * \endcode
    *
    * Further configuration values are: proxy, wait_time_factor and modules
-   * \code{.py}
+   * \code
    * {
    *   # basic configuration values
    *   "modules":{

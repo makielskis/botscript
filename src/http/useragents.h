@@ -59,7 +59,7 @@ class useragents {
   static header ua(const int id) {
     header h;
 
-    switch(id) {
+    switch (id) {
       case FF_WINXP:
         h["User-Agent"] = "Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8";
         h["Accept"] = "text/html,image/*,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";

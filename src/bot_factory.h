@@ -21,13 +21,15 @@
 #ifndef BOT_FACTORY_H_
 #define BOT_FACTORY_H_
 
+#include <string>
+
 #include "boost/asio/io_service.hpp"
 #include "boost/shared_ptr.hpp"
 #include "boost/thread.hpp"
 #include "boost/make_shared.hpp"
 #include "boost/lambda/lambda.hpp"
 
-#include "bot.h"
+#include "./bot.h"
 
 namespace botscript {
 
@@ -35,7 +37,7 @@ namespace botscript {
 class bot_factory {
  public:
   /// Constructor.
-  bot_factory() : work_(io_service_) {
+  explicit bot_factory() : work_(io_service_) {
   }
 
   /// Destructor - stops the service and joins all threads.
