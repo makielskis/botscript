@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "boost/utility.hpp"
+#include "boost/lexical_cast.hpp"
 
 namespace botscript {
 
@@ -198,9 +199,13 @@ void module::run(const boost::system::error_code& ec) {
       }
     }
   } catch(const lua_exception& e) {
+    int wait_time = bot_->randomWait(30,60);
+
     // Log error.
     bot_->log(bot::BS_LOG_ERR, module_name_, e.what());
-    bot_->log(bot::BS_LOG_ERR, module_name_, "restarting in 30s");
+    bot_->log(bot::BS_LOG_ERR, module_name_,
+              std::string("restarting in ") +
+              boost::lexical_cast<std::string>(wait_time) + "s");
 
     // Check and count error.
     if (boost::starts_with(e.what(), "#con")) {
@@ -215,7 +220,7 @@ void module::run(const boost::system::error_code& ec) {
 
       // Start the timer.
       if (module_state_ == RUN) {
-        timer_.expires_from_now(boost::posix_time::seconds(30));
+        timer_.expires_from_now(boost::posix_time::seconds(wait_time));
         timer_.async_wait(boost::bind(&module::run, this, _1));
         module_state_ = WAIT;
         return;
