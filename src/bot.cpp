@@ -534,7 +534,7 @@ int bot::randomWait(int a, int b) {
   static unsigned int seed = 6753;
   seed *= 31;
   seed %= 32768;
-  int wait_time = a + std::round(seed/32768 * (b - a) * wait_time_factor_);
+  int wait_time = a + std::round(seed/static_cast<double>(32768) * (b - a) * wait_time_factor_);
   return wait_time;
 }
 
@@ -610,11 +610,22 @@ std::string bot::status(const std::string key) {
 
 void bot::status(const std::string key, const std::string value) {
   // Lock because of status map r/w access.
+  bool update = false;
   {
     boost::lock_guard<boost::mutex> lock(status_mutex_);
-    status_[key] = value;
+
+    // Update value.
+    std::string& current = status_[key];
+    if (current != value) {
+      current = value;
+      update = true;
+    }
   }
-  callback(identifier_, key, value);
+
+  // Call update callback if this was a change.
+  if (update) {
+    callback(identifier_, key, value);
+  }
 }
 
 }  // namespace botscript
