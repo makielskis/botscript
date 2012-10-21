@@ -230,6 +230,15 @@ class lua_connection {
   static int doRequest(lua_State* state, bool path);
 
   /**
+   * Does a post request.
+   * Prepends the base url if the path parameter is set to true.
+   *
+   * \param state the lua script state
+   * \param path whether to prepend the base url or not
+   */
+  static int doPostRequest(lua_State* state, bool path);
+
+  /**
    * BOTSCRIPT API FUNCTION\n
    * m_request(url) does a GET request to the specified URL and returns the
    * response.
@@ -258,6 +267,16 @@ class lua_connection {
    * \return the count of return values pushed to the stack
    */
   static int m_post_request(lua_State* state);
+
+  /**
+   * BOTSCRIPT API FUNCTION\n
+   * m_post_request(url, data) does a POST request sending the specified data to
+   * the given path (relative to the base URL) and returns the response.
+   *
+   * \param state the lua script state (with parameters on the stack)
+   * \return the count of return values pushed to the stack
+   */
+  static int m_post_request_path(lua_State* state);
 
   /**
    * BOTSCRIPT API FUNCTION\n

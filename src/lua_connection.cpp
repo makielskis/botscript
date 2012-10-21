@@ -211,6 +211,7 @@ lua_State* lua_connection::newState() throw(lua_exception) {
   lua_register(state, "m_request", m_request);
   lua_register(state, "m_request_path", m_request_path);
   lua_register(state, "m_post_request", m_post_request);
+  lua_register(state, "m_post_request_path", m_post_request_path);
   lua_register(state, "m_submit_form", m_submit_form);
   lua_register(state, "m_get_by_xpath", m_get_by_xpath);
   lua_register(state, "m_get_by_regex", m_get_by_regex);
@@ -399,7 +400,7 @@ int lua_connection::m_request_path(lua_State* state) {
   return doRequest(state, true);
 }
 
-int lua_connection::m_post_request(lua_State* state) {
+int lua_connection::doPostRequest(lua_State* state, bool path) {
   // Read arguments.
   std::string url = luaL_checkstring(state, 1);
   std::string data luaL_checkstring(state, 2);
@@ -407,8 +408,15 @@ int lua_connection::m_post_request(lua_State* state) {
   // Do request.
   std::string response;
   try {
-    response = getWebClient(state)->request_post(url,
-        reinterpret_cast<const char*>(data.c_str()), data.length());
+    if (path) {
+      bot* bot = getBot(state);
+      http::webclient* wc = bot->webclient();
+      response = wc->request_post(bot->server() + url,
+          reinterpret_cast<const char*>(data.c_str()), data.length());
+    } else {
+      response = getWebClient(state)->request_post(url,
+          reinterpret_cast<const char*>(data.c_str()), data.length());
+    }
   } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "#con %s", e.what());
   }
@@ -417,6 +425,14 @@ int lua_connection::m_post_request(lua_State* state) {
   // Return result.
   lua_pushstring(state, response.c_str());
   return 1;
+}
+
+int lua_connection::m_post_request(lua_State* state) {
+  return doPostRequest(state, false);
+}
+
+int lua_connection::m_post_request_path(lua_State* state) {
+  return doPostRequest(state, true);
 }
 
 int lua_connection::m_submit_form(lua_State* state) {
@@ -440,9 +456,9 @@ int lua_connection::m_submit_form(lua_State* state) {
   // Do request.
   std::string response;
   try {
-      bot* bot = getBot(state);
-      http::webclient* wc = bot->webclient();
-      response = wc->submit(xpath, content, parameters, action);
+    bot* bot = getBot(state);
+    http::webclient* wc = bot->webclient();
+    response = wc->submit(xpath, content, parameters, action);
   } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "#con %s", e.what());
   } catch(const http::element_not_found_exception& e) {
@@ -508,7 +524,7 @@ int lua_connection::m_get_all_by_regex(lua_State* state) {
   try {
     // Result table and match index.
     lua_newtable(state);
-    int matchIndex = 0;
+    int matchIndex = 1;
 
     // Prepare for search:
     // results structure, flags, start, end and compiled regex
