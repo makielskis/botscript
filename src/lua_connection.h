@@ -301,6 +301,15 @@ class lua_connection {
 
   /**
    * BOTSCRIPT API FUNCTION\n
+   * m_get_all_by_xpath(string, xpath) returns all elements selected by the XPath.
+   *
+   * \param state the lua script state (with parameters on the stack)
+   * \return the count of return values pushed to the stack
+   */
+  static int m_get_all_by_xpath(lua_State* state);
+
+  /**
+   * BOTSCRIPT API FUNCTION\n
    * m_get_by_regex(string, regex) returns the string selected by the regex.
    *
    * \param state the lua script state (with parameters on the stack)

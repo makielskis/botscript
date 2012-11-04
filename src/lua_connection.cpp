@@ -214,6 +214,7 @@ lua_State* lua_connection::newState() throw(lua_exception) {
   lua_register(state, "m_post_request_path", m_post_request_path);
   lua_register(state, "m_submit_form", m_submit_form);
   lua_register(state, "m_get_by_xpath", m_get_by_xpath);
+  lua_register(state, "m_get_all_by_xpath", m_get_all_by_xpath);
   lua_register(state, "m_get_by_regex", m_get_by_regex);
   lua_register(state, "m_get_all_by_regex", m_get_all_by_regex);
   lua_register(state, "m_log", m_log);
@@ -490,6 +491,46 @@ int lua_connection::m_get_by_xpath(lua_State* state) {
 
   // Return result.
   lua_pushstring(state, value.c_str());
+  return 1;
+}
+
+int lua_connection::m_get_all_by_xpath(lua_State* state) {
+  // Get arguments from stack.
+  std::string str = luaL_checkstring(state, 1);
+  const char* xpath = luaL_checkstring(state, 2);
+
+  // Use pugi for xpath query.
+  try {
+    // Result table and match index.
+    lua_newtable(state);
+    int matchIndex = 1;
+
+    pugi::xml_document doc;
+    doc.load(str.c_str());
+    pugi::xpath_query query(xpath);
+    pugi::xpath_node_set result = query.evaluate_node_set(doc);
+    for (pugi::xpath_node_set::const_iterator i = result.begin();
+       i != result.end(); ++i) {
+      // Push match index:
+      // the index for this match in the result table
+      lua_pushnumber(state, matchIndex++);
+
+      // Get node xml content
+      std::stringstream s;
+      i->node().print(s);
+
+      // Insert value to table
+      lua_pushstring(state, s.str().c_str());
+
+      // Insert match to the result table.
+      lua_rawset(state, -3);
+    }
+  } catch(const pugi::xpath_exception& e) {
+    std::string error = xpath;
+    error += " is not a valid xpath";
+    return luaL_error(state, "%s", error.c_str());
+  }
+
   return 1;
 }
 
