@@ -160,13 +160,22 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   password_ = document["password"].GetString();
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
-  std::string wait_time_factor = document.HasMember("wait_time_factor")
-                                 ? document["wait_time_factor"].GetString()
-                                 : "1";
+
+  std::string wait_time_factor;
+  if (document.HasMember("wait_time_factor") &&
+      document["wait_time_factor"].IsString()) {
+    wait_time_factor = document["wait_time_factor"].GetString();
+  } else {
+    wait_time_factor = "1";
+  }
 
   // Read proxy settings.
-  std::string proxy = document.HasMember("proxy")
-                      ? document["proxy"].GetString() : "";
+  std::string proxy;
+  if (document.HasMember("proxy") && document["proxy"].IsString()) {
+    proxy = document["proxy"].GetString();
+  } else {
+    proxy = "";
+  }
 
   // Create bot.
   init(proxy, 3, false);
@@ -175,22 +184,47 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   }
 
   // Load module configuration.
-  if (document.HasMember("modules")) {
+  if (document.HasMember("modules") && document["modules"].IsObject()) {
     const rapidjson::Value& a = document["modules"];
     for (rapidjson::Value::ConstMemberIterator i = a.MemberBegin();
          i != a.MemberEnd(); ++i) {
       const rapidjson::Value& m = i->value;
+
+      // Ignore modules that are no objects.
+      if (!m.IsObject()) {
+        continue;
+      }
+
+      // Extract module name.
       std::string module = i->name.GetString();
+
+      // Iterate module settings.
       rapidjson::Value::ConstMemberIterator it = m.MemberBegin();
       for (; it != m.MemberEnd(); ++it) {
+        // Read property name.
         std::string name = it->name.GetString();
+
+        // Ignore "active" because the module should be startet
+        // after the complete state has been read.
+        // Ignore "name" because the module name is not relevant for the state.
         if (name == "name" || name == "active") {
           continue;
         }
+
+        // Set module status variable.
         std::string value = it->value.GetString();
         execute(module + "_set_" + name, value);
       }
-      std::string active = m["active"].GetString();
+
+      // Read active status.
+      std::string active;
+      if (m.HasMember("active") && m["active"].IsString()) {
+        active = m["active"].GetString();
+      } else {
+        active = "0";
+      }
+
+      // Start module if active status is "1" (=active).
       if (active == "1") {
         execute(module + "_set_active", "1");
       }
