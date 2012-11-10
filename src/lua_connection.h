@@ -378,7 +378,6 @@ class lua_connection {
 
   static std::map<std::string, bot*> bots_;
   static boost::mutex bots_mutex_;
-  static http::webclient* webclient_;
 };
 
 }  // namespace botscript

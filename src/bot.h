@@ -147,6 +147,14 @@ class bot : boost::noncopyable {
   std::string configuration(bool with_password);
 
   /**
+   * Reads the module state.
+   *
+   * \param module name of the module to get the status from
+   * \return the status of a module
+   */
+  std::map<std::string, std::string> module_status(const std::string& module);
+
+  /**
    * Executes the given command.
    *
    * \param command the command to execute

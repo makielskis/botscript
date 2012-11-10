@@ -32,7 +32,6 @@ namespace botscript {
 
 std::map<std::string, bot*> lua_connection::bots_;
 boost::mutex lua_connection::bots_mutex_;
-http::webclient* lua_connection::webclient_ = NULL;
 
 jsonval_ptr lua_connection::toJSON(lua_State* state, int stack_index,
     rapidjson::Document::AllocatorType* allocator) {
@@ -322,23 +321,25 @@ bot* lua_connection::getBot(lua_State* state) {
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
 
   lua_getglobal(state, BOT_IDENTIFER);
-  const char* identifier = luaL_checkstring(state, -1);
+  std::string identifier = luaL_checkstring(state, -1);
+  lua_pop(state, 1);
 
   // Check for errors.
-  if (identifier == NULL || bots_.find(identifier) == bots_.end()) {
-    std::string error = "could not get the associated bot for ";
-    error += identifier;
-    luaL_error(state, "%s", error.c_str());
+  if (bots_.find(identifier) == bots_.end()) {
     return NULL;
   }
 
   bot* bot = bots_[identifier];
-  lua_pop(state, 1);
   return bot;
 }
 
 http::webclient* lua_connection::getWebClient(lua_State* state) {
-  return webclient_ != NULL ? webclient_ : getBot(state)->webclient();
+  // Get bot.
+  bot* bot = getBot(state);
+  if (bot == NULL) {
+    return NULL;
+  }
+  return bot->webclient();
 }
 
 void lua_connection::remove(const std::string& identifier) {
@@ -361,8 +362,6 @@ bool lua_connection::contains(const std::string& identifier) {
 }
 
 void lua_connection::log(lua_State* state, int log_level) {
-  bot* bot = getBot(state);
-
   // Get module name
   lua_getglobal(state, BOT_MODULE);
   std::string module = luaL_checkstring(state, -1);
@@ -370,16 +369,33 @@ void lua_connection::log(lua_State* state, int log_level) {
 
   // Get and log message
   std::string message = luaL_checkstring(state, 1);
+  lua_pop(state, 1);
+
+  // Get bot.
+  bot* bot = getBot(state);
+  if (bot == NULL) {
+    luaL_error(state, "no bot for state");
+    return;
+  }
+
   bot->log(log_level, module, message);
 }
 
 int lua_connection::doRequest(lua_State* state, bool path) {
   std::string url = luaL_checkstring(state, 1);
 
+  // Arguments read. Pop them.
+  lua_pop(state, 1);
+
+  // Get bot.
+  bot* bot = getBot(state);
+  if (bot == NULL) {
+    return luaL_error(state, "no bot for state");
+  }
+
   std::string response;
   try {
     if (path) {
-      bot* bot = getBot(state);
       http::webclient* wc = bot->webclient();
       response = wc->request_get(bot->server() + url);
     } else {
@@ -406,11 +422,19 @@ int lua_connection::doPostRequest(lua_State* state, bool path) {
   std::string url = luaL_checkstring(state, 1);
   std::string data luaL_checkstring(state, 2);
 
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
+
+  // Get bot.
+  bot* bot = getBot(state);
+  if (bot == NULL) {
+    return luaL_error(state, "no bot for state");
+  }
+
   // Do request.
   std::string response;
   try {
     if (path) {
-      bot* bot = getBot(state);
       http::webclient* wc = bot->webclient();
       response = wc->request_post(bot->server() + url,
           reinterpret_cast<const char*>(data.c_str()), data.length());
@@ -421,7 +445,6 @@ int lua_connection::doPostRequest(lua_State* state, bool path) {
   } catch(const std::ios_base::failure& e) {
     return luaL_error(state, "#con %s", e.what());
   }
-  lua_pushstring(state, response.c_str());
 
   // Return result.
   lua_pushstring(state, response.c_str());
@@ -454,10 +477,18 @@ int lua_connection::m_submit_form(lua_State* state) {
       content = luaL_checkstring(state, 1);
   }
 
+  // Arguments read. Pop them.
+  lua_pop(state, argc);
+
+  // Get bot.
+  bot* bot = getBot(state);
+  if (bot == NULL) {
+    return luaL_error(state, "no bot for state");
+  }
+
   // Do request.
   std::string response;
   try {
-    bot* bot = getBot(state);
     http::webclient* wc = bot->webclient();
     response = wc->submit(xpath, content, parameters, action);
   } catch(const std::ios_base::failure& e) {
@@ -474,14 +505,17 @@ int lua_connection::m_submit_form(lua_State* state) {
 int lua_connection::m_get_by_xpath(lua_State* state) {
   // Get arguments from stack.
   std::string str = luaL_checkstring(state, 1);
-  const char* xpath = luaL_checkstring(state, 2);
+  std::string xpath = luaL_checkstring(state, 2);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
 
   // Use pugi for xpath query.
   std::string value;
   try {
     pugi::xml_document doc;
     doc.load(str.c_str());
-    pugi::xpath_query query(xpath);
+    pugi::xpath_query query(xpath.c_str());
     value = query.evaluate_string(doc);
   } catch(const pugi::xpath_exception& e) {
     std::string error = xpath;
@@ -497,7 +531,10 @@ int lua_connection::m_get_by_xpath(lua_State* state) {
 int lua_connection::m_get_all_by_xpath(lua_State* state) {
   // Get arguments from stack.
   std::string str = luaL_checkstring(state, 1);
-  const char* xpath = luaL_checkstring(state, 2);
+  std::string xpath = luaL_checkstring(state, 2);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
 
   // Use pugi for xpath query.
   try {
@@ -507,7 +544,7 @@ int lua_connection::m_get_all_by_xpath(lua_State* state) {
 
     pugi::xml_document doc;
     doc.load(str.c_str());
-    pugi::xpath_query query(xpath);
+    pugi::xpath_query query(xpath.c_str());
     pugi::xpath_node_set result = query.evaluate_node_set(doc);
     for (pugi::xpath_node_set::const_iterator i = result.begin();
        i != result.end(); ++i) {
@@ -537,7 +574,10 @@ int lua_connection::m_get_all_by_xpath(lua_State* state) {
 int lua_connection::m_get_by_regex(lua_State* state) {
   // get arguments from stack
   std::string str = luaL_checkstring(state, 1);
-  const char* regex = luaL_checkstring(state, 2);
+  std::string regex = luaL_checkstring(state, 2);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
 
   std::string match;
   try {
@@ -560,7 +600,10 @@ int lua_connection::m_get_by_regex(lua_State* state) {
 int lua_connection::m_get_all_by_regex(lua_State* state) {
   // Get arguments from stack.
   std::string str = luaL_checkstring(state, 1);
-  const char* regex = luaL_checkstring(state, 2);
+  std::string regex = luaL_checkstring(state, 2);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
 
   try {
     // Result table and match index.
@@ -617,15 +660,23 @@ int lua_connection::m_log_error(lua_State* state) {
 }
 
 int lua_connection::m_set_status(lua_State* state) {
-  bot* bot = getBot(state);
-
   // Get module name.
   lua_getglobal(state, BOT_MODULE);
   std::string module = luaL_checkstring(state, -1);
+  lua_pop(state, 1);
 
   // Get key and value.
-  std::string key = luaL_checkstring(state, -3);
-  std::string value = luaL_checkstring(state, -2);
+  std::string key = luaL_checkstring(state, -2);
+  std::string value = luaL_checkstring(state, -1);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
+
+  // Get bot.
+  bot* bot = getBot(state);
+  if (bot == NULL) {
+    return luaL_error(state, "no bot for state");
+  }
 
   // Execute set command.
   bot->execute(module + "_set_" + key, value);

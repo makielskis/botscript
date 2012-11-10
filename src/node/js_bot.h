@@ -509,8 +509,8 @@ class js_bot : public node::ObjectWrap {
   static std::string v8String2stdString(const v8::Local<v8::Value>& input) {
     assert(input->IsString());
     v8::Local<v8::String> v8_string = v8::Local<v8::String>::Cast(input);
-    std::string output(v8_string->Length(), 0);
-    v8_string->WriteAscii(const_cast<char*>(output.c_str()));
+    std::string output(v8_string->Utf8Length(), 0);
+    v8_string->WriteUtf8(const_cast<char*>(output.c_str()));
     return output;
   }
 

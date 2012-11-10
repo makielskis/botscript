@@ -401,6 +401,24 @@ std::string bot::configuration(bool with_password) {
   return buffer.GetString();
 }
 
+std::map<std::string, std::string> bot::module_status(
+    const std::string& module) {
+  // Lock for status r/w access.
+  boost::lock_guard<boost::mutex> lock(status_mutex_);
+
+  // Read module settings.
+  std::map<std::string, std::string> module_status;
+  typedef std::pair<std::string, std::string> str_pair;
+  BOOST_FOREACH(str_pair j, status_) {
+    if (boost::algorithm::starts_with(j.first, module)) {
+      std::string key = j.first.substr(module.length() + 1);
+      module_status[key] = j.second;
+    }
+  }
+
+  return module_status;
+}
+
 void bot::execute(const std::string& command, const std::string& argument) {
   // Prevent execution when bot is already stopped.
   if (stopped_) {

@@ -96,8 +96,8 @@ class module : boost::noncopyable {
     }
   }
 
-  void applyStatus();
   void run(const boost::system::error_code& ec);
+  void set_lua_status(lua_State* lua_state);
 
   boost::mutex shutdown_mutex_;
 
@@ -108,15 +108,11 @@ class module : boost::noncopyable {
   bot* bot_;
   boost::asio::io_service* io_service_;
 
+  std::string script_;
   std::string module_name_;
   std::string lua_run_;
   std::string lua_status_;
   std::string lua_active_status_;
-
-  lua_State* lua_state_;
-
-  std::map<std::string, std::string> status_;
-  boost::mutex status_mutex_;
 
   boost::asio::deadline_timer timer_;
 };

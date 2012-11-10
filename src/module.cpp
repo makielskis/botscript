@@ -34,9 +34,9 @@ throw(lua_exception)
     : module_state_(OFF),
       bot_(bot),
       io_service_(io_service),
+      script_(script),
       lua_run_("run_"),
       lua_status_("status_"),
-      lua_state_(NULL),
       timer_(*io_service) {
   // Discover module name.
   using boost::filesystem::path;
@@ -52,22 +52,23 @@ throw(lua_exception)
   bot_->status(lua_active_status_, "0");
 
   // Load module script.
+  lua_State* lua_state = nullptr;
   try {
-    lua_state_ = lua_connection::newState(module_name_, bot);
-    lua_connection::executeScript(script, lua_state_);
+    lua_state = lua_connection::newState(module_name_, bot);
+    lua_connection::executeScript(script, lua_state);
   } catch(const lua_exception& e) {
-    lua_close(lua_state_);
+    lua_close(lua_state);
     throw e;
   }
 
   // Initialize status.
-  // We're abusing the status_ member variable as temporary store.
-  lua_connection::get_status(lua_state_, lua_status_, &status_);
+  std::map<std::string, std::string> lua_status;
+  lua_connection::get_status(lua_state, lua_status_, &lua_status);
   typedef std::pair<std::string, std::string> str_pair;
-  BOOST_FOREACH(str_pair s, status_) {
+  BOOST_FOREACH(str_pair s, lua_status) {
     bot->status(module_name_ + "_" + s.first, s.second);
   }
-  status_.clear();
+  lua_close(lua_state);
 }
 
 module::~module() {
@@ -103,29 +104,7 @@ module::~module() {
     }
   }
 
-  lua_close(lua_state_);
   bot_->log(bot::BS_LOG_NFO, module_name_, "shutdown finished");
-}
-
-void module::applyStatus() {
-  // Lock because of r/w access to module status.
-  boost::lock_guard<boost::mutex> lock(status_mutex_);
-
-  // Write the status to the lua script state.
-  typedef std::pair<std::string, std::string> str_pair;
-  BOOST_FOREACH(str_pair s, status_) {
-    try {
-      lua_connection::set_status(lua_state_, lua_status_, s.first, s.second);
-    } catch(const lua_exception& e) {
-      std::stringstream msg;
-      msg << "could not set status " << s.first << " = " << s.second;
-      bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
-      return;
-    }
-  }
-
-  // Clear status.
-  status_.clear();
 }
 
 void module::run(const boost::system::error_code& ec) {
@@ -156,24 +135,32 @@ void module::run(const boost::system::error_code& ec) {
   bot_->log(bot::BS_LOG_NFO, module_name_, "starting");
   bot_->status(lua_active_status_, "1");
 
-  // Apply status changes to lua module state.
-  applyStatus();
-
   // Start lua module run function.
+  lua_State* lua_state = NULL;
   try {
+    // Load module script.
+    lua_state = lua_connection::newState(module_name_, bot_);
+    lua_connection::executeScript(script_, lua_state);
+
+    // Load module status into lua.
+    set_lua_status(lua_state);
+
     // Push run function to the stack and execute it.
-    lua_getglobal(lua_state_, lua_run_.c_str());
-    lua_connection::callFunction(lua_state_, 0, LUA_MULTRET, 0);
+    lua_getglobal(lua_state, lua_run_.c_str());
+    lua_connection::callFunction(lua_state, 0, LUA_MULTRET, 0);
 
     // Check the return argument(s) of the lua function call.
-    int argc = lua_gettop(lua_state_);
+    int argc = lua_gettop(lua_state);
     int n1 = -1, n0 = -1;
     if (argc >= 2) {
-      n1 = lua_isnumber(lua_state_, -2) ? luaL_checkint(lua_state_, -2) : -1;
+      n1 = lua_isnumber(lua_state, -2) ? luaL_checkint(lua_state, -2) : -1;
     }
     if (argc >= 1) {
-      n0 = lua_isnumber(lua_state_, -1) ? luaL_checkint(lua_state_, -1) : -1;
+      n0 = lua_isnumber(lua_state, -1) ? luaL_checkint(lua_state, -1) : -1;
     }
+
+    // Close lua state.
+    lua_close(lua_state);
 
     {
       // Lock because of r/w access to module_state_.
@@ -199,6 +186,9 @@ void module::run(const boost::system::error_code& ec) {
       }
     }
   } catch(const lua_exception& e) {
+    // Close lua state on error.
+    lua_close(lua_state);
+
     int wait_time = bot_->randomWait(30,60);
 
     // Log error.
@@ -314,9 +304,6 @@ void module::execute(const std::string& command, const std::string& argument) {
       }
     } else {
       // Handle status variable changes.
-      // Lock because of status map r/w access.
-      boost::lock_guard<boost::mutex> lock(status_mutex_);
-
       // Extend internal key to full key.
       std::string full_key = module_name_ + "_" + var;
 
@@ -325,9 +312,26 @@ void module::execute(const std::string& command, const std::string& argument) {
         std::stringstream msg;
         msg << "setting " << var << " to " << argument;
         bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
-        status_[var] = argument;
         bot_->status(full_key, argument);
       }
+    }
+  }
+}
+
+void module::set_lua_status(lua_State* lua_state) {
+  // Get current module staus from the bot.
+  std::map<std::string, std::string> status = bot_->module_status(module_name_);
+
+  // Write the status to the lua script state.
+  typedef std::pair<std::string, std::string> str_pair;
+  BOOST_FOREACH(str_pair s, status) {
+    try {
+      lua_connection::set_status(lua_state, lua_status_, s.first, s.second);
+    } catch(const lua_exception& e) {
+      std::stringstream msg;
+      msg << "could not set status " << s.first << " = " << s.second;
+      bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
+      return;
     }
   }
 }
