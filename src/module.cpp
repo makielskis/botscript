@@ -189,7 +189,7 @@ void module::run(const boost::system::error_code& ec) {
     // Close lua state on error.
     lua_close(lua_state);
 
-    int wait_time = bot_->randomWait(30,60);
+    int wait_time = bot_->randomWait(120, 360);
 
     // Log error.
     bot_->log(bot::BS_LOG_ERR, module_name_, e.what());
