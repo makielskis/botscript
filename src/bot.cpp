@@ -667,9 +667,14 @@ void bot::status(const std::string key, const std::string value) {
     boost::lock_guard<boost::mutex> lock(status_mutex_);
 
     // Update value.
-    std::string& current = status_[key];
-    if (current != value) {
-      current = value;
+    if (status_.find(key) != status_.end()) {
+      std::string& current = status_[key];
+      if (current != value) {
+        current = value;
+        update = true;
+      }
+    } else {
+      status_[key] = value;
       update = true;
     }
   }
