@@ -400,7 +400,7 @@ class webclient : boost::noncopyable {
       ok = tidyOptSetValue(tdoc, TidyInCharEncoding, "utf8");
     }
     if (ok) {
-      ok = tidyOptSetValue(tdoc, TidyOutCharEncoding, "ascii");
+      ok = tidyOptSetValue(tdoc, TidyOutCharEncoding, "utf8");
     }
     if (ok) {
       rc = tidySetErrorBuffer(tdoc, &errbuf);
