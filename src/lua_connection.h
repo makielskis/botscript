@@ -30,6 +30,7 @@
 
 #include "boost/thread.hpp"
 #include "boost/shared_ptr.hpp"
+#include "boost/context/all.hpp"
 
 #include "rapidjson/document.h"
 
@@ -365,7 +366,20 @@ class lua_connection {
    */
   static int m_set_status(lua_State* state);
 
+  static void async_request(intptr_t baton);
+
+  static void async_response(intptr_t baton);
+
+  static int m_async(lua_State* state);
+
  private:
+  struct baton {
+    boost::context::fcontext_t* lua_context;
+    boost::context::fcontext_t* req_context;
+    std::string url;
+    std::string response;
+  };
+
   /**
    * Recursive toJSON.
    *
@@ -378,6 +392,8 @@ class lua_connection {
 
   static std::map<std::string, bot*> bots_;
   static boost::mutex bots_mutex_;
+
+  static boost::context::guarded_stack_allocator context_alloc_;
 };
 
 }  // namespace botscript

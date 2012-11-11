@@ -23,5 +23,5 @@ include_directories("../external_lib/pugixml-1.0/src")
 set_target_properties(botscript PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 set_target_properties(download PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 
-target_link_libraries(botscript boost_system boost_thread boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml lua dl z)
+target_link_libraries(botscript boost_system boost_thread boost_regex boost_iostreams boost_filesystem boost_context -pthread tidy pugixml lua dl z)
 target_link_libraries(download boost_system boost_regex boost_iostreams boost_filesystem z -pthread)

@@ -32,6 +32,7 @@ namespace botscript {
 
 std::map<std::string, bot*> lua_connection::bots_;
 boost::mutex lua_connection::bots_mutex_;
+boost::context::guarded_stack_allocator lua_connection::context_alloc_;
 
 jsonval_ptr lua_connection::toJSON(lua_State* state, int stack_index,
     rapidjson::Document::AllocatorType* allocator) {
@@ -219,6 +220,7 @@ lua_State* lua_connection::newState() throw(lua_exception) {
   lua_register(state, "m_log", m_log);
   lua_register(state, "m_log_error", m_log_error);
   lua_register(state, "m_set_status", m_set_status);
+  lua_register(state, "m_async", m_async);
 
   // Load libraries.
   luaL_openlibs(state);
@@ -681,6 +683,42 @@ int lua_connection::m_set_status(lua_State* state) {
   // Execute set command.
   bot->execute(module + "_set_" + key, value);
   return 0;
+}
+
+void lua_connection::async_request(intptr_t arg) {
+  baton* b = reinterpret_cast<baton*>(arg);
+
+  std::cout << "fake request to " << b->url << "\n";
+  async_response(arg);
+}
+
+void lua_connection::async_response(intptr_t arg) {
+  baton* b = reinterpret_cast<baton*>(arg);
+
+  b->response = "Hello World!";
+  boost::context::jump_fcontext(b->req_context, b->lua_context, 0);
+}
+
+int lua_connection::m_async(lua_State* state) {
+  std::size_t size = boost::context::guarded_stack_allocator::minimum_stacksize();
+
+  boost::context::fcontext_t lua_context;
+
+  void* req_sp = context_alloc_.allocate(size);
+  boost::context::fcontext_t* req_context = boost::context::make_fcontext(req_sp, size, async_request);
+
+  boost::shared_ptr<baton> b(new baton);
+  b->url = "http://google.de/";
+  b->lua_context = &lua_context;
+  b->req_context = req_context;
+
+  boost::context::jump_fcontext(&lua_context, req_context, reinterpret_cast<intptr_t>(b.get()));
+
+  std::cout << b->response << "\n";
+
+  lua_pushstring(state, b->response.c_str());
+
+  return 1;
 }
 
 }  // namespace botscript
