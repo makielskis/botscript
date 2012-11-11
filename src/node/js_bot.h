@@ -75,14 +75,14 @@ class async_load : public async_action {
       v8::Local<v8::Value> args[3] = {
           v8::String::New(error_.c_str()),
           v8::Local<v8::Value>::New(v8::Boolean::New(false)),
-          v8::String::New(configuration_.c_str())
+          v8::String::New(bot_->configuration(true).c_str())
       };
       callback_->Call(v8::Undefined().As<v8::Object>(), 3, args);
     } else {
       v8::Local<v8::Value> args[3] = {
           v8::Local<v8::Value>::New(v8::Undefined()),
           v8::Local<v8::Value>::New(v8::Boolean::New(true)),
-          v8::String::New(configuration_.c_str())
+          v8::String::New(bot_->configuration(true).c_str())
       };
       callback_->Call(v8::Undefined().As<v8::Object>(), 3, args);
     }
