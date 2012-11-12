@@ -307,6 +307,7 @@ void lua_connection::set_status(lua_State* state,
   // Get and check state.
   lua_getglobal(state, var.c_str());
   if (!lua_istable(state, -1)) {
+    lua_pop(state, 1);
     throw lua_exception("module status is not a table");
   }
 
@@ -314,6 +315,7 @@ void lua_connection::set_status(lua_State* state,
   lua_pushstring(state, key.c_str());
   lua_pushstring(state, value.c_str());
   lua_settable(state, -3);
+  lua_pop(state, 1);
 }
 
 bot* lua_connection::getBot(lua_State* state) {

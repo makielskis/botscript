@@ -325,6 +325,11 @@ void module::set_lua_status(lua_State* lua_state) {
   // Write the status to the lua script state.
   typedef std::pair<std::string, std::string> str_pair;
   BOOST_FOREACH(str_pair s, status) {
+    // Don't try to set the active status.
+    if (s.first == "active") {
+      continue;
+    }
+
     try {
       lua_connection::set_status(lua_state, lua_status_, s.first, s.second);
     } catch(const lua_exception& e) {
