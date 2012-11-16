@@ -45,9 +45,9 @@
 #include "boost/lambda/lambda.hpp"
 #include "boost/lexical_cast.hpp"
 #include "boost/exception/exception.hpp"
+#include "boost/function.hpp"
 
 namespace http {
-
 
 /**
  * Boost.Iostreams HTTP source stream.
@@ -60,6 +60,9 @@ class http_source {
 
   /// This is a source stream (to be used with Boost.Iostreams)
   typedef boost::iostreams::source_tag category;
+
+  /// Async callback: first = error string, second = success flag
+  typedef boost::function<void (std::string, bool)> async_callback;
 
   /// Request methods enumeration.
   enum { GET, POST, /* OPTIONS, HEAD, PUT, DELETE not implemented (yet?) */ };
@@ -86,9 +89,13 @@ class http_source {
               const std::map<std::string, std::string>& headers,
               const void* content, const size_t content_length,
               const std::string& proxy_host,
-              boost::asio::io_service* io_service)
+              boost::asio::io_service* io_service,
+              bool full_async)
   throw(std::ios_base::failure)
-    : io_service_(io_service),
+    : host_(host),
+      port_(port),
+      proxy_host_(proxy_host),
+      io_service_(io_service),
       socket_(*io_service),
       resolver_(*io_service),
       timeout_timer_(*io_service),
@@ -99,23 +106,64 @@ class http_source {
       content_length_read_(0),
       bytes_transferred_(0),
       requested_bytes_(0),
-      transfer_all_(false),
+      transfer_all_(full_async),
+      full_async_(full_async),
       transfer_finished_(false) {
     buildRequest(host, path, method, content, content_length,
                  headers, !proxy_host.empty());
-
-    startTimeout(5);
-    boost::asio::ip::tcp::resolver::query query(
-            proxy_host.empty() ? host : proxy_host, port);
-    resolver_.async_resolve(query,
-                            boost::bind(&http_source::handleResolve, this,
-                                        boost::asio::placeholders::error,
-                                        boost::asio::placeholders::iterator));
-    io_service_->run();
+    if (!full_async_) {
+      request();
+    }
   }
 
   ~http_source() {
     finishTransfer();
+  }
+
+  void request() {
+    startTimeout(5);
+    boost::asio::ip::tcp::resolver::query query(
+            proxy_host_.empty() ? host_ : proxy_host_, port_);
+    resolver_.async_resolve(query,
+                            boost::bind(&http_source::handleResolve, this,
+                                        boost::asio::placeholders::error,
+                                        boost::asio::placeholders::iterator));
+
+    // Start io_service if necessary.
+    if (!full_async_) {
+      io_service_->run();
+    }
+  }
+
+  /**
+   * Starts the transfer asynchronously. Calls the callback function on finish.
+   *
+   * \param cb the callback to call on transfer finish
+   */
+  void async(async_callback cb) {
+    cb_ = cb;
+    request();
+  }
+
+  /**
+   * Finishes the transfer by closing the socket. If the transfer is currently
+   * active, it will be stopped and throw an exception (in sync mode) or call
+   * the callback function (in async mode) with an error.
+   */
+  void finishTransfer() {
+    if (!transfer_finished_) {
+      transfer_finished_ = true;
+
+      // Shutdown socket.
+      boost::system::error_code ignored_0;
+      socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_0);
+
+      // Close socket.
+      boost::system::error_code ignored_1;
+      socket_.close(ignored_1);
+
+      timeout_timer_.cancel();
+    }
   }
 
   /// Read function suited to use with boost::iostreams::stream
@@ -284,12 +332,13 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Connect to the resolved endpoint.
-      startTimeout(4);
+      startTimeout(8);
       boost::asio::async_connect(socket_, endpoint_iterator,
                                  boost::bind(&http_source::handleConnect, this,
                                              boost::asio::placeholders::error));
     } else {
-      throw std::ios_base::failure("resolve error");
+      error("resolve error");
+      return;
     }
   }
 
@@ -297,16 +346,17 @@ class http_source {
   throw(std::ios_base::failure) {
     if (!ec) {
       // Start the timeout timer assuming that the minimum transfer rate
-      // is at least 1kb per second
+      // is at least 1kb per second.
       int timeout = ceil(request_buffer_.size() / static_cast<double>(1024));
-      startTimeout(timeout + 2);
+      startTimeout(timeout + 5);
 
       // Write request.
       boost::asio::async_write(socket_, request_buffer_,
                                boost::bind(&http_source::handleWrite, this,
                                            boost::asio::placeholders::error));
     } else {
-      throw std::ios_base::failure("connect error");
+      error("connect error");
+      return;
     }
   }
 
@@ -319,7 +369,8 @@ class http_source {
               boost::bind(&http_source::handleReadStatusLine, this,
                           boost::asio::placeholders::error));
     } else {
-      throw std::ios_base::failure("write error");
+      error("write error");
+      return;
     }
   }
 
@@ -339,7 +390,8 @@ class http_source {
               boost::bind(&http_source::handleReadHeaders, this,
                           boost::asio::placeholders::error));
     } else {
-      throw std::ios_base::failure("read (statusline) error");
+      error("read (statusline) error");
+      return;
     }
   }
 
@@ -367,12 +419,14 @@ class http_source {
             content_length_ = boost::lexical_cast<int>(
                 header_to_lower.substr(16, header_to_lower.length() - 17));
           } catch(const boost::bad_lexical_cast& e) {
-            throw std::ios_base::failure("read (contentlength parse) error");
+            error("read (contentlength parse) error");
+            return;
           }
 
           // Check parse result: not negativ and <= 2MB
           if (content_length_ < 0 || content_length_ >= 0x200000) {
-            throw std::ios_base::failure("read (contentlength range) error");
+            error("read (contentlength range) error");
+            return;
           }
 
           content_length_read_ = true;
@@ -382,8 +436,15 @@ class http_source {
           content_encoding_gzip_ = header.substr(18, 4) == "gzip";
         }
       }
+
+      // Do full transfer if requested.
+      if (full_async_) {
+        boost::system::error_code ignored;
+        handleRead(ignored, 0);
+      }
     } else {
-      throw std::ios_base::failure("read (headers) error");
+      error("read (headers) error");
+      return;
     }
   }
 
@@ -393,6 +454,7 @@ class http_source {
     if (!ec) {
       // Stop if we transferred enough bytes.
       if (!transfer_all_ && response_content_.size() >= requested_bytes_) {
+        callback("", true);
         return;
       }
 
@@ -420,6 +482,7 @@ class http_source {
       if (to_transfer <= 0) {
         if (content_length_ == 0) {
           finishTransfer();
+          callback("", true);
         }
         return;
       }
@@ -435,7 +498,8 @@ class http_source {
       bytes_transferred_ += to_transfer;
       content_length_ -= to_transfer;
     } else {
-      throw std::ios_base::failure("read (content) error");
+      error("read (content) error");
+      return;
     }
   }
 
@@ -454,12 +518,14 @@ class http_source {
         response_buffer_.consume(buffer_size);
       }
     } else {
-      throw std::ios_base::failure("read (until close) error");
+      error("read (until close) error");
+      return;
     }
 
     // Finish transfer on EOF.
     if (ec == boost::asio::error::eof) {
       finishTransfer();
+      callback("", true);
       return;
     }
 
@@ -491,10 +557,11 @@ class http_source {
         // We are expecting a chunksize declaration of this form: "\r\nABC\r\n"
         // Read chunk size declaration and remove both "\r\n".
         const char* r =
-                boost::asio::buffer_cast<const char*>(response_buffer_.data());
+            boost::asio::buffer_cast<const char*>(response_buffer_.data());
 
         if (response_buffer_.size() == 0) {
-          throw std::ios_base::failure("read (chunksize) error");
+          error("read (chunksize) error");
+          return;
         }
         if (r[0] == '\r' && r[1] == '\n') {
           response_buffer_.consume(2);
@@ -507,6 +574,7 @@ class http_source {
         // Check stop condition.
         if (chunksize == 0) {
           finishTransfer();
+          callback("", true);
           return;
         }
 
@@ -580,7 +648,8 @@ class http_source {
         }
       }
     } else {
-      throw std::ios_base::failure("read (chunk) error");
+      error("read (chunk) error");
+      return;
     }
   }
 
@@ -598,7 +667,8 @@ class http_source {
                           boost::asio::placeholders::error,
                           boost::asio::placeholders::bytes_transferred));
     } else {
-      throw std::ios_base::failure("read (chunksize) error");
+      error("read (chunksize) error");
+      return;
     }
   }
 
@@ -609,22 +679,6 @@ class http_source {
     if (timeout_timer_.expires_from_now() < boost::posix_time::seconds(0)) {
       finishTransfer();
       return;
-    }
-  }
-
-  void finishTransfer() {
-    if (!transfer_finished_) {
-      transfer_finished_ = true;
-
-      // Shutdown socket.
-      boost::system::error_code ignored_0;
-      socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_0);
-
-      // Close socket.
-      boost::system::error_code ignored_1;
-      socket_.close(ignored_1);
-
-      timeout_timer_.cancel();
     }
   }
 
@@ -651,12 +705,33 @@ class http_source {
   }
 
   void startTimeout(int timeout) {
-    timeout_timer_.cancel();
-    timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
-    timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
-                                          boost::asio::placeholders::error));
+    if (!full_async_) {
+      timeout_timer_.cancel();
+      timeout_timer_.expires_from_now(boost::posix_time::seconds(timeout));
+      timeout_timer_.async_wait(boost::bind(&http_source::handleTimeout, this,
+                                            boost::asio::placeholders::error));
+    }
   }
 
+  void callback(const std::string& error, bool success) {
+    if (full_async_) {
+      cb_(error, success);
+    }
+  }
+
+  void error(const std::string& error)
+  throw(std::ios_base::failure) {
+    finishTransfer();
+    if (full_async_) {
+      cb_(error, false);
+    } else {
+      throw std::ios_base::failure(error);
+    }
+  }
+
+  std::string host_;
+  std::string port_;
+  std::string proxy_host_;
   boost::asio::io_service* io_service_;
   boost::asio::ip::tcp::socket socket_;
   boost::asio::ip::tcp::resolver resolver_;
@@ -674,6 +749,8 @@ class http_source {
   std::vector<char> response_content_;
   size_t requested_bytes_;
   bool transfer_all_;
+  bool full_async_;
+  async_callback cb_;
   bool transfer_finished_;
 };
 
@@ -685,6 +762,7 @@ class request : boost::noncopyable {
  public:
   /**
    * Connects a http_source.
+   *
    * \sa http_source::http_source for constructor arguments
    * \exception std::ios_base::failure if the transfer fails
    */
@@ -692,30 +770,41 @@ class request : boost::noncopyable {
           const std::string& path, const int method,
           const std::map<std::string, std::string>& headers,
           const void* content, const size_t content_length,
-          const std::string& proxy_host)
+          const std::string& proxy_host,
+          boost::asio::io_service* io_service, bool async)
     throw(std::ios_base::failure)
     : src_(host, port, path, method, headers,
-           content, content_length, proxy_host, &io_service_),
-      s_(boost::ref(src_)) {
+           content, content_length, proxy_host, io_service, async),
+      s_(boost::ref(src_)),
+      success_(false) {
+  }
+
+  /**
+   * Downloads the content in an asynchronous manner. The callback is used in
+   * the following way: If an error occures, the second argument (boolean
+   * success flag) is false; the first argument is the error string. Otherwise
+   * (in case the request was successful), the success flag is set to true and
+   * the first argument (string) contains the downloaded content (gunzipped if
+   * the response was gzipped).
+   *
+   * \param timeout the timeout in seconds
+   * \param cb the callback to call on request finish
+   */
+  void do_request(int timeout, http_source::async_callback cb) {
+    src_.async(boost::bind(&request::finish_async_request, this, cb, _1, _2));
   }
 
   /**
    * Downloads the content. Decompresses if needed.
+   *
    * \exception std::ios_base::failure if the transfer fails
+   * \param timeout the timeout in seconds
    * \return the transferred content
    */
   std::string do_request(int timeout) throw(std::ios_base::failure) {
     src_.read(timeout);
-    std::stringstream response;
-    if (src_.content_encoding_gzip()) {
-      boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
-      filter.push(boost::iostreams::gzip_decompressor());
-      filter.push(s_);
-      boost::iostreams::copy(filter, response);
-    } else {
-      boost::iostreams::copy(s_, response);
-    }
-    return response.str();
+    read_response();
+    return response_.str();
   }
 
   /// Returns the cookies. \sa http_source::cookies()
@@ -724,11 +813,43 @@ class request : boost::noncopyable {
   /// Returns the (redirect) location. \sa http_source::location()
   std::string& location() { return src_.location(); }
 
+  /// \return whether the request was successful
+  bool success() const { return success_; }
+
+  /// \return the error that occured (if any)
+  std::string error() const { return error_; }
+
  private:
+  void finish_async_request(http_source::async_callback cb,
+                            const std::string& error, bool success) {
+    success_ = success;
+    if (success) {
+      read_response();
+      cb(response_.str(), true);
+    } else {
+      error_ = error;
+      cb(error, false);
+    }
+  }
+
+  void read_response() {
+    if (src_.content_encoding_gzip()) {
+      boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
+      filter.push(boost::iostreams::gzip_decompressor());
+      filter.push(s_);
+      boost::iostreams::copy(filter, response_);
+    } else {
+      boost::iostreams::copy(s_, response_);
+    }
+  }
+
   typedef boost::reference_wrapper<http::http_source> http_stream_ref;
-  boost::asio::io_service io_service_;
   http_source src_;
   boost::iostreams::stream<http_stream_ref> s_;
+
+  bool success_;
+  std::string error_;
+  std::stringstream response_;
 };
 
 }  // namespace http

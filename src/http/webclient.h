@@ -302,10 +302,12 @@ class webclient : boost::noncopyable {
       path = path.length() == 0 ? "/" : path;
 
       // Do web request.
+      boost::asio::io_service io;
       http::request r(host, proxy_port_.empty() ? port : proxy_port_,
                       path, method, headers_,
                       !redirect_count ? content : NULL,
-                      !redirect_count ? content_length : 0, proxy_host_);
+                      !redirect_count ? content_length : 0, proxy_host_,
+                      &io, false);
       std::string response = r.do_request(timeout_);
 
       // Store cookies.
