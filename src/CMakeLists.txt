@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 project(botscript)
 
-set(BOOST_PATH "../../../../boost_1_48_0/")
+set(BOOST_PATH "../../../../boost_1_52_0/")
 
 # Uncomment to use Clang compiler (improved error/warning output).
 #SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
