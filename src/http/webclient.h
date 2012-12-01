@@ -31,6 +31,8 @@
 #include <vector>
 #include <exception>
 
+#include "boost/shared_ptr.hpp"
+#include "boost/make_shared.hpp"
 #include "boost/utility.hpp"
 #include "boost/foreach.hpp"
 #include "boost/thread.hpp"
@@ -72,7 +74,11 @@ class element_not_found_exception : public std::exception {
 class webclient : boost::noncopyable {
  public:
   /// Does default initialization with default random headers and 30sec timeout.
-  webclient() : timeout_(30), headers_(randomHeaders()) {
+  /// \param io_service the io_service to use for asynchronous requests
+  webclient(boost::asio::io_service* io_service)
+    : timeout_(30),
+      headers_(randomHeaders()),
+      io_service_(io_service) {
   }
 
   /**
@@ -80,12 +86,15 @@ class webclient : boost::noncopyable {
    * \param proxy_host the proxy host to use (empty for direct connection)
    * \param proxy_port the proxy port to use (empty for direct connection)
    */
-  webclient(const std::map<std::string, std::string>& headers,
-            const std::string& proxy_host, const std::string& proxy_port)
+  webclient(boost::asio::io_service* io_service,
+            const std::map<std::string, std::string>& headers,
+            const std::string& proxy_host, const std::string& proxy_port,
+            boost::asio::io_service* io_service)
     : timeout_(30),
       proxy_host_(proxy_host),
       proxy_port_(proxy_port),
-      headers_(headers) {
+      headers_(headers),
+      io_service_(io_service) {
   }
 
   /**
@@ -95,17 +104,17 @@ class webclient : boost::noncopyable {
    * \param port the proxy port (empty for direct connection)
    */
   void proxy(const std::string host, const std::string port) {
-    boost::lock_guard<boost::mutex> lock(mutex);
+    boost::lock_guard<boost::mutex> lock(proxy_mutex_);
     proxy_host_ = host;
     proxy_port_ = port;
   }
 
-  /// Returns the proxy host.
+  /// \return the proxy host.
   std::string proxy_host() const {
     return proxy_host_;
   }
 
-  /// Returns the proxy port.
+  /// \return the proxy port.
   std::string proxy_port() const {
     return proxy_port_;
   }
@@ -113,12 +122,23 @@ class webclient : boost::noncopyable {
   /**
    * Does a simple HTTP GET request
    *
-   * \exception std::ios_base::failure when the request fails
+   * \param url the URL to load
    * \return the response
+   * \exception std::ios_base::failure when the request fails
    */
-  std::string request_get(std::string url)
+  std::string request_get(const std::string& url)
   throw(std::ios_base::failure) {
     return request(url, http::http_source::GET, NULL, 0);
+  }
+
+  /**
+   * Does a asynchronous HTTP GET request.
+   *
+   * \param url the URL to load
+   * \param cb the callback to call on request finish
+   */
+  void async_get(const std::string& url, http::http_source::async_callback cb) {
+    async_request(url, http::http_source::GET, nullptr, 0, cb, MAX_REDIRECTS);
   }
 
   /**
@@ -134,6 +154,22 @@ class webclient : boost::noncopyable {
                            const void* content, const size_t content_length)
   throw(std::ios_base::failure) {
     return request(url, http::http_source::POST, content, content_length);
+  }
+
+  /**
+   * Does an asynchronous HTTP POST request.
+   *
+   * \param url the URL to send the data to
+   * \param content pointer to the content to send
+   * \param content_length the content length
+   * \param cb the callback to call on request finish
+   */
+  void async_post(std::string url,
+                  const void* content, const size_t content_length,
+                  http::http_source::async_callback cb) {
+    async_request(url, http::http_source::POST,
+                  content, content_length,
+                  cb, MAX_REDIRECTS);
   }
 
   /**
@@ -279,54 +315,113 @@ class webclient : boost::noncopyable {
     return tool.node().empty() ? "" : tool.node().attribute("content").value();
   }
 
+  void async_request(const std::string& url, int method,
+                     const void* content, const size_t content_length,
+                     http::http_source::async_callback cb,
+                     int remaining_redirects) {
+    std::map<std::string, std::string> headers;
+    {
+      // Lock because of read access to the cookies map.
+      boost::lock_guard<boost::mutex> lock(cookies_mutex_);
+      headers = headers_;
+    }
+
+    std::string proxy_host, proxy_port;
+    {
+      // Lock because of read access to the proxy info.
+      boost::lock_guard<boost::mutex> lock(proxy_mutex_);
+      proxy_host = proxy_host_;
+      proxy_port = proxy_port_;
+    }
+
+    // Do web request.
+    http::url address(url, proxy_host, proxy_port);
+    boost::shared_ptr<http::request> r = boost::make_shared<http::request>(
+        address,
+        method, headers,
+        remaining_redirects ? content : NULL,
+        remaining_redirects ? content_length : 0,
+        io_service_, true);
+    r->do_request(timeout_, boost::bind(&webclient::async_request_finish, this,
+                                        _1, _2,
+                                        cb, url, address.host(), r,
+                                        remaining_redirects - 1));
+  }
+
+  void async_request_finish(std::string response, bool success,
+                            http::http_source::async_callback cb,
+                            const std::string& location,
+                            const std::string& host,
+                            boost::shared_ptr<http::request> r,
+                            int remaining_redirects) {
+    if (!success) {
+      return cb(response, false);
+    } else {
+      // Store cookies.
+      storeCookies(r->cookies());
+
+      // Check for redirect (new location given).
+      std::string url = r->location();
+      if (url.empty() || !remaining_redirects) {
+        if (!boost::ends_with(location, ".xml")) {
+          response = storeLocation(response, location);
+          response = tidy(response);
+        }
+        return cb(response, true);
+      }
+
+      // Fix relative location declaration.
+      if (!boost::starts_with(url, "http:")) {
+        url = "http://" + host + url;
+      }
+
+      // Redirect with HTTP GET
+      async_request(url, http_source::GET,
+                    nullptr, 0,
+                    cb, io_service_,
+                    remaining_redirects - 1);
+    }
+  }
+
   std::string request(std::string url, int method,
                       const void* content, const size_t content_length)
   throw(std::ios_base::failure) {
-    // Lock complete request because of cookies r/w access.
-    boost::lock_guard<boost::mutex> lock(mutex);
-
     int redirect_count = 0;
     while (true) {
-      // Extract protocol, port, host address and path from the URL.
-      boost::regex url_regex("(.*)://([a-zA-Z0-9\\.\\-]*)(:[0-9]*)?(.*)");
-      boost::match_results<std::string::const_iterator> what;
-      boost::regex_search(url, what, url_regex);
+      std::map<std::string, std::string> headers;
+      {
+        // Lock because of read access to the cookies map.
+        boost::lock_guard<boost::mutex> lock(cookies_mutex_);
+        headers = headers_;
+      }
 
-      std::string prot = what[1].str();
-      std::string host = what[2].str();
-      std::string port = what[3].str();
-      std::string path = what[4].str();
-
-      // Set port and path to default values of not set explicitly.
-      port = port.length() == 0 ? prot : port.substr(1, port.length() - 1);
-      path = path.length() == 0 ? "/" : path;
+      std::string proxy_host, proxy_port;
+      {
+        // Lock because of read access to the proxy info.
+        boost::lock_guard<boost::mutex> lock(proxy_mutex_);
+        proxy_host = proxy_host_;
+        proxy_port = proxy_port_;
+      }
 
       // Do web request.
       boost::asio::io_service io;
-      http::request r(host, proxy_port_.empty() ? port : proxy_port_,
-                      path, method, headers_,
+      http::url address(url, proxy_host, proxy_port);
+      http::request r(address,
+                      method, headers,
                       !redirect_count ? content : NULL,
-                      !redirect_count ? content_length : 0, proxy_host_,
+                      !redirect_count ? content_length : 0,
                       &io, false);
       std::string response = r.do_request(timeout_);
 
       // Store cookies.
-      std::map<std::string, std::string> cookies = r.cookies();
-      storeCookies(cookies);
+      storeCookies(r.cookies());
 
       // Check for redirect (new location given).
       std::string location = url;
       url = r.location();
       if (url.empty() || redirect_count == MAX_REDIRECTS) {
-        // Insert location as meta-tag in the head.
-        size_t head_start = response.find("<head>");
-        if (head_start != std::string::npos) {
-          std::string location_metatag = "\n<meta name=\"location\" content=\""
-                                         + location + "\" />\n";
-          response = response.substr(0, head_start + 6) + location_metatag
-                     + response.substr(head_start + 7, response.length());
-        }
         if (!boost::ends_with(location, ".xml")) {
+          response = storeLocation(response, location);
           response = tidy(response);
         }
         return response;
@@ -334,8 +429,10 @@ class webclient : boost::noncopyable {
 
       // Fix relative location declaration.
       if (!boost::starts_with(url, "http:")) {
-        url = "http://" + host + url;
+        url = "http://" + address.host() + url;
       }
+
+      // Redirect with HTTP GET
       method = http_source::GET;
       redirect_count++;
     }
@@ -346,22 +443,42 @@ class webclient : boost::noncopyable {
   }
 
   void storeCookies(const std::map<std::string, std::string>& cookies) {
-      if (cookies.size() == 0) {
-        return;
-      }
+    // Lock because of r/w access to the cookies map.
+    boost::lock_guard<boost::mutex> lock(cookies_mutex_);
 
-      // Store new cookies.
-      cookies_.insert(cookies.begin(), cookies.end());
+    // If there are no new cookies: nothing to do.
+    if (cookies.size() == 0) {
+      return;
+    }
 
-      // Build and set new cookies string.
-      std::stringstream cookies_str;
-      typedef std::pair<std::string, std::string> str_pair;
-      BOOST_FOREACH(str_pair cookie, cookies_) {
-        cookies_str << cookie.first << "=" << cookie.second << "; ";
-      }
-      std::string cookie = cookies_str.str();
-      cookie = cookie.substr(0, cookie.length() - 2);
-      headers_["Cookie"] = cookie;
+    // Store new cookies.
+    cookies_.insert(cookies.begin(), cookies.end());
+
+    // Build and set new cookies string.
+    std::stringstream cookies_str;
+    typedef std::pair<std::string, std::string> str_pair;
+    BOOST_FOREACH(str_pair cookie, cookies_) {
+      cookies_str << cookie.first << "=" << cookie.second << "; ";
+    }
+    std::string cookie = cookies_str.str();
+    cookie = cookie.substr(0, cookie.length() - 2);
+    headers_["Cookie"] = cookie;
+  }
+
+  std::string storeLocation(std::string page,
+                            const std::string& location) {
+    // Find header start.
+    size_t head_start = page.find("<head>");
+
+    // Insert location meta tag if head tag was found.
+    if (head_start != std::string::npos) {
+      std::string location_metatag = "\n<meta name=\"location\" content=\""
+                                     + location + "\" />\n";
+      page = page.substr(0, head_start + 6) + location_metatag
+                 + page.substr(head_start + 7, page.length());
+    }
+
+    return page;
   }
 
   std::string tidy(std::string page) {
@@ -512,7 +629,7 @@ class webclient : boost::noncopyable {
       } else {
         escaped.append("%");
         char buf[3];
-        sprintf(buf, "%.2X", (unsigned char) s[i]);
+        sprintf(buf, "%.2X", static_cast<unsigned char>(s[i]));
         escaped.append(buf);
       }
     }
@@ -520,11 +637,13 @@ class webclient : boost::noncopyable {
     return escaped;
   }
 
-  boost::mutex mutex;
+  boost::mutex cookies_mutex_;
+  boost::mutex proxy_mutex_;
   std::string proxy_host_;
   std::string proxy_port_;
   std::map<std::string, std::string> headers_;
   std::map<std::string, std::string> cookies_;
+  boost::asio::io_service* io_service_;
 };
 
 }  // namespace http

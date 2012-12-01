@@ -1,11 +1,11 @@
 cmake_minimum_required (VERSION 2.6)
 project(botscript)
 
-set(BOOST_PATH "../../../../boost_1_48_0/")
+set(BOOST_PATH "/home/wasabi/boost_1_52_0/")
 
 # Uncomment to use Clang compiler (improved error/warning output).
 #SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
-SET (CMAKE_CXX_FLAGS                "-std=c++0x")
+SET (CMAKE_CXX_FLAGS                "-std=c++0x -g -O0")
 #SET (CMAKE_CXX_FLAGS_DEBUG          "-g")
 #SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 #SET (CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
@@ -13,6 +13,7 @@ SET (CMAKE_CXX_FLAGS                "-std=c++0x")
 
 add_executable(botscript main.cpp lua_connection.cpp bot.cpp module.cpp)
 add_executable(download download.cpp)
+add_executable(test coroutine_test.cpp)
 
 include_directories(${BOOST_PATH})
 include_directories("../external_lib/rapidjson-r64/include")
@@ -22,6 +23,8 @@ include_directories("../external_lib/pugixml-1.0/src")
 
 set_target_properties(botscript PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 set_target_properties(download PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
+set_target_properties(test PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 
 target_link_libraries(botscript boost_system boost_thread boost_regex boost_iostreams boost_filesystem boost_context -pthread tidy pugixml lua dl z)
-target_link_libraries(download boost_system boost_regex boost_iostreams boost_filesystem z -pthread)
+target_link_libraries(test boost_system boost_thread boost_regex boost_iostreams boost_filesystem boost_context -pthread tidy pugixml lua dl z)
+target_link_libraries(download boost_system boost_context boost_regex boost_iostreams boost_filesystem z -pthread)

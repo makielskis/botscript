@@ -128,19 +128,18 @@ void bot::state_off(char s) {
   state_cond_.notify_all();
 }
 
-void bot::loadConfiguration(const std::string& configuration, int login_tries)
-throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
+void bot::configuration(const std::string& configuration, callback cb) {
   // Prevent execution when bot is already stopped.
   if (stopped_) {
     return;
   }
 
-  // Make sure the bot won't stop while execution.
+  // Make sure the bot won't stop while executing.
   on_off_lock oolock(LOAD_ON, LOAD_OFF, this);
 
   rapidjson::Document document;
   if (document.Parse<0>(configuration.c_str()).HasParseError()) {
-    // Configuration is not valid JSON. This should NOT happen!
+    return cb("invalid JSON", true);
   }
 
   // Check if all necessary configuration values are available.
@@ -152,7 +151,7 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
       !document["password"].IsString() ||
       !document["package"].IsString() ||
       !document["server"].IsString()) {
-    throw lua_exception("invalid configuration");
+    return cb("invalid configuration", true);
   }
 
   // Read basic configuration values.
@@ -160,7 +159,14 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
   password_ = document["password"].GetString();
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
+  identifier_ = createIdentifier(username_, package_, server_);
 
+  // Do not create a bot that already exists.
+  if (lua_connection::contains(identifier_)) {
+    return cb("bot already registered", true);
+  }
+
+  // Read wait time factor.
   std::string wait_time_factor;
   if (document.HasMember("wait_time_factor") &&
       document["wait_time_factor"].IsString()) {
@@ -177,13 +183,14 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
     proxy = "";
   }
 
-  // Create bot.
-  init(proxy, 3, false);
+  // Set wait time factor.
   if (wait_time_factor != "1") {
     execute("base_set_wait_time_factor", wait_time_factor);
   }
 
-  // Load module configuration.
+  // Create execute command sequence from module configurations
+  // for later execution (after the login has been performed)
+  command_sequence commands;
   if (document.HasMember("modules") && document["modules"].IsObject()) {
     const rapidjson::Value& a = document["modules"];
     for (rapidjson::Value::ConstMemberIterator i = a.MemberBegin();
@@ -212,8 +219,10 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
         }
 
         // Set module status variable.
+        std::string command = module + "_set_" + name;
         std::string value = it->value.GetString();
-        execute(module + "_set_" + name, value);
+        commands.push_back(
+            std::make_pair<std::string, std::string>(command, value));
       }
 
       // Read active status.
@@ -226,34 +235,48 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
 
       // Start module if active status is "1" (=active).
       if (active == "1") {
-        execute(module + "_set_active", "1");
+        std::string command = module + "_set_active";
+        commands.push_back(
+            std::make_pair<std::string, std::string>(command, "1"));
       }
     }
   }
+
+  // Login (either while setting the proxy
+  // or by calling the login function directly.
+  if (proxy.empty()) {
+    lua_State* state = lua_connection::new_state(this, "base");
+    callback* login_cb = new login_callback(
+        boost::bind(&bot::handle_login, this, _1, _2, init_commands, 3));
+    lua_connection::login(this, username_, password_, package_, login_cb);
+  } else {
+    set_proxy(proxy);
+  }
 }
 
-void bot::init(const std::string& proxy, int login_trys, bool check_only_first)
-throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
-  // Set identifier.
-  identifier_ = createIdentifier(username_, package_, server_);
+void bot::handle_login(const std::string& message, bool error, int tries,
+                       const command_sequence& init_commands,
+                       callback cb, callback* login_cb) {
+  // First: destroy login_cb to prevent memory leakage.
+  delete login_cb;
 
-  // Do not create a bot that already exists.
-  if (lua_connection::contains(identifier_)) {
-    throw lua_exception("bot already registered");
+  // Call final callback if the login was successful
+  // or there are no tries remaining.
+  if (!success && tries == 0) {
+    return cb(message, true);
+  } else if (success) {
+    return cb("", false);
   }
 
-  // Set proxy - if a proxy was used the bot is already logged in.
-  setProxy(proxy, check_only_first, login_trys);
-  if (proxy.empty()) {
-    try {
-      lua_connection::login(this, username_, password_, package_);
-    } catch(const lua_exception& e) {
-      log(BS_LOG_ERR, "base", e.what());
-      throw e;
-    }
-  }
+  // Login was not successful but we have tries remaining.
+  login_cb = new login_callback(
+      boost::bind(&bot::handle_login, this, _1, _2, init_commands, tries - 1));
+  lua_connection::login(this, username_, password_, package_, login_cb);
+}
 
-  // Load modules
+void bot::load_modules(const command_sequence& init_commands) {
+  // Load modules from package folder:
+  // Read every non-hidden file except servers.lua and base.lua
   using boost::filesystem::directory_iterator;
   if (boost::filesystem::is_directory(package_)) {
     for (directory_iterator i = directory_iterator(package_);
@@ -271,9 +294,15 @@ throw(lua_exception, bad_login_exception, invalid_proxy_exception) {
       }
     }
   }
+
+  // Initialize modules with commands.
+  std::for_each(init_commands.begin(), init_commands.end(),
+      [&modules_, this](std::pair<std::string, std::string>& command) {
+        this->execute(command.first, command.second);
+      });
 }
 
-bool bot::checkProxy(std::string proxy, int login_trys) {
+bool bot::check_proxy(const std::string& proxy) {
   // Don't accept empty proxies
   if (proxy.empty()) {
     return false;
@@ -305,9 +334,7 @@ bool bot::checkProxy(std::string proxy, int login_trys) {
   return false;
 }
 
-void bot::setProxy(const std::string& proxy, bool check_only_first,
-                   int login_trys)
-throw(invalid_proxy_exception) {
+void bot::proxy(const std::string& proxy, callback cb) {
   // Change status.
   status("base_proxy", proxy);
 
@@ -315,7 +342,7 @@ throw(invalid_proxy_exception) {
   if (proxy.empty()) {
     log(BS_LOG_NFO, "base", "setting no proxy");
     webclient_.proxy("", "");
-    return;
+    return cb("", false);
   }
 
   // Clear and fill proxy list with new proxies.
@@ -324,26 +351,21 @@ throw(invalid_proxy_exception) {
   proxies_.clear();
   boost::split(proxies_, proxy, boost::is_any_of(", \t\n"));
   if (proxies_.empty()) {
-    throw invalid_proxy_exception();
+    return cb("could not read proxy", true);
   }
 
   // Check first proxy / proxies.
   std::vector<std::string>::iterator proxy_it;
-  if (check_only_first) {
-    proxy_it = checkProxy(proxies_[0], login_trys)
-               ? proxies_.begin() : proxies_.end();
-  } else {
-    proxy_it = std::find_if(proxies_.begin(), proxies_.end(),
-        boost::bind(&bot::checkProxy, this, _1, login_trys) == true);
-  }
+  proxy_it = check_proxy(proxies_[0], 2) ? proxies_.begin() : proxies_.end();
 
   // Check result.
   if (proxy_it == proxies_.end()) {
     webclient_.proxy(original_proxy_host, original_proxy_port);
     log(BS_LOG_ERR, "base", "no working proxy found");
-    throw invalid_proxy_exception();
+    return cb("no working proxy found", true);
   } else {
     log(BS_LOG_NFO, "base", std::string("proxy set to ") + (*proxy_it));
+    return cb("", false);
   }
 }
 
@@ -474,7 +496,7 @@ std::string bot::createIdentifier(const std::string& username,
   // Load servers from package.
   std::string server_list = package + "/servers.lua";
   if (!CONTAINS(server_lists_, server_list)) {
-    lua_connection::loadServerList(server_list, &servers_);
+    lua_connection::server_list(server_list, &servers_);
     server_lists_.push_back(server_list);
   }
 
@@ -532,7 +554,7 @@ std::string bot::loadPackages(const std::string& folder) {
     // Lua table -> map -> JSON array
     rapidjson::Value l(rapidjson::kArrayType);
     std::map<std::string, std::string> s;
-    lua_connection::loadServerList(server_list, &s);
+    lua_connection::server_list(server_list, &s);
     typedef std::pair<std::string, std::string> str_pair;
     BOOST_FOREACH(str_pair server, s) {
       rapidjson::Value server_name(server.first.c_str(), allocator);
@@ -614,11 +636,7 @@ void bot::log(int type, const std::string& source, const std::string& message) {
     log_msgs_.pop_front();
   }
   log_msgs_.push_back(msg.str());
-  callback(identifier_, "log", msg.str());
-}
-
-void bot::callback(std::string id, std::string k, std::string v) {
-  callback_(id, k, v);
+  callback_(identifier_, "log", msg.str());
 }
 
 std::string bot::log_msgs() {
@@ -681,7 +699,7 @@ void bot::status(const std::string key, const std::string value) {
 
   // Call update callback if this was a change.
   if (update) {
-    callback(identifier_, key, value);
+    callback_(identifier_, key, value);
   }
 }
 

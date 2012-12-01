@@ -38,9 +38,6 @@
 #include "./module.h"
 #include "./http/webclient.h"
 #include "./lua_connection.h"
-#include "./exceptions/lua_exception.h"
-#include "./exceptions/bad_login_exception.h"
-#include "./exceptions/invalid_proxy_exception.h"
 
 namespace botscript {
 
@@ -58,10 +55,19 @@ class module;
 /// Bot class.
 class bot : boost::noncopyable {
  public:
-  enum { BS_LOG_NFO, BS_LOG_ERR };
+  enum { BS_LOG_DBG, BS_LOG_NFO, BS_LOG_ERR };
 
+  /// Callback used for bot status and log updates.
+  /// Arguments: identfier, key, value
   typedef boost::function<void (std::string, std::string, std::string)>
           update_callback;
+
+  /// Callback used for initialization and login.
+  /// Arguments: error string (maybe empty), error flag
+  typedef boost::function<void (std::string, bool)> callback;
+
+  /// Command sequence: Vector of command/argument pairs.
+  typedef std::vector<std::pair<std::string, std::string>> command_sequence;
 
   /**
    * Creates a new bot.
@@ -76,7 +82,7 @@ class bot : boost::noncopyable {
   /**
    * Destructor.
    *
-   * Will do shutdown() if not already executed.
+   * Will call shutdown() if not already executed.
    * Call shutdown() yourself if you want to prevent blocking in the destructor.
    */
   virtual ~bot();
@@ -90,8 +96,12 @@ class bot : boost::noncopyable {
 
   /**
    * Loads the JSON configuration and initializes the bot.
+   *
    * Warning! This is needed to use the bot. Otherwise no modules are loaded
    * and the bot will not be logged in.
+   *
+   * Warning! This function is used asynchrnously. Don't delete the bot until
+   * the provided callback has been called.
    *
    * A minimalistic configuration can look like this
    * \code
@@ -111,13 +121,17 @@ class bot : boost::noncopyable {
    * \endcode
    * 
    * \param configuration the configuration to load
-   * \param login_tries the count of login tries until failure is propagated
-   * \exception lua_exception if loading a module or login script failes
-   * \exception bad_login_exception if logging in fails
-   * \exception invalid_proxy_exception if we could not connect to the proxy
+   * \param cb will be called when the load process has finished
    */
-  void loadConfiguration(const std::string& configuration, int login_tries = 2)
-  throw(lua_exception, bad_login_exception, invalid_proxy_exception);
+  void configuration(const std::string& configuration, callback cb);
+
+  /**
+   * Creates a configuration string.
+   *
+   * \param with_password whether to include the password in the configuration
+   * \return the JSON configuration string
+   */
+  std::string configuration(bool with_password);
 
   /**
    * Creates a unique identifier with the given information
@@ -139,14 +153,6 @@ class bot : boost::noncopyable {
   static std::string loadPackages(const std::string& folder);
 
   /**
-   * Creates a configuration string.
-   *
-   * \param with_password whether to include the password in the configuration
-   * \return the JSON configuration string
-   */
-  std::string configuration(bool with_password);
-
-  /**
    * Reads the module state.
    *
    * \param module name of the module to get the status from
@@ -162,22 +168,25 @@ class bot : boost::noncopyable {
    */
   virtual void execute(const std::string& command, const std::string& argument);
 
-  /// Returns the bots identifier.
+  /// \return the bots identifier.
   std::string identifier() const { return identifier_; }
 
-  /// Returns the bots webclient.
+  /// \return the bots webclient.
   http::webclient* webclient() { return &webclient_; }
 
-  /// Returns the bots server address.
+  /// \return the io_service
+  boost::asio::io_service* io_service() { return io_service_; }
+
+  /// \return the bots server address.
   std::string server() const { return server_; }
 
-  /// Returns all log messages in one string.
+  /// \return all log messages in one string.
   std::string log_msgs();
 
-  /// Returns the wait time factor set.
+  /// \return the wait time factor set.
   double wait_time_factor() { return wait_time_factor_; }
 
-  /// Returns a random wait time between min and max (multiplied with the wtf).
+  /// \return a random wait time between min and max (multiplied with the wtf).
   int randomWait(int min, int max);
 
   /**
@@ -188,15 +197,6 @@ class bot : boost::noncopyable {
    * \param message the message to log
    */
   void log(int type, const std::string& source, const std::string& message);
-
-  /**
-   * Callback function that should be reimplemented in derivated classes.
-   *
-   * \param id the bot identifier
-   * \param k the key that changed
-   * \param v the new value
-   */
-  void callback(std::string id, std::string k, std::string v);
 
   /**
    * Returns the status (value) of the given key.
@@ -230,7 +230,7 @@ class bot : boost::noncopyable {
   update_callback callback_;
 
  private:
-  class on_off_lock {
+  class on_off_lock : boost::noncopyable {
    public:
     on_off_lock(char on_mask, char off_mask, bot* bot)
       : off_mask_(off_mask),
@@ -247,17 +247,13 @@ class bot : boost::noncopyable {
     bot* bot_;
   };
 
-  void init(const std::string& proxy, int login_trys, bool check_only_first)
-  throw(lua_exception, bad_login_exception, invalid_proxy_exception);
-
-  bool checkProxy(std::string proxy, int login_trys);
-  void setProxy(const std::string& proxy, bool check_only_first, int login_trys)
-  throw(invalid_proxy_exception);
+  bool check_proxy(const std::string& proxy);
+  void proxy(const std::string& proxy, callback cb);
 
   void state_on(char s);
   void state_off(char s);
 
-  void loadModules();
+  void load_modules();
 
   http::webclient webclient_;
   std::string username_;

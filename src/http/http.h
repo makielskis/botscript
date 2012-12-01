@@ -49,6 +49,77 @@
 
 namespace http {
 
+/// This class represents an URL.
+/// It is used to model a URL as well as to split a URL string
+/// into the different parts (host, port, path).
+class url {
+ public:
+  /// Takes the three parts of a URL: host, port and path.
+  ///
+  /// \param host the host
+  /// \param port the port
+  /// \param path the path
+  /// \param proxy_host the proxy host if a proxy should be used, "" otherwise
+  /// \param proxy_port the proxy port if a proxy should be used, "" otherwise
+  url(const std::string& host,
+      const std::string& port,
+      const std::string& path,
+      const std::string& proxy_host,
+      const std::string& proxy_port)
+    : host_(host),
+      port_(proxy_port.empty() ? port : proxy_port),
+      path_(path),
+      proxy_host_(proxy_host) {
+  }
+
+  /// Takes the URL and splits it into three parts: host, port and path
+  ///
+  /// \param url the url to split
+  /// \param proxy_host the proxy host if a proxy should be used, "" otherwise
+  /// \param proxy_port the proxy port if a proxy should be used, "" otherwise
+  url(const std::string& url,
+      const std::string& proxy_host,
+      const std::string& proxy_port)
+    : proxy_host_(proxy_host) {
+    // Extract protocol, port, host address and path from the URL.
+    boost::regex url_regex("(.*)://([a-zA-Z0-9\\.\\-]*)(:[0-9]*)?(.*)");
+    boost::match_results<std::string::const_iterator> what;
+    boost::regex_search(url, what, url_regex);
+
+    std::string prot = what[1].str();
+    std::string host = what[2].str();
+    std::string port = what[3].str();
+    std::string path = what[4].str();
+
+    // Set port and path to default values of not set explicitly.
+    port = port.length() == 0 ? prot : port.substr(1, port.length() - 1);
+    path = path.length() == 0 ? "/" : path;
+
+    // Set attributes.
+    host_ = host;
+    port_ = proxy_port.empty() ? port : proxy_port;
+    path_ = path;
+  }
+
+  /// \return the host address
+  std::string host() const { return host_; }
+
+  /// \return the port
+  std::string port() const { return port_; }
+
+  /// \return the path
+  std::string path() const { return path_; }
+
+  /// \return the proxy host address
+  std::string proxy_host() const { return host_; }
+
+ private:
+  std::string host_;
+  std::string port_;
+  std::string path_;
+  std::string proxy_host_;
+};
+
 /**
  * Boost.Iostreams HTTP source stream.
  * \sa request class for convenience usage
@@ -84,17 +155,15 @@ class http_source {
                        (or empty string for direct connection)
    * \param io_service Asio io_service object to use for async function calls
    */
-  http_source(const std::string& host, const std::string& port,
-              const std::string& path, const int method,
+  http_source(const url& address, const int method,
               const std::map<std::string, std::string>& headers,
               const void* content, const size_t content_length,
-              const std::string& proxy_host,
               boost::asio::io_service* io_service,
               bool full_async)
   throw(std::ios_base::failure)
-    : host_(host),
-      port_(port),
-      proxy_host_(proxy_host),
+    : host_(address.host()),
+      port_(address.port()),
+      proxy_host_(address.proxy_host()),
       io_service_(io_service),
       socket_(*io_service),
       resolver_(*io_service),
@@ -109,8 +178,8 @@ class http_source {
       transfer_all_(full_async),
       full_async_(full_async),
       transfer_finished_(false) {
-    buildRequest(host, path, method, content, content_length,
-                 headers, !proxy_host.empty());
+    buildRequest(address.host(), address.path(), method, content, content_length,
+                 headers, !address.proxy_host().empty());
     if (!full_async_) {
       request();
     }
@@ -265,6 +334,9 @@ class http_source {
 
   /// Returns the location set by the server to redirect the client.
   std::string& location() { return response_location_; }
+
+  /// \return the io_service pointer
+  boost::asio::io_service* io_service() { return io_service_; }
 
  private:
   const char* strnchr(const char* s, int c, int n) {
@@ -439,8 +511,14 @@ class http_source {
 
       // Do full transfer if requested.
       if (full_async_) {
-        boost::system::error_code ignored;
-        handleRead(ignored, 0);
+        transfer_all_ = true;
+        if (transfer_encoding_chunked_) {
+          handleReadChunkSize(boost::system::error_code(), 0);
+        } else if (content_length_read_) {
+          handleRead(boost::system::error_code(), 0);
+        } else {
+          handleReadUntilClose(boost::system::error_code(), 0);
+        }
       }
     } else {
       error("read (headers) error");
@@ -766,15 +844,13 @@ class request : boost::noncopyable {
    * \sa http_source::http_source for constructor arguments
    * \exception std::ios_base::failure if the transfer fails
    */
-  request(const std::string& host, const std::string& port,
-          const std::string& path, const int method,
+  request(const url& address, const int method,
           const std::map<std::string, std::string>& headers,
           const void* content, const size_t content_length,
-          const std::string& proxy_host,
           boost::asio::io_service* io_service, bool async)
     throw(std::ios_base::failure)
-    : src_(host, port, path, method, headers,
-           content, content_length, proxy_host, io_service, async),
+    : src_(address, method, headers,
+           content, content_length, io_service, async),
       s_(boost::ref(src_)),
       success_(false) {
   }
@@ -812,6 +888,9 @@ class request : boost::noncopyable {
 
   /// Returns the (redirect) location. \sa http_source::location()
   std::string& location() { return src_.location(); }
+
+  /// \return the io_service used for the request
+  boost::asio::io_service* io_service() { return src_.io_service(); }
 
   /// \return whether the request was successful
   bool success() const { return success_; }

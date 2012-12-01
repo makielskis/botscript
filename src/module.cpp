@@ -54,8 +54,8 @@ throw(lua_exception)
   // Load module script.
   lua_State* lua_state = nullptr;
   try {
-    lua_state = lua_connection::newState(module_name_, bot);
-    lua_connection::executeScript(script, lua_state);
+    lua_state = lua_connection::new_state(module_name_, bot);
+    lua_connection::execute(script, lua_state);
   } catch(const lua_exception& e) {
     lua_close(lua_state);
     throw e;
@@ -139,15 +139,15 @@ void module::run(const boost::system::error_code& ec) {
   lua_State* lua_state = NULL;
   try {
     // Load module script.
-    lua_state = lua_connection::newState(module_name_, bot_);
-    lua_connection::executeScript(script_, lua_state);
+    lua_state = lua_connection::new_state(module_name_, bot_);
+    lua_connection::execute(script_, lua_state);
 
     // Load module status into lua.
     set_lua_status(lua_state);
 
     // Push run function to the stack and execute it.
     lua_getglobal(lua_state, lua_run_.c_str());
-    lua_connection::callFunction(lua_state, 0, LUA_MULTRET, 0);
+    lua_connection::call(lua_state, 0, LUA_MULTRET, 0);
 
     // Check the return argument(s) of the lua function call.
     int argc = lua_gettop(lua_state);
