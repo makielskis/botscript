@@ -74,6 +74,7 @@ class element_not_found_exception : public std::exception {
 class webclient : boost::noncopyable {
  public:
   /// Does default initialization with default random headers and 30sec timeout.
+  ///
   /// \param io_service the io_service to use for asynchronous requests
   webclient(boost::asio::io_service* io_service)
     : timeout_(30),
@@ -88,8 +89,7 @@ class webclient : boost::noncopyable {
    */
   webclient(boost::asio::io_service* io_service,
             const std::map<std::string, std::string>& headers,
-            const std::string& proxy_host, const std::string& proxy_port,
-            boost::asio::io_service* io_service)
+            const std::string& proxy_host, const std::string& proxy_port)
     : timeout_(30),
       proxy_host_(proxy_host),
       proxy_port_(proxy_port),
@@ -128,7 +128,7 @@ class webclient : boost::noncopyable {
    */
   std::string request_get(const std::string& url)
   throw(std::ios_base::failure) {
-    return request(url, http::http_source::GET, NULL, 0);
+    return request(url, http::http_source::GET, "");
   }
 
   /**
@@ -138,38 +138,32 @@ class webclient : boost::noncopyable {
    * \param cb the callback to call on request finish
    */
   void async_get(const std::string& url, http::http_source::async_callback cb) {
-    async_request(url, http::http_source::GET, nullptr, 0, cb, MAX_REDIRECTS);
+    async_request(url, http::http_source::GET, "", cb, MAX_REDIRECTS);
   }
 
   /**
    * Does a HTTP POST request
    *
    * \param url the URL to send the data to
-   * \param content pointer to the content to send
-   * \param content_length the content length
+   * \param content the content to send
    * \exception std::ios_base::failure when the request fails
    * \return the response
    */
-  std::string request_post(std::string url,
-                           const void* content, const size_t content_length)
+  std::string request_post(const std::string& url, const std::string& content)
   throw(std::ios_base::failure) {
-    return request(url, http::http_source::POST, content, content_length);
+    return request(url, http::http_source::POST, content);
   }
 
   /**
    * Does an asynchronous HTTP POST request.
    *
    * \param url the URL to send the data to
-   * \param content pointer to the content to send
-   * \param content_length the content length
+   * \param content the content to send
    * \param cb the callback to call on request finish
    */
-  void async_post(std::string url,
-                  const void* content, const size_t content_length,
+  void async_post(const std::string& url, const std::string& content,
                   http::http_source::async_callback cb) {
-    async_request(url, http::http_source::POST,
-                  content, content_length,
-                  cb, MAX_REDIRECTS);
+    async_request(url, http::http_source::POST, content, cb, MAX_REDIRECTS);
   }
 
   /**
@@ -183,96 +177,33 @@ class webclient : boost::noncopyable {
    * \exception std::ios_base::failure when the request fails
    * \return the response
    */
-  std::string submit(const std::string& xpath, const std::string& page,
+  std::string sync_submit(const std::string& xpath, const std::string& page,
                      std::map<std::string, std::string> input_params,
                      const std::string& action)
   throw(element_not_found_exception, std::ios_base::failure) {
-    // Determine XML element from given XPath.
-    pugi::xml_document doc;
-    doc.load(page.c_str());
-    pugi::xml_node form;
+    auto submit = getSubmitInfo(xpath, page, input_params, action);
+    return request(submit.first, http::http_source::POST, submit.second);
+  }
 
-    try {
-      form = doc.select_single_node(xpath.c_str()).node();
-      if (form.empty()) {
-        throw element_not_found_exception("element does not exist");
-      }
-    } catch(const pugi::xpath_exception& e) {
-      throw element_not_found_exception("invalid xpath");
-    }
-
-    // Store submit element.
-    pugi::xml_node submit = form;
-
-    if (std::strcmp(form.name(), "form") != 0) {
-      // Node is not a form, so it has to be a submit element.
-      if (std::strcmp(form.attribute("type").value(), "submit") != 0) {
-        // Neither a form nor a submit? We're out.
-        throw element_not_found_exception("element is not a form/submit");
-      }
-
-      // The node is the submit element. Find corresponding form element.
-      while (std::strcmp(form.name(), "form") != 0) {
-        form = form.parent();
-
-        if (form == form.root()) {
-          // Root reached, no form found.
-          throw element_not_found_exception("submit element not in a form");
-        }
-      }
-    }
-
-    // Create parameters string.
-    std::vector<std::pair<std::string, std::string> > form_params =
-        getParameters(form, submit, false);
-    std::string params_str;
-    typedef std::pair<std::string, std::string> str_pair;
-    BOOST_FOREACH(str_pair param, form_params) {
-      std::string value;
-      std::map<std::string, std::string>::const_iterator i =
-              input_params.find(param.first);
-      if (i == input_params.end()) {
-        // Fill in default parameter.
-        value = param.second;
-      } else {
-        // Fill in given parameter.
-        value = i->second;
-        input_params.erase(param.first);
-      }
-
-      // Store URL encoded key and value.
-      params_str.append(urlEncode(param.first));
-      params_str.append("=");
-      params_str.append(urlEncode(value));
-
-      params_str.append("&");
-    }
-
-    // Check if all input parameters were found.
-    if (!input_params.empty()) {
-      throw element_not_found_exception("parameters did not match");
-    }
-
-    // Remove last '&'.
-    if (params_str.length() > 1) {
-      params_str = params_str.substr(0, params_str.length() - 1);
-    }
-
-    // Set action.
-    std::string url = getBaseURL(page);
-    if (action.empty()) {
-      const char* form_action = form.attribute("action").value();
-      if (strstr(form_action, "http") != NULL) {
-        url = std::string(form_action);
-      } else {
-        url.append(form_action);
-      }
-    } else {
-      url.append(action);
-    }
-
-    return request(url, http::http_source::POST,
-                   params_str.c_str(), params_str.length());
+  /**
+   * Submits a HTML form
+   *
+   * \param xpath the XPath of the form to submit
+   * \param page the page where the form can be found using the given XPath
+   * \param input_params the form parameters to fill in
+   * \param action the form action - leave empty do use default form action
+   * \exception element_not_found_exception if the form could not be found
+   * \exception std::ios_base::failure when the request fails
+   * \return the response
+   */
+  std::string async_submit(std::string xpath, std::string page,
+                           std::map<std::string, std::string> input_params,
+                           std::string action,
+                           http::http_source::async_callback cb)
+  throw(element_not_found_exception) {
+    auto submit = getSubmitInfo(xpath, page, input_params, action);
+    async_request(submit.first, http::http_source::POST, submit.second, cb,
+                  MAX_REDIRECTS);
   }
 
   /**
@@ -316,7 +247,7 @@ class webclient : boost::noncopyable {
   }
 
   void async_request(const std::string& url, int method,
-                     const void* content, const size_t content_length,
+                     const std::string& content,
                      http::http_source::async_callback cb,
                      int remaining_redirects) {
     std::map<std::string, std::string> headers;
@@ -337,11 +268,7 @@ class webclient : boost::noncopyable {
     // Do web request.
     http::url address(url, proxy_host, proxy_port);
     boost::shared_ptr<http::request> r = boost::make_shared<http::request>(
-        address,
-        method, headers,
-        remaining_redirects ? content : NULL,
-        remaining_redirects ? content_length : 0,
-        io_service_, true);
+        address, method, headers, content, io_service_, true);
     r->do_request(timeout_, boost::bind(&webclient::async_request_finish, this,
                                         _1, _2,
                                         cb, url, address.host(), r,
@@ -352,7 +279,7 @@ class webclient : boost::noncopyable {
                             http::http_source::async_callback cb,
                             const std::string& location,
                             const std::string& host,
-                            boost::shared_ptr<http::request> r,
+                            const boost::shared_ptr<http::request>& r,
                             int remaining_redirects) {
     if (!success) {
       return cb(response, false);
@@ -376,15 +303,11 @@ class webclient : boost::noncopyable {
       }
 
       // Redirect with HTTP GET
-      async_request(url, http_source::GET,
-                    nullptr, 0,
-                    cb, io_service_,
-                    remaining_redirects - 1);
+      async_request(url, http_source::GET, "", cb, remaining_redirects - 1);
     }
   }
 
-  std::string request(std::string url, int method,
-                      const void* content, const size_t content_length)
+  std::string request(std::string url, int method, const std::string& content)
   throw(std::ios_base::failure) {
     int redirect_count = 0;
     while (true) {
@@ -406,11 +329,7 @@ class webclient : boost::noncopyable {
       // Do web request.
       boost::asio::io_service io;
       http::url address(url, proxy_host, proxy_port);
-      http::request r(address,
-                      method, headers,
-                      !redirect_count ? content : NULL,
-                      !redirect_count ? content_length : 0,
-                      &io, false);
+      http::request r(address, method, headers, content, &io, false);
       std::string response = r.do_request(timeout_);
 
       // Store cookies.
@@ -465,8 +384,7 @@ class webclient : boost::noncopyable {
     headers_["Cookie"] = cookie;
   }
 
-  std::string storeLocation(std::string page,
-                            const std::string& location) {
+  std::string storeLocation(std::string page, const std::string& location) {
     // Find header start.
     size_t head_start = page.find("<head>");
 
@@ -551,7 +469,7 @@ class webclient : boost::noncopyable {
     return page;
   }
 
-  std::vector<std::pair<std::string, std::string> > getParameters(
+  std::vector<std::pair<std::string, std::string>> getParameters(
       const pugi::xml_node& node,
       const pugi::xml_node& submit,
       bool submit_found) {
@@ -614,6 +532,98 @@ class webclient : boost::noncopyable {
       }
     }
     return parameters;
+  }
+
+  std::pair<std::string, std::string> getSubmitInfo(
+      const std::string& xpath, const std::string& page,
+      std::map<std::string, std::string> input_params,
+      const std::string& action)
+  throw(element_not_found_exception) {
+    // Determine XML element from given XPath.
+    pugi::xml_document doc;
+    doc.load(page.c_str());
+    pugi::xml_node form;
+
+    try {
+      form = doc.select_single_node(xpath.c_str()).node();
+      if (form.empty()) {
+        throw element_not_found_exception("element does not exist");
+      }
+    } catch(const pugi::xpath_exception& e) {
+      throw element_not_found_exception("invalid xpath");
+    }
+
+    // Store submit element.
+    pugi::xml_node submit = form;
+
+    if (std::strcmp(form.name(), "form") != 0) {
+      // Node is not a form, so it has to be a submit element.
+      if (std::strcmp(form.attribute("type").value(), "submit") != 0) {
+        // Neither a form nor a submit? We're out.
+        throw element_not_found_exception("element is not a form/submit");
+      }
+
+      // The node is the submit element. Find corresponding form element.
+      while (std::strcmp(form.name(), "form") != 0) {
+        form = form.parent();
+
+        if (form == form.root()) {
+          // Root reached, no form found.
+          throw element_not_found_exception("submit element not in a form");
+        }
+      }
+    }
+
+    // Create parameters string.
+    std::vector<std::pair<std::string, std::string>> form_params =
+        getParameters(form, submit, false);
+    std::string params_str;
+    typedef std::pair<std::string, std::string> str_pair;
+    BOOST_FOREACH(str_pair param, form_params) {
+      std::string value;
+      std::map<std::string, std::string>::const_iterator i =
+              input_params.find(param.first);
+      if (i == input_params.end()) {
+        // Fill in default parameter.
+        value = param.second;
+      } else {
+        // Fill in given parameter.
+        value = i->second;
+        input_params.erase(param.first);
+      }
+
+      // Store URL encoded key and value.
+      params_str.append(urlEncode(param.first));
+      params_str.append("=");
+      params_str.append(urlEncode(value));
+
+      params_str.append("&");
+    }
+
+    // Check if all input parameters were found.
+    if (!input_params.empty()) {
+      throw element_not_found_exception("parameters did not match");
+    }
+
+    // Remove last '&'.
+    if (params_str.length() > 1) {
+      params_str = params_str.substr(0, params_str.length() - 1);
+    }
+
+    // Set action.
+    std::string url = getBaseURL(page);
+    if (action.empty()) {
+      const char* form_action = form.attribute("action").value();
+      if (strstr(form_action, "http") != NULL) {
+        url = std::string(form_action);
+      } else {
+        url.append(form_action);
+      }
+    } else {
+      url.append(action);
+    }
+
+    return std::make_pair(url, params_str);
   }
 
   std::string urlEncode(const std::string &s) {

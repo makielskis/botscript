@@ -23,42 +23,36 @@
 
 #define LOGIN_CALLBACK ("LOGIN_CALLBACK")
 
+#include "./lua_connection.h"
+
 namespace botscript {
 
 class lua_util {
  public:
-  static void open(lua_State* state) {
-    luaL_newlib(state, utillib);
-    lua_setglobal(state, "util");
-  }
+  static void open(lua_State* state);
 
- private:
   static void log(lua_State* state, int log_level);
 
   static int get_by_xpath(lua_State* state);
   static int get_all_by_xpath(lua_State* state);
   static int get_by_regex(lua_State* state);
   static int get_all_by_regex(lua_State* state);
-  static int get_location(lua_State* state);
   static int log_debug(lua_State* state);
   static int log(lua_State* state);
   static int log_error(lua_State* state);
   static int set_status(lua_State* state);
-  static int login_callback(lua_State* state);
+};
 
-  static const luaL_Reg utillib[] = {
-    {"get_by_xpath",     get_by_xpath},
-    {"get_all_by_xpath", get_all_by_xpath},
-    {"get_by_regex",     get_by_regex},
-    {"get_all_by_regex", get_all_by_regex},
-    {"get_location",     get_location},
-    {"log_debug",        log_debug},
-    {"log",              log},
-    {"log_error",        log_error},
-    {"set_status",       set_status},
-    {"login_callback",   login_callback},
-    {NULL, NULL}
-  };
+static const luaL_Reg utillib[] = {
+  {"get_by_xpath",     lua_util::get_by_xpath},
+  {"get_all_by_xpath", lua_util::get_all_by_xpath},
+  {"get_by_regex",     lua_util::get_by_regex},
+  {"get_all_by_regex", lua_util::get_all_by_regex},
+  {"log_debug",        lua_util::log_debug},
+  {"log",              lua_util::log},
+  {"log_error",        lua_util::log_error},
+  {"set_status",       lua_util::set_status},
+  {NULL, NULL}
 };
 
 }  // namespace botscript

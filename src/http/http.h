@@ -150,14 +150,13 @@ class http_source {
    * \param method the method to use http::http_source::GET/POST
    * \param headers the headers to send
    * \param content the request body to send (for POST requests)
-   * \param content_length the content length (for content != nullptr)
    * \param proxy_host the proxy host to use
                        (or empty string for direct connection)
    * \param io_service Asio io_service object to use for async function calls
    */
   http_source(const url& address, const int method,
               const std::map<std::string, std::string>& headers,
-              const void* content, const size_t content_length,
+              const std::string& content,
               boost::asio::io_service* io_service,
               bool full_async)
   throw(std::ios_base::failure)
@@ -178,7 +177,7 @@ class http_source {
       transfer_all_(full_async),
       full_async_(full_async),
       transfer_finished_(false) {
-    buildRequest(address.host(), address.path(), method, content, content_length,
+    buildRequest(address.host(), address.path(), method, content,
                  headers, !address.proxy_host().empty());
     if (!full_async_) {
       request();
@@ -351,8 +350,7 @@ class http_source {
   }
 
   void buildRequest(const std::string host, const std::string path,
-                    const int method,
-                    const void* content, const size_t content_length,
+                    const int method, const std::string& content,
                     const std::map<std::string, std::string>& headers,
                     bool use_proxy) {
     // Write the request line.
@@ -380,20 +378,17 @@ class http_source {
     }
 
     // Set content length if available.
-    if (content != NULL && content_length != 0) {
-      std::string size_str = boost::lexical_cast<std::string >(content_length);
+    if (!content.empty()) {
+      std::string len_str = boost::lexical_cast<std::string >(content.length());
       request_stream << "Content-Type: application/x-www-form-urlencoded\r\n";
-      request_stream << "Content-Length: " + size_str + "\r\n";
+      request_stream << "Content-Length: " + len_str + "\r\n";
     }
 
     // Finish headers.
     request_stream << "\r\n";
 
-    // Write content if set.
-    if (content != NULL && content_length != 0) {
-      request_stream << std::string(reinterpret_cast<const char*>(content),
-                                    content_length);
-    }
+    // Write content.
+    request_stream << content;
 
     // Finish request with an empty line.
     request_stream << "\r\n";
@@ -794,6 +789,7 @@ class http_source {
   void callback(const std::string& error, bool success) {
     if (full_async_) {
       cb_(error, success);
+      cb_ = async_callback();
     }
   }
 
@@ -801,7 +797,7 @@ class http_source {
   throw(std::ios_base::failure) {
     finishTransfer();
     if (full_async_) {
-      cb_(error, false);
+      callback(error, false);
     } else {
       throw std::ios_base::failure(error);
     }
@@ -846,11 +842,10 @@ class request : boost::noncopyable {
    */
   request(const url& address, const int method,
           const std::map<std::string, std::string>& headers,
-          const void* content, const size_t content_length,
+          const std::string& content,
           boost::asio::io_service* io_service, bool async)
     throw(std::ios_base::failure)
-    : src_(address, method, headers,
-           content, content_length, io_service, async),
+    : src_(address, method, headers, content, io_service, async),
       s_(boost::ref(src_)),
       success_(false) {
   }

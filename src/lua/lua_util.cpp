@@ -22,6 +22,11 @@
 
 namespace botscript {
 
+void lua_util::open(lua_State* state) {
+    luaL_newlib(state, utillib);
+    lua_setglobal(state, "util");
+}
+
 int lua_util::get_by_xpath(lua_State* state) {
   // Get arguments from stack.
   std::string str = luaL_checkstring(state, 1);
@@ -170,17 +175,17 @@ int lua_util::get_all_by_regex(lua_State* state) {
 }
 
 int lua_util::log_debug(lua_State* state) {
-  log(state, BS_LOG_DBG);
+  log(state, bot::BS_LOG_DBG);
   return 0;
 }
 
 int lua_util::log(lua_State* state) {
-  log(state, BS_LOG_NFO);
+  log(state, bot::BS_LOG_NFO);
   return 0;
 }
 
 int lua_util::log_error(lua_State* state) {
-  log(state, BS_LOG_ERR);
+  log(state, bot::BS_LOG_ERR);
   return 0;
 }
 
@@ -197,14 +202,14 @@ int lua_util::set_status(lua_State* state) {
   // Arguments read. Pop them.
   lua_pop(state, 2);
 
-  // Get bot.
-  bot* bot = getBot(state);
-  if (nullptr == bot) {
+  // Get the calling bot.
+  boost::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (boost::shared_ptr<bot>() == b) {
     return luaL_error(state, "no bot for state");
   }
 
   // Execute set command.
-  bot->execute(module + "_set_" + key, value);
+  b->execute(module + "_set_" + key, value);
   return 0;
 }
 
@@ -219,26 +224,13 @@ void lua_util::log(lua_State* state, int log_level) {
   lua_pop(state, 1);
 
   // Get bot.
-  bot* bot = lua_connection::bot(state);
-  if (nullptr == bot) {
+  boost::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (boost::shared_ptr<bot>() == b) {
     luaL_error(state, "no bot for state");
     return;
   }
 
-  bot->log(log_level, module, message);
-}
-
-void lua_util::login_callback(lua_State* state) {
-  // Get bot.
-  bot* bot = lua_connection::bot(state);
-  if (nullptr == bot) {
-    luaL_error(state, "no bot for state");
-    return;
-  }
-
-  luaL_checktype(state, 1, LUA_TBOOLEAN);
-  bool success = lua_toboolean(state, 1);
-  bot->login_callback(state);
+  b->log(log_level, module, message);
 }
 
 }  // namespace botscript

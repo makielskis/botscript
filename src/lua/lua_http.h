@@ -1,8 +1,8 @@
 /*
  * This code contains to one of the Makielski projects.
  * Visit http://makielski.net for more information.
- * 
- * Copyright (C) 24. November 2012  makielskis@gmail.com
+ *
+ * Copyright (C) December 1st, 2012 makielskis@gmail.com
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,39 +23,39 @@
 
 #include <string>
 
+#include "./lua_connection.h"
+
 namespace botscript {
 
 class lua_http {
  public:
-  static void open(lua_State* state) {
-    luaL_newlib(state, httplib);
-    lua_setglobal(state, "http");
-  }
+  static void open(lua_State* state);
 
- private:
   static int sync_get(lua_State* state, bool path);
   static int async_get(lua_State* state, bool path);
   static int sync_post(lua_State* state, bool path);
   static int async_post(lua_State* state, bool path);
-  static int sync_submit_form(lua_State* state, bool path);
-  static int async_submit_form(lua_State* state, bool path);
+  static int sync_submit_form(lua_State* state);
+  static int async_submit_form(lua_State* state);
 
   static int get(lua_State* state);
   static int get_path(lua_State* state);
   static int post(lua_State* state);
   static int post_path(lua_State* state);
   static int submit_form(lua_State* state);
-  static int submit_form_path(lua_State* state);
 
-  static const luaL_Reg httplib[] = {
-    {"get",              get},
-    {"get_path",         get_path},
-    {"post",             post},
-    {"post_path",        post_path},
-    {"submit_form",      submit_form},
-    {"submit_form_path", submit_form_path},
-    {NULL, NULL}
-  };
+ private:
+  static void on_req_finish(lua_State* state, bool cb_on_fail,
+                            const std::string& response, bool success);
+};
+
+static const luaL_Reg httplib[] = {
+  {"get",              lua_http::get},
+  {"get_path",         lua_http::get_path},
+  {"post",             lua_http::post},
+  {"post_path",        lua_http::post_path},
+  {"submit_form",      lua_http::submit_form},
+  {NULL, NULL}
 };
 
 }  // namespace botscript

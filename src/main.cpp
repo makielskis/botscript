@@ -1,80 +1,60 @@
-/*
- * This code contains to one of the Makielski projects.
- * Visit http://makielski.net for more information.
- * 
- * Copyright (C) 8. April 2012  makielskis@gmail.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see .
- */
-
-#include <utility>
 #include <string>
-#include <algorithm>
-#include <set>
-#include <map>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 
-#include "boost/thread.hpp"
-#include "boost/shared_ptr.hpp"
 #include "boost/iostreams/copy.hpp"
-#include "boost/filesystem.hpp"
+#include "boost/shared_ptr.hpp"
 
 #include "./bot.h"
-#include "./bot_factory.h"
+
+using namespace botscript;
+
+void update_cb(std::string id, std::string k, std::string v) {
+  if (k == "log") {
+    std::cout << v;
+  }
+}
+
+void cb(const std::string& error) {
+  if (error.empty()) {
+    std::cout << "success!\n";
+  } else {
+    std::cout << "ERROR: " << error << "\n";
+  }
+}
+
+void on_exit(boost::asio::io_service* io_service) {
+  io_service->stop();
+}
 
 int main(int argc, char* argv[]) {
-  std::map<std::string, std::string> configs;
-
-  using boost::filesystem::directory_iterator;
-  for (directory_iterator i = directory_iterator("configs");
-      i != directory_iterator(); ++i) {
-    std::string path = i->path().relative_path().generic_string();
-
-    std::ifstream file;
-    file.open(path.c_str(), std::ios::in);
-    std::stringstream content;
-    boost::iostreams::copy(file, content);
-    file.close();
-
-    configs[path] = content.str();
+  if (argc != 2) {
+    std::cout << "usage: " << argv[0] << " c0nfig\n";
+    return 0;
   }
 
-  typedef boost::shared_ptr<botscript::bot> bot_ptr;
-  std::set<bot_ptr> bots;
-  botscript::bot_factory factory;
-  factory.init(2);
-  typedef std::pair<std::string, std::string> str_pair;
-  BOOST_FOREACH(str_pair config, configs) {
-    try {
-      bots.insert(factory.create_bot(config.second));
-    } catch(const botscript::bad_login_exception& e) {
-      std::cout << config.first << " - bad login\n";
-    } catch(const botscript::lua_exception& e) {
-      std::cout << config.first << " - " << e.what() << "\n";
-    } catch(const botscript::invalid_proxy_exception& e) {
-      std::cout << config.first << " - invalid proxy\n";
-    }
-  }
+  std::string path = argv[1];
+  std::ifstream file;
+  file.open(path.c_str(), std::ios::in);
+  std::stringstream content;
+  boost::iostreams::copy(file, content);
+  file.close();
 
-  while (true) { boost::this_thread::sleep(boost::posix_time::hours(24)); }
+  boost::asio::io_service io_service;
+  boost::asio::deadline_timer timer(io_service);
+  timer.expires_from_now(boost::posix_time::seconds(40));
+  timer.async_wait(boost::bind(on_exit, &io_service));
+  boost::asio::io_service::work work(io_service);
+  boost::shared_ptr<bot> b = boost::make_shared<bot>(&io_service);
+  b->callback_ = update_cb;
+  b->init(content.str(), cb);
+  io_service.run();
 
-  BOOST_FOREACH(bot_ptr b, bots) {
-    b->shutdown();
-  }
+  b->shutdown();
+  std::cout << "use_count at exit: " << b.use_count() << "\n";
+  b.reset();
+  std::cout << "use_count at exit: " << b.use_count() << "\n";
 
   return 0;
 }
-

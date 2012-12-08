@@ -1,8 +1,8 @@
 /*
  * This code contains to one of the Makielski projects.
  * Visit http://makielski.net for more information.
- * 
- * Copyright (C) 15. April 2012  makielskis@gmail.com
+ *
+ * Copyright (C) December 1st, 2012 makielskis@gmail.com
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,34 +20,15 @@
 
 #include "./bot.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <ctime>
-#include <map>
-#include <vector>
-#include <string>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <set>
-#include <algorithm>
-#include <utility>
+#include <boost/foreach.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
-#include "boost/bind.hpp"
-#include "boost/algorithm/string/join.hpp"
-#include "boost/algorithm/string/predicate.hpp"
-#include "boost/algorithm/string.hpp"
-#include "boost/foreach.hpp"
-#include "boost/filesystem.hpp"
-#include "boost/lambda/lambda.hpp"
-#include "boost/lexical_cast.hpp"
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
-
-#include "./lua_connection.h"
+#include "./lua/lua_connection.h"
 
 #if defined _WIN32 || defined _WIN64
 namespace std {
@@ -70,76 +51,31 @@ boost::mutex bot::server_mutex_;
 boost::mutex bot::log_mutex_;
 
 bot::bot(boost::asio::io_service* io_service)
-  : wait_time_factor_(1),
-    stopped_(false),
-    state_(0x00),
-    connection_status_(1),
-    io_service_(io_service) {
-  status_["base_wait_time_factor"] = "1";
+  : io_service_(io_service),
+    webclient_(io_service) {
 }
 
 bot::~bot() {
-  if (!stopped_) {
-    std::cerr << "fatal: no shutdown() before bot::~bot()\n";
-    shutdown();
-  }
-  std::cout << identifier_ << " deleted\n";
+  std::cout << "deleting " << identifier_ << "\n";
 }
 
 void bot::shutdown() {
-  if (stopped_) {
-    std::cerr << "fatal: don't call shutdown() twice\n";
-    return;
-  }
-  stopped_ = true;
-  log(BS_LOG_NFO, "base", "shutting down - destructing modules");
-
-  // Delete modules.
-  BOOST_FOREACH(module* module, modules_) {
-    delete module;
-  }
-  modules_.clear();
-
-  // Wait for operations to finish.
-  log(BS_LOG_NFO, "base", "shutting down - waiting for state to turn zero");
-  boost::unique_lock<boost::mutex> state_lock(state_mutex_);
-  while (state_ != 0x00) {
-    std::string s = "state: ";
-    log(BS_LOG_NFO, "base",
-        s + boost::lexical_cast<std::string>(static_cast<int>(state_)));
-    state_cond_.wait(state_lock);
-  }
-
-  // Remove identifier from lua_connection.
   lua_connection::remove(identifier_);
-
-  log(BS_LOG_NFO, "base", "shutdown completed");
 }
 
-void bot::state_on(char s) {
-  boost::lock_guard<boost::mutex> lock(state_mutex_);
-  state_ |= s;
-  state_cond_.notify_all();
-}
+std::string bot::username() { return username_; }
+std::string bot::password() { return password_; }
+std::string bot::identifier() { return identifier_; }
+std::string bot::package() { return package_; }
+std::string bot::server() { return server_; }
+http::webclient* bot::webclient() { return &webclient_; }
+double bot::wait_time_factor() { return wait_time_factor_; }
 
-void bot::state_off(char s) {
-  boost::lock_guard<boost::mutex> lock(state_mutex_);
-  state_ &= s;
-  state_cond_.notify_all();
-}
-
-void bot::configuration(const std::string& configuration, callback cb) {
-  // Prevent execution when bot is already stopped.
-  if (stopped_) {
-    return;
-  }
-
-  // Make sure the bot won't stop while executing.
-  on_off_lock oolock(LOAD_ON, LOAD_OFF, this);
-
+void bot::init(const std::string& config, const error_callback& cb) {
+  // Read JSON.
   rapidjson::Document document;
-  if (document.Parse<0>(configuration.c_str()).HasParseError()) {
-    return cb("invalid JSON", true);
+  if (document.Parse<0>(config.c_str()).HasParseError()) {
+    return cb("invalid JSON");
   }
 
   // Check if all necessary configuration values are available.
@@ -151,7 +87,7 @@ void bot::configuration(const std::string& configuration, callback cb) {
       !document["password"].IsString() ||
       !document["package"].IsString() ||
       !document["server"].IsString()) {
-    return cb("invalid configuration", true);
+    return cb("invalid configuration");
   }
 
   // Read basic configuration values.
@@ -159,12 +95,13 @@ void bot::configuration(const std::string& configuration, callback cb) {
   password_ = document["password"].GetString();
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
-  identifier_ = createIdentifier(username_, package_, server_);
+  identifier_ = identifier(username_, package_, server_);
 
   // Do not create a bot that already exists.
   if (lua_connection::contains(identifier_)) {
-    return cb("bot already registered", true);
+    return cb("bot already registered");
   }
+  lua_connection::add(shared_from_this());
 
   // Read wait time factor.
   std::string wait_time_factor;
@@ -189,7 +126,7 @@ void bot::configuration(const std::string& configuration, callback cb) {
   }
 
   // Create execute command sequence from module configurations
-  // for later execution (after the login has been performed)
+  // for later execution (after the login has been performed).
   command_sequence commands;
   if (document.HasMember("modules") && document["modules"].IsObject()) {
     const rapidjson::Value& a = document["modules"];
@@ -221,8 +158,7 @@ void bot::configuration(const std::string& configuration, callback cb) {
         // Set module status variable.
         std::string command = module + "_set_" + name;
         std::string value = it->value.GetString();
-        commands.push_back(
-            std::make_pair<std::string, std::string>(command, value));
+        commands.emplace_back(command, value);
       }
 
       // Read active status.
@@ -235,261 +171,42 @@ void bot::configuration(const std::string& configuration, callback cb) {
 
       // Start module if active status is "1" (=active).
       if (active == "1") {
-        std::string command = module + "_set_active";
-        commands.push_back(
-            std::make_pair<std::string, std::string>(command, "1"));
+        commands.emplace_back(module + "_set_active", "1");
       }
     }
   }
 
-  // Login (either while setting the proxy
-  // or by calling the login function directly.
+  // Login either while setting the proxy
+  // or by calling the (asynchronous) login function directly.
   if (proxy.empty()) {
-    lua_State* state = lua_connection::new_state(this, "base");
-    callback* login_cb = new login_callback(
-        boost::bind(&bot::handle_login, this, _1, _2, init_commands, 3));
-    lua_connection::login(this, username_, password_, package_, login_cb);
+    login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 3);
+    lua_connection::login(shared_from_this(), &login_cb_);
   } else {
-    set_proxy(proxy);
+    // set_proxy(proxy);  // TODO(felix) set proxy
   }
 }
 
-void bot::handle_login(const std::string& message, bool error, int tries,
+void bot::handle_login(const std::string& err,
+                       const error_callback& cb,
                        const command_sequence& init_commands,
-                       callback cb, callback* login_cb) {
-  // First: destroy login_cb to prevent memory leakage.
-  delete login_cb;
-
+                       int tries) {
   // Call final callback if the login was successful
   // or there are no tries remaining.
-  if (!success && tries == 0) {
-    return cb(message, true);
-  } else if (success) {
-    return cb("", false);
+  if (!err.empty() && tries == 0) {
+    return cb(err);
+  } else if (err.empty()) {
+    return cb("");
   }
 
   // Login was not successful but we have tries remaining.
-  login_cb = new login_callback(
-      boost::bind(&bot::handle_login, this, _1, _2, init_commands, tries - 1));
-  lua_connection::login(this, username_, password_, package_, login_cb);
+  login_cb_ = boost::bind(&bot::handle_login, this,
+                          _1, cb, init_commands, tries - 1);
+  lua_connection::login(shared_from_this(), &login_cb_);
 }
 
-void bot::load_modules(const command_sequence& init_commands) {
-  // Load modules from package folder:
-  // Read every non-hidden file except servers.lua and base.lua
-  using boost::filesystem::directory_iterator;
-  if (boost::filesystem::is_directory(package_)) {
-    for (directory_iterator i = directory_iterator(package_);
-         i != directory_iterator(); ++i) {
-      std::string path = i->path().relative_path().generic_string();
-      if (!boost::algorithm::ends_with(path, "servers.lua") &&
-          !boost::algorithm::ends_with(path, "base.lua") &&
-          !boost::starts_with(i->path().filename().string(), ".")) {
-        try {
-          module* new_module = new module(path, this, io_service_);
-          modules_.insert(new_module);
-        } catch(const lua_exception& e) {
-          log(BS_LOG_ERR, "base", e.what());
-        }
-      }
-    }
-  }
-
-  // Initialize modules with commands.
-  std::for_each(init_commands.begin(), init_commands.end(),
-      [&modules_, this](std::pair<std::string, std::string>& command) {
-        this->execute(command.first, command.second);
-      });
-}
-
-bool bot::check_proxy(const std::string& proxy) {
-  // Don't accept empty proxies
-  if (proxy.empty()) {
-    return false;
-  }
-
-  // Split proxy to host and port and set it.
-  std::vector<std::string> proxy_split;
-  boost::split(proxy_split, proxy, boost::is_any_of(":"));
-  if (proxy_split.size() != 2) {
-    log(BS_LOG_ERR, "base", "unknown proxy format");
-    return false;
-  }
-  webclient_.proxy(proxy_split[0], proxy_split[1]);
-
-  // Try to login.
-  for (int i = 0; i < login_trys; i++) {
-    try {
-      std::string t = boost::lexical_cast<std::string>(i + 1);
-      log(BS_LOG_NFO, "base", t + ". try - checking " + proxy + " - login");
-      lua_connection::login(this, username_, password_, package_);
-      return true;
-    } catch(const bad_login_exception& e) {
-      log(BS_LOG_ERR, "base", "bad login");
-    } catch(const lua_exception& e) {
-      log(BS_LOG_ERR, "base", e.what());
-    }
-  }
-
-  return false;
-}
-
-void bot::proxy(const std::string& proxy, callback cb) {
-  // Change status.
-  status("base_proxy", proxy);
-
-  // Use direct connection for empty proxy.
-  if (proxy.empty()) {
-    log(BS_LOG_NFO, "base", "setting no proxy");
-    webclient_.proxy("", "");
-    return cb("", false);
-  }
-
-  // Clear and fill proxy list with new proxies.
-  std::string original_proxy_host = webclient_.proxy_host();
-  std::string original_proxy_port = webclient_.proxy_port();
-  proxies_.clear();
-  boost::split(proxies_, proxy, boost::is_any_of(", \t\n"));
-  if (proxies_.empty()) {
-    return cb("could not read proxy", true);
-  }
-
-  // Check first proxy / proxies.
-  std::vector<std::string>::iterator proxy_it;
-  proxy_it = check_proxy(proxies_[0], 2) ? proxies_.begin() : proxies_.end();
-
-  // Check result.
-  if (proxy_it == proxies_.end()) {
-    webclient_.proxy(original_proxy_host, original_proxy_port);
-    log(BS_LOG_ERR, "base", "no working proxy found");
-    return cb("no working proxy found", true);
-  } else {
-    log(BS_LOG_NFO, "base", std::string("proxy set to ") + (*proxy_it));
-    return cb("", false);
-  }
-}
-
-std::string bot::configuration(bool with_password) {
-  // Lock for status r/w access.
-  boost::lock_guard<boost::mutex> lock(status_mutex_);
-
-  // Write basic configuration values.
-  rapidjson::Document document;
-  document.SetObject();
-  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
-  document.AddMember("username", username_.c_str(), allocator);
-  if (with_password) {
-    document.AddMember("password", password_.c_str(), allocator);
-  }
-  document.AddMember("package", package_.c_str(), allocator);
-  document.AddMember("server", server_.c_str(), allocator);
-  document.AddMember("wait_time_factor",
-                     status_["base_wait_time_factor"].c_str(), allocator);
-
-  // Write proxy.
-  std::map<std::string, std::string>::const_iterator i =
-      status_.find("base_proxy");
-  std::string proxy = (i == status_.end()) ? "" : i->second;
-  rapidjson::Value proxy_value(proxy.c_str(), allocator);
-  document.AddMember("proxy", proxy_value, allocator);
-
-  // Write module configuration values.
-  rapidjson::Value modules(rapidjson::kObjectType);
-  BOOST_FOREACH(module* m, modules_) {
-    // Initialize module JSON object and add name property.
-    std::string module_name = m->name();
-    rapidjson::Value module(rapidjson::kObjectType);
-
-    // Add module settings.
-    typedef std::pair<std::string, std::string> str_pair;
-    BOOST_FOREACH(str_pair j, status_) {
-      if (boost::algorithm::starts_with(j.first, module_name)) {
-        std::string key = j.first.substr(module_name.length() + 1);
-        rapidjson::Value key_attr(key.c_str(), allocator);
-        rapidjson::Value val_attr(j.second.c_str(), allocator);
-        module.AddMember(key_attr, val_attr, allocator);
-      }
-    }
-    rapidjson::Value name_attr(module_name.c_str(), allocator);
-    modules.AddMember(name_attr, module, allocator);
-  }
-  document.AddMember("modules", modules, allocator);
-
-  // Convert to string.
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  document.Accept(writer);
-
-  return buffer.GetString();
-}
-
-std::map<std::string, std::string> bot::module_status(
-    const std::string& module) {
-  // Lock for status r/w access.
-  boost::lock_guard<boost::mutex> lock(status_mutex_);
-
-  // Read module settings.
-  std::map<std::string, std::string> module_status;
-  typedef std::pair<std::string, std::string> str_pair;
-  BOOST_FOREACH(str_pair j, status_) {
-    if (boost::algorithm::starts_with(j.first, module)) {
-      std::string key = j.first.substr(module.length() + 1);
-      module_status[key] = j.second;
-    }
-  }
-
-  return module_status;
-}
-
-void bot::execute(const std::string& command, const std::string& argument) {
-  // Prevent execution when bot is already stopped.
-  if (stopped_) {
-    std::cerr << "fatal: execution though bot was stopped\n";
-    return;
-  }
-
-  // Make sure the bot won't stop while execution.
-  on_off_lock oolock(EXEC_ON, EXEC_OFF, this);
-
-  // Lock to prevent parallel execution.
-  boost::lock_guard<boost::mutex> lock(execute_mutex_);
-
-  // Handle wait time factor command.
-  if (command == "base_set_wait_time_factor") {
-    std::string new_wait_time_factor = argument;
-    if (new_wait_time_factor.find(".") == std::string::npos) {
-      new_wait_time_factor += ".0";
-    }
-    wait_time_factor_ = atof(new_wait_time_factor.c_str());
-    char buf[5];
-    sprintf(buf, "%.2f", wait_time_factor_);
-    status("base_wait_time_factor", buf);
-    log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + buf);
-    return;
-  }
-
-  // Handle set proxy command.
-  if (command == "base_set_proxy") {
-    std::string proxy_host = webclient_.proxy_host();
-    std::string proxy_port = webclient_.proxy_port();
-    try {
-      setProxy(argument, false, 1);
-    } catch(const invalid_proxy_exception& e) {
-      log(BS_LOG_NFO, "base", "new proxy failed - resetting");
-      webclient_.proxy(proxy_host, proxy_port);
-    }
-    return;
-  }
-
-  // Forward all other commands to modules.
-  BOOST_FOREACH(module* module, modules_) {
-    module->execute(command, argument);
-  }
-}
-
-std::string bot::createIdentifier(const std::string& username,
-                                  const std::string& package,
-                                  const std::string& server) {
+std::string bot::identifier(const std::string& username,
+                            const std::string& package,
+                            const std::string& server) {
   // Lock because of server list r/w access.
   boost::lock_guard<boost::mutex> lock(server_mutex_);
 
@@ -514,7 +231,7 @@ std::string bot::createIdentifier(const std::string& username,
   return identifier;
 }
 
-std::string bot::loadPackages(const std::string& folder) {
+std::string bot::load_packages(const std::string& folder) {
   // Lock because of server list r/w access.
   boost::lock_guard<boost::mutex> lock(server_mutex_);
 
@@ -604,11 +321,12 @@ std::string bot::loadPackages(const std::string& folder) {
   return buffer.GetString();
 }
 
-int bot::randomWait(int a, int b) {
+int bot::random(int a, int b) {
   static unsigned int seed = 6753;
   seed *= 31;
   seed %= 32768;
-  int wait_time = a + std::round(seed/static_cast<double>(32768) * (b - a) * wait_time_factor_);
+  double r = seed / static_cast<double>(32768);
+  int wait_time = a + std::round(r * (b - a) * wait_time_factor_);
   return wait_time;
 }
 
@@ -647,30 +365,6 @@ std::string bot::log_msgs() {
   return log.str();
 }
 
-void bot::connectionFailed(bool connection_error) {
-  boost::lock_guard<boost::mutex> lock(connection_status_mutex_);
-  connection_status_ -= (connection_error ? 0.1 : 0.025);
-  if (connection_status_ <= 0) {
-    connection_status_ = 0;
-    log(BS_LOG_ERR, "base", "problems - trying to relogin");
-    try {
-      lua_connection::login(this, username_, password_, package_);
-    } catch(const lua_exception& e) {
-      execute("base_set_proxy", status("base_proxy"));
-    } catch(const bad_login_exception& e) {
-      execute("base_set_proxy", status("base_proxy"));
-    }
-  }
-}
-
-void bot::connectionWorked() {
-  boost::lock_guard<boost::mutex> lock(connection_status_mutex_);
-  connection_status_ += 0.1;
-  if (connection_status_ > 1) {
-    connection_status_ = 1;
-  }
-}
-
 std::string bot::status(const std::string key) {
   // Lock because of status map r/w access.
   boost::lock_guard<boost::mutex> lock(status_mutex_);
@@ -701,6 +395,24 @@ void bot::status(const std::string key, const std::string value) {
   if (update) {
     callback_(identifier_, key, value);
   }
+}
+
+std::map<std::string, std::string> bot::module_status(
+    const std::string& module) {
+  // Lock for status r/w access.
+  boost::lock_guard<boost::mutex> lock(status_mutex_);
+
+  // Read module settings.
+  std::map<std::string, std::string> module_status;
+  typedef std::pair<std::string, std::string> str_pair;
+  BOOST_FOREACH(str_pair j, status_) {
+    if (boost::algorithm::starts_with(j.first, module)) {
+      std::string key = j.first.substr(module.length() + 1);
+      module_status[key] = j.second;
+    }
+  }
+
+  return module_status;
 }
 
 }  // namespace botscript
