@@ -121,25 +121,25 @@ class bot : boost::noncopyable, public boost::enable_shared_from_this<bot> {
                     int tries);
 
   /// \return the username
-  std::string username();
+  std::string username() const;
 
   /// \return the password
-  std::string password();
+  std::string password() const;
 
   /// \return the package
-  std::string package();
+  std::string package() const;
 
   /// \return the server
-  std::string server();
+  std::string server() const;
 
   /// \return the identifier
-  std::string identifier();
+  std::string identifier() const;
+
+  /// \return the wait time factor set.
+  double wait_time_factor() const;
 
   /// \return the webclient
   http::webclient* webclient();
-
-  /// \return the wait time factor set.
-  double wait_time_factor();
 
   /// \return a random wait time between min and max (multiplied with the wtf).
   int random(int a, int b);

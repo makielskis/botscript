@@ -1,162 +1,130 @@
-/*
- * This code contains to one of the Makielski projects.
- * Visit http://makielski.net for more information.
- * 
- * Copyright (C) 13. May 2012  makielskis@gmail.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
-#include <istream>
-#include <fstream>
 #include <iostream>
-#include <string>
-#include <set>
+#include <fstream>
+#include <functional>
 
-#include "boost/foreach.hpp"
-#include "boost/thread.hpp"
-#include "boost/asio/io_service.hpp"
-#include "boost/bind.hpp"
-#include "boost/regex.hpp"
+#include "./http/http_source.h"
+#include "./http/url.h"
 
-#include "./http/webclient.h"
+#include "boost/asio.hpp"
+#include "boost/iostreams/copy.hpp"
+#include "boost/iostreams/filtering_streambuf.hpp"
+#include "boost/iostreams/filter/gzip.hpp"
 
-#define CHECK_URL "http://emptypage.org"
-#define CHECK_STR "html"
+namespace asio = boost::asio;
 
-boost::mutex db_mutex;
+using namespace http;
 
-class proxy_check {
- public:
-  proxy_check(std::string host, std::string port,
-              boost::asio::io_service* io_service)
-    : host_(host),
-      port_(port),
-      check_result_(false) {
-    io_service->post(boost::bind(&proxy_check::check, this));
-  }
+void callback(std::shared_ptr<http_source> http, boost::system::error_code ec) {
+  if (!ec || ec == asio::error::eof) {
+    typedef boost::reference_wrapper<http::http_source> http_stream_ref;
+    boost::iostreams::stream<http_stream_ref> s(boost::ref(*http));
 
-  void check() {
-    // Try to get page with proxy.
-    http::webclient wc;
-    wc.proxy(host_, port_);
-    std::string page;
-    try {
-      page = wc.request_get(CHECK_URL);
-    } catch(const std::ios_base::failure& e) {
+    std::ofstream file_out;
+    file_out.open ("out.bin", std::ios::binary);
+    if (http->header("content-encoding") == "gzip") {
+      boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
+      filter.push(boost::iostreams::gzip_decompressor());
+      filter.push(s);
+      boost::iostreams::copy(filter, file_out);
+    } else {
+      boost::iostreams::copy(s, file_out);
     }
-
-    // Check page.
-    check_result_ = (page.find(CHECK_STR) == std::string::npos);
-
-    {
-      // Update database.
-      boost::lock_guard<boost::mutex> lock(db_mutex);
-      std::string proxy = host_ + ":" + port_;
-      if (check_result_) {
-        std::cout << "[WORKING] " << host_ << ":" << port_ << "\n";
-      } else {
-        std::cout << "[ERROR  ] " << host_ << ":" << port_ << "\n";
-      }
-    }
+    file_out.close();
+  } else {
+    std::cout << "error: " << ec.message() << "\n";
   }
-
-  std::string host() { return host_; }
-  std::string port() { return port_; }
-  bool result() { return check_result_; }
-
- private:
-  std::string host_;
-  std::string port_;
-  bool check_result_;
-};
+}
 
 int main(int argc, char* argv[]) {
-  // Check command line argument.
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " proxypages.txt\n";
+  if (argc == 1) {
+    std::cout << "no URL provided\n";
     return 1;
   }
 
-  // Prepare thread pool for boost::asio::io_service execution.
-  boost::thread_group threads;
-  boost::asio::io_service io_service;
-  boost::shared_ptr<boost::asio::io_service::work> work(
-      new boost::asio::io_service::work(io_service));
-  for (unsigned int i = 0; i < 5; ++i) {
-    threads.create_thread(
-        boost::bind(&boost::asio::io_service::run, &io_service));
-  }
+  url u(argv[1]);
 
-  // Prepare proxy information depository.
-  std::set<std::string> proxies;
-  std::set<proxy_check*> checks;
+  asio::io_service io_service;
+  asio::ip::tcp::resolver resolver(io_service);
+  asio::ip::tcp::resolver::query query(u.host(), u.port());
 
-  // Open file.
-  std::string line;
-  std::ifstream file(argv[1]);
-  if (!file.is_open()) {
-    std::cerr << "could not open proxies file\n";
-  }
-
-  while (file.good()) {
-    // Read page address.
-    std::getline(file, line);
-    if (line.length() < 11) {
-      continue;
-    }
-    std::cout << "reading " << line << "\n";
-
-    // Read page.
-    http::webclient wc;
-    std::string page;
-    try {
-      page = wc.request_get(line);
-    } catch(const std::ios_base::failure& e) {
-      std::cout << "could not read " << line << e.what() << "\n";
-      continue;
-    }
-
-    // Extract proxies with regular expression.
-    boost::regex regex(
-        "((\\d{1, 3}\\.\\d{1, 3}\\.\\d{1, 3}\\.\\d{1, 3}):(\\d{1, 5}))");
-    boost::sregex_iterator regex_iter(page.begin(), page.end(), regex), end;
-    for (; regex_iter != end; ++regex_iter) {
-      std::string proxy = (*regex_iter)[1].str();
-      if (proxies.find(proxy) == proxies.end()) {
-        std::string host = (*regex_iter)[2].str();
-        std::string port = (*regex_iter)[3].str();
-        checks.insert(new proxy_check(host, port, &io_service));
-        proxies.insert(proxy);
-      }
-    }
-  }
-
-  // Close file.
-  file.close();
-
-  // Stop io_service and all threads.
-  work.reset();
+  resolver.async_resolve(query,
+                         [&u, &io_service](boost::system::error_code ec,
+                                           asio::ip::tcp::resolver::iterator iterator) {
+                           if (!ec) {
+                             std::shared_ptr<http_source> http = std::make_shared<http_source>(
+                                 &io_service, iterator,
+                                 std::string("GET ") + u.path() + " HTTP/1.0\r\n"\
+                                 "Host: " + u.host() + "\r\n"\
+                                 "Accept-Encoding: gzip,deflate\r\n\r\n");
+                             http->operator()(callback);
+                           } else {
+                             std::cout << ec.message() << "\n";
+                           }
+                         });
   io_service.run();
-  io_service.stop();
-  threads.join_all();
-
-  // Delete checks.
-  BOOST_FOREACH(proxy_check* check, checks) {
-    delete check;
-  }
 
   return 0;
 }
 
+/*
+int main() {
+  url url1("http://www.domain.tl/");
+  url url2("http://www.domain.tl/path");
+  url url3("http://www.domain.tl:8080/");
+  url url4("http://www.domain.tl:8080/path");
+
+  std::cout << url1.host() << " " << url1.port() << " " << url1.path() << "\n";
+  std::cout << url2.host() << " " << url2.port() << " " << url2.path() << "\n";
+  std::cout << url3.host() << " " << url3.port() << " " << url3.path() << "\n";
+  std::cout << url4.host() << " " << url4.port() << " " << url4.path() << "\n";
+
+  try {
+    url url5("http//domain.tl:8080/");
+  } catch(std::invalid_argument e) {
+    std::cout << "invalid_argument catched\n";
+  } catch(...) {
+    std::cout << "something else catched\n";
+  }
+
+  return 0;
+}
+*/
+
+/*
+#include <iostream>
+#include <vector>
+#include <memory>
+
+#include "./http/proxy_list_check.h"
+
+#include "boost/asio/io_service.hpp"
+
+bool check(const std::string& s) {
+  std::cout << s << "\n\n\n\n";
+  return s.find("farbflut") != std::string::npos;
+}
+
+void callback(const std::vector<std::string> proxies) {
+  std::cout << "working proxies:\n";
+  for (const std::string& p : proxies) {
+    std::cout << p << "\n";
+  }
+}
+
+int main() {
+  asio::io_service io_service;
+
+  asio::io_service::work work(io_service);
+
+  std::vector<std::string> proxies;
+  proxies.push_back("62.113.200.202:3128");
+  proxies.push_back("85.10.202.142:3128");
+
+  std::shared_ptr<proxy_list_check> list_check = std::make_shared<proxy_list_check>(&io_service, 20, proxies, check, callback);
+  list_check->start();
+
+  io_service.run();
+
+  return 0;
+}
+*/

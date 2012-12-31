@@ -23,6 +23,7 @@
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -63,13 +64,13 @@ void bot::shutdown() {
   lua_connection::remove(identifier_);
 }
 
-std::string bot::username() { return username_; }
-std::string bot::password() { return password_; }
-std::string bot::identifier() { return identifier_; }
-std::string bot::package() { return package_; }
-std::string bot::server() { return server_; }
-http::webclient* bot::webclient() { return &webclient_; }
-double bot::wait_time_factor() { return wait_time_factor_; }
+std::string bot::username()    const { return username_; }
+std::string bot::password()    const { return password_; }
+std::string bot::identifier()  const { return identifier_; }
+std::string bot::package()     const { return package_; }
+std::string bot::server()      const { return server_; }
+double bot::wait_time_factor() const { return wait_time_factor_; }
+http::webclient* bot::webclient()    { return &webclient_; }
 
 void bot::init(const std::string& config, const error_callback& cb) {
   // Read JSON.
@@ -179,10 +180,11 @@ void bot::init(const std::string& config, const error_callback& cb) {
   // Login either while setting the proxy
   // or by calling the (asynchronous) login function directly.
   if (proxy.empty()) {
-    login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 3);
+    log(BS_LOG_NFO, "base", "login: 1. try");
+    login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 2);
     lua_connection::login(shared_from_this(), &login_cb_);
   } else {
-    // set_proxy(proxy);  // TODO(felix) set proxy
+    set_proxy(proxy, cb, commands);
   }
 }
 
@@ -198,7 +200,14 @@ void bot::handle_login(const std::string& err,
     return cb("");
   }
 
-  // Login was not successful but we have tries remaining.
+  // Login failed, but we have tries remaining.
+  log(BS_LOG_ERR, "base", err);
+
+  // Write information to the log.
+  std::string t =  boost::lexical_cast<std::string>(4 - tries);
+  log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
+
+  // Start another try
   login_cb_ = boost::bind(&bot::handle_login, this,
                           _1, cb, init_commands, tries - 1);
   lua_connection::login(shared_from_this(), &login_cb_);
@@ -322,6 +331,8 @@ std::string bot::load_packages(const std::string& folder) {
 }
 
 int bot::random(int a, int b) {
+  // Generate non-random number. That's enough for our purposes.
+  // With many bots it's already very hard (impossilbe?) to predict the result.
   static unsigned int seed = 6753;
   seed *= 31;
   seed %= 32768;
@@ -380,12 +391,14 @@ void bot::status(const std::string key, const std::string value) {
 
     // Update value.
     if (status_.find(key) != status_.end()) {
+      // Key is already available - set new value.
       std::string& current = status_[key];
       if (current != value) {
         current = value;
         update = true;
       }
     } else {
+      // Insert new (key, value) pair.
       status_[key] = value;
       update = true;
     }
