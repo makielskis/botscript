@@ -29,7 +29,7 @@ class useragents {
     seed %= 32768;
 
     double random = static_cast<double>(seed) / 32768;
-    int id = std::floor(random * ua_count);
+    int id = static_cast<int>(std::floor(random * ua_count));
 
     return ua(id);
   }

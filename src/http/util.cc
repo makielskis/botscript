@@ -156,7 +156,7 @@ std::string tidy(std::string page) {
   }
 
   if (rc >= 0) {
-    page = std::string(reinterpret_cast<char*>(output.bp), output.allocated);
+    page = std::string(reinterpret_cast<char*>(output.bp), output.size);
   }
 
   tidyBufFree(&output);

@@ -29,9 +29,13 @@ http_source::http_source(boost::asio::ip::tcp::socket* socket)
 
 std::streamsize http_source::read(char_type* s, std::streamsize n) {
   std::size_t ret = std::min(static_cast<std::size_t>(n), response_.size());
-  std::memcpy(s, &(response_[0]), ret);
-  std::memmove(&(response_[0]), &(response_[ret]), response_.size() - ret);
-  response_.resize(response_.size() - ret);
+  if (ret != 0) {
+    std::memcpy(s, &(response_[0]), ret);
+    if (response_.size() != ret) {
+      std::memmove(&(response_[0]), &(response_[ret]), response_.size() - ret);
+    }
+    response_.resize(response_.size() - ret);
+  }
   return ret;
 }
 
@@ -97,12 +101,13 @@ void http_source::transfer(boost::system::error_code ec,
           copy_content(chunk_bytes);
 
           to_transfer = chunk_size - chunk_bytes;
-          original = response_.size();
-          response_.resize(response_.size() + to_transfer);
-
-          yield asio::async_read(*socket_,
-              asio::buffer(&(response_[original]), to_transfer),
-              asio::transfer_at_least(to_transfer), re);
+          if (to_transfer != 0) {
+            original = response_.size();
+            response_.resize(response_.size() + to_transfer);
+            yield asio::async_read(*socket_,
+                asio::buffer(&(response_[original]), to_transfer),
+                asio::transfer_at_least(to_transfer), re);
+          }
         }
       } else {
         while (true) {

@@ -19,7 +19,7 @@ void callback(std::string response, boost::system::error_code ec) {
 }
 
 int main(int argc, char* argv[]) {
-  using http_ptr = std::shared_ptr<http_con>;
+  typedef std::shared_ptr<http_con> http_ptr;
 
   if (argc == 1) {
     std::cout << "no URL provided\n";

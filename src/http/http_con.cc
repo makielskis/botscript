@@ -10,6 +10,7 @@
 #include "boost/iostreams/copy.hpp"
 #include "boost/iostreams/filtering_streambuf.hpp"
 #include "boost/iostreams/filter/gzip.hpp"
+#include "boost/bind.hpp"
 
 namespace asio = boost::asio;
 
@@ -23,7 +24,8 @@ http_con::http_con(boost::asio::io_service* io_service,
       req_timeout_timer_(*io_service),
       src_(std::make_shared<http_source>(&socket_)),
       host_(std::move(host)),
-      port_(std::move(port)) {
+      port_(std::move(port)),
+      connected_(false) {
 }
 
 void http_con::operator()(std::string request_str, callback cb) {
@@ -40,7 +42,7 @@ void http_con::request(std::shared_ptr<http_con> self,
     } else {
       src_->operator()(std::move(request_str),
                        std::bind(&http_con::request_finish, this,
-                                 std::move(self), std::move(cb),
+                                 self, cb,
                                  std::placeholders::_1, std::placeholders::_2));
     }
   } else {
@@ -51,12 +53,9 @@ void http_con::request(std::shared_ptr<http_con> self,
 void http_con::resolve(std::shared_ptr<http_con> self,
                        std::string request_str, callback cb) {
   asio::ip::tcp::resolver::query query(host_, port_);
-  resolver_.async_resolve(query, std::bind(&http_con::connect, this,
-                                           std::move(self),
-                                           std::move(request_str),
-                                           std::move(cb),
-                                           std::placeholders::_1,
-                                           std::placeholders::_2));
+  resolver_.async_resolve(query, boost::bind(&http_con::connect, this,
+                                             self, request_str, cb,
+                                             _1, _2));
 }
 
 void http_con::connect(std::shared_ptr<http_con> self,
@@ -65,11 +64,9 @@ void http_con::connect(std::shared_ptr<http_con> self,
                        asio::ip::tcp::resolver::iterator iterator) {
   if (!ec) {
     asio::async_connect(socket_, iterator,
-                        std::bind(&http_con::on_connect, this,
-                                  std::move(self),
-                                  std::move(request_str), std::move(cb),
-                                  std::placeholders::_1,
-                                  std::placeholders::_2));
+                        boost::bind(&http_con::on_connect, this,
+                                    self, request_str, cb,
+                                    _1, _2));
   } else {
     cb(self, "", ec);
   }
@@ -82,9 +79,9 @@ void http_con::on_connect(std::shared_ptr<http_con> self,
   if (!ec) {
     connected_ = true;
     src_->operator()(std::move(request_str),
-                     std::bind(&http_con::request_finish, this,
-                               std::move(self), std::move(cb),
-                               std::placeholders::_1, std::placeholders::_2));
+                     boost::bind(&http_con::request_finish, this,
+                                 std::move(self), std::move(cb),
+                                 _1, _2));
   } else {
     cb(self, "", ec);
   }

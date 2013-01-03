@@ -19,7 +19,7 @@ namespace util {
 
 enum { GET, POST };
 
-using parameters = std::vector<std::pair<std::string, std::string>>;
+typedef std::vector<std::pair<std::string, std::string>> parameters;
 
 std::string build_request(const url& u, const int method,
                           const std::string& content,

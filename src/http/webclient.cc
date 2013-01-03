@@ -9,6 +9,7 @@
 
 #include "boost/regex.hpp"
 #include "boost/algorithm/string/predicate.hpp"
+#include "boost/bind.hpp"
 
 #include "./url.h"
 #include "./util.h"
@@ -53,13 +54,11 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
   std::string port = use_proxy ? u.port() : proxy_port_;
 
   // Start request.
-  using http_ptr = std::shared_ptr<http_con>;
+  typedef std::shared_ptr<http_con> http_ptr;
   http_ptr c = std::make_shared<http_con>(io_service_, host, port);
   std::string req = util::build_request(u, method, body, headers_, use_proxy);
-  c->operator()(req, std::bind(&webclient::request_finish, this,
-                               u.host(), remaining_redirects, cb,
-                               std::placeholders::_1, std::placeholders::_2,
-                               std::placeholders::_3));
+  c->operator()(req, boost::bind(&webclient::request_finish, this,
+                                 u.host(), remaining_redirects, cb, _1, _2, _3));
 }
 
 void webclient::request_finish(const std::string& host,

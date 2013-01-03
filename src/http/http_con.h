@@ -52,7 +52,7 @@ class http_con : public std::enable_shared_from_this<http_con> {
   boost::asio::deadline_timer req_timeout_timer_;
   std::shared_ptr<http_source> src_;
   std::string host_, port_;
-  bool connected_ = false;
+  bool connected_;
 };
 
 }  // namespace http
