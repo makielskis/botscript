@@ -25,17 +25,15 @@ class http_source : coroutine,
 
   typedef std::function<void (std::shared_ptr<http_source>,
                               boost::system::error_code)
-                       > http_callback;
+                       > callback;
 
-  http_source(boost::asio::io_service* io_service,
-              boost::asio::ip::tcp::resolver::iterator server,
-              std::string request);
+  http_source(boost::asio::ip::tcp::socket* socket);
 
-  void operator()(http_callback cb);
+  void operator()(std::string request, callback cb);
 
   std::streamsize read(char_type* s, std::streamsize n);
   const std::vector<char>& response() const { return response_; }
-  std::string header(const std::string& h) { return header_[h]; }
+  std::string header(const std::string& h) const { return (header_.find(h) != header_.end()) ?  header_.at(h) : ""; }
 
  private:
   void transfer(boost::system::error_code ec,
@@ -45,7 +43,7 @@ class http_source : coroutine,
   void read_content_length() throw(std::bad_cast);
 
   static boost::regex chunk_size_rx_;
-  boost::asio::ip::tcp::socket socket_;
+  boost::asio::ip::tcp::socket* socket_;
   std::string request_;
   boost::asio::ip::tcp::resolver::iterator server_;
   boost::asio::streambuf buf_;
@@ -53,8 +51,8 @@ class http_source : coroutine,
   std::istream response_stream_;
 
   int status_code_;
-  std::map<std::string, std::string> header_;
   int length_;
+  std::map<std::string, std::string> header_;
 };
 
 }  // namespace http

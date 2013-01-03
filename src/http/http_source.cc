@@ -20,14 +20,11 @@ namespace http {
 
 boost::regex http_source::chunk_size_rx_("\r?\n?[0-9a-fA-F]+\r\n");
 
-http_source::http_source(asio::io_service* io_service,
-                         asio::ip::tcp::resolver::iterator server,
-                         std::string request)
-  : socket_(*io_service),
-    request_(std::move(request)),
-    server_(server),
-    status_code_(0),
-    response_stream_(&buf_) {
+http_source::http_source(boost::asio::ip::tcp::socket* socket)
+    : socket_(socket),
+      status_code_(0),
+      length_(0),
+      response_stream_(&buf_) {
 }
 
 std::streamsize http_source::read(char_type* s, std::streamsize n) {
@@ -38,27 +35,35 @@ std::streamsize http_source::read(char_type* s, std::streamsize n) {
   return ret;
 }
 
-void http_source::operator()(http_callback cb) {
+void http_source::operator()(std::string request, callback cb) {
+  response_.resize(0);
+  header_.clear();
+  request_ = std::move(request);
+  std::shared_ptr<http_source> s = shared_from_this();
   transfer(boost::system::error_code(),
-           std::bind(cb, shared_from_this(), std::placeholders::_1));
+           std::bind(cb, s, std::placeholders::_1));
 }
 
 #include "./coroutine/yield.hpp"
 void http_source::transfer(boost::system::error_code ec,
                            std::function<void(boost::system::error_code)> cb) {
   if (ec == asio::error::eof) {
+    coroutine_ref(this) = 0;
     return cb(ec);
   }
 
   if (!ec) {
+    if (is_complete()) {
+      coroutine_ref(this) = 0;
+    }
+
     using std::placeholders::_1;
     auto re = std::bind(&http_source::transfer, this, _1, cb);
-    std::size_t read, chunk_size, buffered, chunk_bytes, to_transfer, original;
+    std::size_t read, chunk_size, chunk_bytes, to_transfer, original;
 
     reenter(this) {
-      yield asio::async_connect(socket_, server_, re);
-      yield asio::async_write(socket_, asio::buffer(request_), re);
-      yield asio::async_read_until(socket_, buf_, "\r\n\r\n", re);
+      yield asio::async_write(*socket_, asio::buffer(request_), re);
+      yield asio::async_read_until(*socket_, buf_, "\r\n\r\n", re);
 
       read_header();
 
@@ -68,20 +73,17 @@ void http_source::transfer(boost::system::error_code ec,
         try {
           read_content_length();
         } catch(std::bad_cast) {
-          boost::system::error_code error(
-              boost::system::errc::illegal_byte_sequence,
-              boost::system::system_category());
-          return cb(error);
+          using namespace boost::system;
+          return cb(error_code(errc::illegal_byte_sequence, system_category()));
         }
         response_.resize(length_);
 
-        yield asio::async_read(socket_,
+        yield asio::async_read(*socket_,
                                asio::buffer(&(response_[read]), length_ - read),
                                asio::transfer_at_least(length_ - read), re);
-        return cb(ec);
       } else if (header_.find("transfer-encoding") != header_.end()) {
         while(true) {
-          yield asio::async_read_until(socket_, buf_, chunk_size_rx_, re);
+          yield asio::async_read_until(*socket_, buf_, chunk_size_rx_, re);
 
           chunk_size = 0;
           response_stream_ >> std::hex >> chunk_size;
@@ -91,26 +93,24 @@ void http_source::transfer(boost::system::error_code ec,
             break;
           }
 
-          buffered = buf_.size();
-          chunk_bytes = std::min(buffered, chunk_size);
+          chunk_bytes = std::min(buf_.size(), chunk_size);
           copy_content(chunk_bytes);
 
           to_transfer = chunk_size - chunk_bytes;
           original = response_.size();
           response_.resize(response_.size() + to_transfer);
 
-          yield asio::async_read(socket_,
+          yield asio::async_read(*socket_,
               asio::buffer(&(response_[original]), to_transfer),
               asio::transfer_at_least(to_transfer), re);
         }
-        return cb(ec);
       } else {
         while (true) {
           copy_content(buf_.size());
-          yield asio::async_read(socket_, buf_, asio::transfer_at_least(1), re);
+          yield asio::async_read(*socket_, buf_, asio::transfer_at_least(1), re);
         }
-        return cb(ec);
       }
+      return cb(ec);
     }
   } else {
     return cb(ec);

@@ -2,69 +2,67 @@
 #include <fstream>
 #include <functional>
 
-#include "./http/http_source.h"
 #include "./http/url.h"
-
-#include "boost/asio.hpp"
-#include "boost/iostreams/copy.hpp"
-#include "boost/iostreams/filtering_streambuf.hpp"
-#include "boost/iostreams/filter/gzip.hpp"
+#include "./http/util.h"
+#include "./http/webclient.h"
 
 namespace asio = boost::asio;
 
 using namespace http;
 
-void callback(std::shared_ptr<http_source> http, boost::system::error_code ec) {
-  if (!ec || ec == asio::error::eof) {
-    typedef boost::reference_wrapper<http::http_source> http_stream_ref;
-    boost::iostreams::stream<http_stream_ref> s(boost::ref(*http));
-
-    std::ofstream file_out;
-    file_out.open ("out.bin", std::ios::binary);
-    if (http->header("content-encoding") == "gzip") {
-      boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
-      filter.push(boost::iostreams::gzip_decompressor());
-      filter.push(s);
-      boost::iostreams::copy(filter, file_out);
-    } else {
-      boost::iostreams::copy(s, file_out);
-    }
-    file_out.close();
+void callback(std::string response, boost::system::error_code ec) {
+  if (!ec) {
+    std::cout << "response: {" << response << "}\n";
   } else {
     std::cout << "error: " << ec.message() << "\n";
   }
 }
 
 int main(int argc, char* argv[]) {
+  using http_ptr = std::shared_ptr<http_con>;
+
+  if (argc == 1) {
+    std::cout << "no URL provided\n";
+    return 1;
+  }
+
+  boost::asio::io_service io_service;
+  webclient wc(&io_service);
+  url u(argv[1]);
+  wc.request(url(argv[1]), util::GET, "", callback, 3);
+  io_service.run();
+
+  return 0;
+}
+
+/*
+int main(int argc, char* argv[]) {
+  using http_ptr = std::shared_ptr<http_con>;
+
   if (argc == 1) {
     std::cout << "no URL provided\n";
     return 1;
   }
 
   url u(argv[1]);
+  std::string request = std::string("GET ") + u.path() + " HTTP/1.1\r\n"\
+                        "Host: " + u.host() + "\r\n"\
+                        "Connection: Keep-Alive\r\n"\
+                        "Accept-Encoding: gzip,deflate\r\n\r\n";
+  boost::asio::io_service io_service;
+  http_ptr con0 = std::make_shared<http_con>(&io_service, u.host(), u.port());
+  http_ptr con1 = std::make_shared<http_con>(&io_service, u.host(), u.port());
+  con0->operator()(request, callback);
+  con1->operator()(request, callback);
+  io_service.run();
 
-  asio::io_service io_service;
-  asio::ip::tcp::resolver resolver(io_service);
-  asio::ip::tcp::resolver::query query(u.host(), u.port());
-
-  resolver.async_resolve(query,
-                         [&u, &io_service](boost::system::error_code ec,
-                                           asio::ip::tcp::resolver::iterator iterator) {
-                           if (!ec) {
-                             std::shared_ptr<http_source> http = std::make_shared<http_source>(
-                                 &io_service, iterator,
-                                 std::string("GET ") + u.path() + " HTTP/1.0\r\n"\
-                                 "Host: " + u.host() + "\r\n"\
-                                 "Accept-Encoding: gzip,deflate\r\n\r\n");
-                             http->operator()(callback);
-                           } else {
-                             std::cout << ec.message() << "\n";
-                           }
-                         });
+  io_service.reset();
+  con0->operator()(request, callback);
   io_service.run();
 
   return 0;
 }
+*/
 
 /*
 int main() {

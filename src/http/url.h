@@ -2,8 +2,8 @@
 // Licensed under the MIT license
 // https://raw.github.com/makielski/botscript/master/COPYING
 
-#ifndef URL_H_
-#define URL_H_
+#ifndef HTTP_URL_H_
+#define HTTP_URL_H_
 
 #include <string>
 #include <stdexcept>
@@ -54,4 +54,4 @@ class url {
 
 }  // namespace http
 
-#endif  // URL_H_
+#endif  // HTTP_URL_H_
