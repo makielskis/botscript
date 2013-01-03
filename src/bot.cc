@@ -1,40 +1,24 @@
-/*
- * This code contains to one of the Makielski projects.
- * Visit http://makielski.net for more information.
- *
- * Copyright (C) December 1st, 2012 makielskis@gmail.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+// Copyright (c) 2012, makielski.net
+// Licensed under the MIT license
+// https://raw.github.com/makielski/botscript/master/COPYING
 
 #include "./bot.h"
 
-#include <boost/foreach.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/lexical_cast.hpp>
+#include "boost/foreach.hpp"
+#include "boost/algorithm/string.hpp"
+#include "boost/date_time/posix_time/posix_time.hpp"
+#include "boost/lexical_cast.hpp"
 
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 #include "./lua/lua_connection.h"
 
 #if defined _WIN32 || defined _WIN64
 namespace std {
 
-// round() is missing in C++ until C++ 2011 standard.
+// round() is missing in until C++11 standard.
 // But we have one!
 double round(double r) {
   return (r > 0.0) ? floor(r + 0.5) : ceil(r - 0.5);

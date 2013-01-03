@@ -64,7 +64,7 @@ class webclient {
   void request(const url& u, int method, std::string body, callback cb,
                int remaining_redirects);
 
- private:
+ protected:
   /// Function that will be called on request finish. Calls the user callback
   /// function provided when calling request / submit.
   ///

@@ -1,45 +1,25 @@
-/*
- * This code contains to one of the Makielski projects.
- * Visit http://makielski.net for more information.
- *
- * Copyright (C) December 1st, 2012 makielskis@gmail.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+// Copyright (c) 2012, makielski.net
+// Licensed under the MIT license
+// https://raw.github.com/makielski/botscript/master/COPYING
 
 #ifndef BOT_H_
 #define BOT_H_
 
 #define MAX_LOG_SIZE 50
-#define CONTAINS(c, e) (find(c.begin(), c.end(), e) != c.end())
 
 #include <string>
 #include <set>
 #include <utility>
 
-#include <boost/utility.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
-#include <boost/asio/io_service.hpp>
-#include <boost/function.hpp>
+#include "boost/utility.hpp"
+#include "boost/asio/io_service.hpp"
 
-#include "./http/webclient.h"
+#include "./bot_browser.h"
 
 namespace botscript {
 
 /// Bot class.
-class bot : boost::noncopyable, public boost::enable_shared_from_this<bot> {
+class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
  public:
   /// Log message types.
   enum { BS_LOG_DBG, BS_LOG_NFO, BS_LOG_ERR };
@@ -48,12 +28,12 @@ class bot : boost::noncopyable, public boost::enable_shared_from_this<bot> {
   typedef std::vector<std::pair<std::string, std::string>> command_sequence;
 
   /// Update callback: called when the bot status changed or for log messages.
-  typedef boost::function<void (std::string, std::string, std::string)> upd_cb;
+  typedef std::function<void (std::string, std::string, std::string)> upd_cb;
 
   /// Callback function for asynchronous actions.
   /// Provides the error message if an error was thrown. The error string is
   /// empty for operations that were completed successfuly.
-  typedef boost::function<void (std::string)> error_callback;
+  typedef std::function<void (std::string)> error_callback;
 
   /// Creates a new bot. The bot needs to be initialized
   /// by a seperate call to bot::init() to be ready for usage.
@@ -181,7 +161,7 @@ class bot : boost::noncopyable, public boost::enable_shared_from_this<bot> {
   boost::asio::io_service* io_service_;
 
   /// Web browser agent.
-  http::webclient webclient_;
+  bot_browser webclient_;
 
   /// Basic bot information.
   std::string username_, password_, package_, server_, identifier_;
@@ -198,7 +178,7 @@ class bot : boost::noncopyable, public boost::enable_shared_from_this<bot> {
   /// Bot status.
   std::map<std::string, std::string> status_;
 
-  /// Lock to synchronize status access.
+  /// Mutex to synchronize status access.
   boost::mutex status_mutex_;
 
   /// Mutex synchronizing the access the server address list.
