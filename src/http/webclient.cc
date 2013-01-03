@@ -55,7 +55,8 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
 
   // Start request.
   typedef std::shared_ptr<http_con> http_ptr;
-  http_ptr c = std::make_shared<http_con>(io_service_, host, port);
+  http_ptr c = std::make_shared<http_con>(io_service_, host, port,
+                                          boost::posix_time::seconds(60));
   std::string req = util::build_request(u, method, body, headers_, use_proxy);
   c->operator()(req, boost::bind(&webclient::request_finish, this,
                                  u.host(), remaining_redirects, cb, _1, _2, _3));

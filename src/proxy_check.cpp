@@ -1,128 +1,82 @@
 #include <iostream>
-#include <fstream>
 #include <functional>
+#include <memory>
+#include <utility>
 
-#include "./http/url.h"
-#include "./http/util.h"
-#include "./http/webclient.h"
+#include "boost/asio/io_service.hpp"
+#include "boost/bind.hpp"
+
+#include "http/http_con.h"
 
 namespace asio = boost::asio;
 
-using namespace http;
+class proxy_check : public std::enable_shared_from_this<proxy_check>,
+                    public boost::system::error_category {
+ public:
+  typedef std::function<void(std::shared_ptr<proxy_check>,
+                             boost::system::error_code
+                            )> callback;
 
-void callback(std::string response, boost::system::error_code ec) {
-  if (!ec) {
-    std::cout << "response: {" << response << "}\n";
-  } else {
-    std::cout << "error: " << ec.message() << "\n";
-  }
-}
-
-int main(int argc, char* argv[]) {
-  typedef std::shared_ptr<http_con> http_ptr;
-
-  if (argc == 1) {
-    std::cout << "no URL provided\n";
-    return 1;
-  }
-
-  boost::asio::io_service io_service;
-  webclient wc(&io_service);
-  url u(argv[1]);
-  wc.request(url(argv[1]), util::GET, "", callback, 3);
-  io_service.run();
-
-  return 0;
-}
-
-/*
-int main(int argc, char* argv[]) {
-  using http_ptr = std::shared_ptr<http_con>;
-
-  if (argc == 1) {
-    std::cout << "no URL provided\n";
-    return 1;
+  proxy_check(boost::asio::io_service* io_service,
+              std::string host, std::string port,
+              std::string request, std::function<bool(std::string)>* check_fun)
+    : request_(std::move(request)),
+      con_(std::make_shared<http::http_con>(io_service,
+                                            std::move(host), std::move(port),
+                                            boost::posix_time::seconds(15))),
+      check_fun_(check_fun) {
   }
 
-  url u(argv[1]);
-  std::string request = std::string("GET ") + u.path() + " HTTP/1.1\r\n"\
-                        "Host: " + u.host() + "\r\n"\
-                        "Connection: Keep-Alive\r\n"\
-                        "Accept-Encoding: gzip,deflate\r\n\r\n";
-  boost::asio::io_service io_service;
-  http_ptr con0 = std::make_shared<http_con>(&io_service, u.host(), u.port());
-  http_ptr con1 = std::make_shared<http_con>(&io_service, u.host(), u.port());
-  con0->operator()(request, callback);
-  con1->operator()(request, callback);
-  io_service.run();
-
-  io_service.reset();
-  con0->operator()(request, callback);
-  io_service.run();
-
-  return 0;
-}
-*/
-
-/*
-int main() {
-  url url1("http://www.domain.tl/");
-  url url2("http://www.domain.tl/path");
-  url url3("http://www.domain.tl:8080/");
-  url url4("http://www.domain.tl:8080/path");
-
-  std::cout << url1.host() << " " << url1.port() << " " << url1.path() << "\n";
-  std::cout << url2.host() << " " << url2.port() << " " << url2.path() << "\n";
-  std::cout << url3.host() << " " << url3.port() << " " << url3.path() << "\n";
-  std::cout << url4.host() << " " << url4.port() << " " << url4.path() << "\n";
-
-  try {
-    url url5("http//domain.tl:8080/");
-  } catch(std::invalid_argument e) {
-    std::cout << "invalid_argument catched\n";
-  } catch(...) {
-    std::cout << "something else catched\n";
+  void check(callback cb) {
+    con_->operator()(request_, boost::bind(&proxy_check::check_finish, this,
+                                           shared_from_this(), cb, _1, _2, _3));
   }
 
-  return 0;
-}
-*/
+  void check_finish(std::shared_ptr<proxy_check> self, callback cb,
+                    std::shared_ptr<http::http_con> con, std::string response,
+                    boost::system::error_code ec) {
+    if (ec || (*check_fun_)(response)) {
+      cb(self, ec);
+    } else {
+      cb(self, boost::system::error_code(-1, *this));
+    }
+  }
+  
+  const char* name() const { return "proxy"; }
+  std::string message(int ev) const {
+    return "check failed";
+  }
 
-/*
-#include <iostream>
-#include <vector>
-#include <memory>
-
-#include "./http/proxy_list_check.h"
-
-#include "boost/asio/io_service.hpp"
+ private:
+   std::string request_;
+   std::shared_ptr<http::http_con> con_;
+   std::function<bool(std::string)>* check_fun_;
+};
 
 bool check(const std::string& s) {
-  std::cout << s << "\n\n\n\n";
   return s.find("farbflut") != std::string::npos;
 }
 
-void callback(const std::vector<std::string> proxies) {
-  std::cout << "working proxies:\n";
-  for (const std::string& p : proxies) {
-    std::cout << p << "\n";
-  }
+void callback(std::shared_ptr<proxy_check>, boost::system::error_code ec) {
+  std::cout << ec.message() << "\n";
 }
 
 int main() {
   asio::io_service io_service;
 
-  asio::io_service::work work(io_service);
+  std::string request = "GET http://www.pennergame.de/ HTTP/1.1\r\n"\
+                        "Host: www.pennergame.de\r\n\r\n";
+  std::function<bool(std::string)> check_fun = check;
 
-  std::vector<std::string> proxies;
-  proxies.push_back("62.113.200.202:3128");
-  proxies.push_back("85.10.202.142:3128");
+  std::vector<std::shared_ptr<proxy_check>> proxies;
+  proxies.emplace_back(std::make_shared<proxy_check>(&io_service, "86.10.202.142", "3128", request, &check_fun));
+  proxies.emplace_back(std::make_shared<proxy_check>(&io_service, "85.10.202.142", "3128", request, &check_fun));
 
-  std::shared_ptr<proxy_list_check> list_check = std::make_shared<proxy_list_check>(&io_service, 20, proxies, check, callback);
-  list_check->start();
+  for (auto proxy : proxies) {
+    proxy->check(callback);
+  }
 
   io_service.run();
 
   return 0;
 }
-*/

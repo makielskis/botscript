@@ -8,6 +8,10 @@
 #include <memory>
 #include <functional>
 
+#include "boost/asio/io_service.hpp"
+#include "boost/asio/deadline_timer.hpp"
+#include "boost/date_time/posix_time/posix_time.hpp"
+
 #include "./coroutine/coroutine.hpp"
 #include "./url.h"
 #include "./http_source.h"
@@ -35,8 +39,10 @@ class http_con : public std::enable_shared_from_this<http_con> {
   /// \param io_service points to the Asio io_service object to use for requests
   /// \param host the host to connect to
   /// \param port the port to connect to
+  /// \param timeout the request timeout
   http_con(boost::asio::io_service* io_service,
-           std::string host, std::string port);
+           std::string host, std::string port,
+           boost::posix_time::time_duration timeout);
 
   /// \return the http_source
   const http_source& http_src() const { return *src_; }
@@ -79,6 +85,11 @@ class http_con : public std::enable_shared_from_this<http_con> {
                   std::string request_str, callback cb,
                   boost::system::error_code ec,
                   boost::asio::ip::tcp::resolver::iterator iterator);
+
+  /// Callback called by the request timeout timer.
+  /// Disconnects the socket if the timeout expired.
+  void timer_callback(std::shared_ptr<http_con> self,
+                      const boost::system::error_code& ec);
 
   /// Part of the chained operation described in \sa http_con::request
   void request_finish(std::shared_ptr<http_con> self, callback cb,
