@@ -29,24 +29,18 @@ http_con::http_con(boost::asio::io_service* io_service,
 }
 
 void http_con::operator()(std::string request_str, callback cb) {
-  request(shared_from_this(), std::move(request_str), std::move(cb),
-          boost::system::error_code());
+  request(shared_from_this(), std::move(request_str), std::move(cb));
 }
 
 void http_con::request(std::shared_ptr<http_con> self,
-                       std::string request_str, callback cb,
-                       boost::system::error_code ec) {
-  if (!ec) {
-    if (!connected_) {
-      resolve(std::move(self), std::move(request_str), std::move(cb));
-    } else {
-      src_->operator()(std::move(request_str),
-                       std::bind(&http_con::request_finish, this,
-                                 self, cb,
-                                 std::placeholders::_1, std::placeholders::_2));
-    }
+                       std::string request_str, callback cb) {
+  if (!connected_) {
+    resolve(std::move(self), std::move(request_str), std::move(cb));
   } else {
-    cb(self, "", ec);
+    src_->operator()(std::move(request_str),
+                     std::bind(&http_con::request_finish, this,
+                               self, cb,
+                               std::placeholders::_1, std::placeholders::_2));
   }
 }
 

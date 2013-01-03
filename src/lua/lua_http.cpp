@@ -42,24 +42,30 @@ void lua_http::on_req_finish(lua_State* state, bool fail_cb,
   // Get the calling bot.
   boost::shared_ptr<bot> b = lua_connection::get_bot(state);
   if (boost::shared_ptr<bot>() == b) {
+    lua_connection::on_error(state, "no bot set");
     return;
   }
 
   // Get module name (for logging).
   lua_getglobal(state, BOT_MODULE);
-  std::string module = luaL_checkstring(state, -1);
+  std::string module;
+  if (lua_isstring(state, -1)) {
+    module = lua_tostring(state, -1);
+  } else {
+    module = "unknown";
+  }
   lua_pop(state, 1);
 
   // Check success.
   if (!success && !fail_cb) {
-    b->log(bot::BS_LOG_ERR, module, "request failed: " + response);
+    lua_connection::on_error(state, response);
     return;
   }
 
   // Get and check callback function.
   lua_getglobal(state, BOT_CALLBACK);
   if (!lua_isfunction(state, -1)) {
-    b->log(bot::BS_LOG_ERR, module, "callback not defined");
+    lua_connection::on_error(state, "on_req_finish: no callback set");
     return;
   }
 
@@ -75,14 +81,17 @@ void lua_http::on_req_finish(lua_State* state, bool fail_cb,
   try {
     lua_connection::exec(state, 2, LUA_MULTRET, 0);
   } catch(const lua_exception& e) {
-    b->log(bot::BS_LOG_ERR, module, std::string("callback error: ") + e.what());
+    lua_connection::on_error(state, e.what());
+    return;
   }
 
   // Check whether an asynchronous action was startet (callback set).
   // If this is NOT the case: close state.
   // Otherwise, the asynchronous function is responsible to handle the lifetime.
   lua_getglobal(state, BOT_CALLBACK);
-  if (!lua_isfunction(state, -1)) {
+  bool is_function = lua_isfunction(state, -1);
+  lua_pop(state, 1);
+  if (!is_function) {
     lua_close(state);
   }
 }
@@ -164,38 +173,13 @@ int lua_http::async_submit_form(lua_State* state) {
   // Collect parameters.
   int argc = lua_gettop(state);
   switch (argc) {
-    case 5: {
-      if (!lua_isstring(state, 4)) {
-        return luaL_error(state, "action must be a string");
-      }
-
-      size_t action_length = 0;
-      const char* s = lua_tolstring(state, 4, &action_length);
-      action.resize(action_length);
-      memcpy(&(action[0]), s, action_length);
-    }
-    case 4: {
+    case 5:
+      action = luaL_checkstring(state, 4);
+    case 4:
       lua_connection::lua_str_table_to_map(state, 3, &parameters);
-    }
-    case 3: {
-      if (!lua_isstring(state, 2)) {
-        return luaL_error(state, "xpath must be a string");
-      }
-
-      if (!lua_isstring(state, 1)) {
-        return luaL_error(state, "content must be a string");
-      }
-
-      size_t xpath_length = 0;
-      const char* s = lua_tolstring(state, 2, &xpath_length);
-      xpath.resize(xpath_length);
-      memcpy(&(xpath[0]), s, xpath_length);
-
-      size_t content_length = 0;
-      s = lua_tolstring(state, 1, &content_length);
-      content.resize(content_length);
-      memcpy(&(content[0]), s, content_length);
-    }
+    case 3:
+      xpath = luaL_checkstring(state, 2);
+      content = luaL_checkstring(state, 1);
   }
 
   // Arguments read. Pop them.
@@ -216,7 +200,7 @@ int lua_http::async_submit_form(lua_State* state) {
   http::http_source::async_callback cb = boost::bind(on_req_finish, state, false, _1, _2);
 
   try {
-    b->webclient()->async_submit("//form[starts-with(@action, '/login.html;jsessionid=')]", "<form action=\"/login.html;jsessionid=1ACF42D3F3D6EF5244DF5A8F4B8F1302.appserver004\" method=\"post\"><input type=\"hidden\" value=\"\" name=\"target\"/><input type=\"hidden\" value=\"true\" name=\"login\"/><input name=\"eid\" value=\"\" type=\"hidden\" /><input id=\"username\" maxlength=\"50\" name=\"username\" value=\"\" class=\"login_input\" type=\"text\" /><input id=\"password\" maxlength=\"30\" name=\"password\" value=\"\" class=\"login_input\" type=\"password\" /><input type=\"hidden\" name=\"_sourcePage\" value=\"gX_5dvdMOnOoz3Nj9RlO61tEmZmjeHsX9mpp0iiwtQOUZMFrFmYwDK3coCBLaVfE\" /><input type=\"hidden\" name=\"__fp\" value=\"SnaGnAjU2rs=\" /></form>", std::map<std::string, std::string>(), "", cb);
+    b->webclient()->async_submit(xpath, content, parameters, action, cb);
   } catch(const http::element_not_found_exception& e) {
     return luaL_error(state, e.what());
   }

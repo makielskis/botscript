@@ -52,9 +52,7 @@ int main(int argc, char* argv[]) {
   io_service.run();
 
   b->shutdown();
-  std::cout << "use_count at exit: " << b.use_count() << "\n";
   b.reset();
-  std::cout << "use_count at exit: " << b.use_count() << "\n";
 
   return 0;
 }

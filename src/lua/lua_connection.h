@@ -24,7 +24,7 @@
 #define BOT_IDENTIFER ("__BOT_IDENTIFIER")
 #define BOT_MODULE    ("__BOT_MODULE")
 #define BOT_CALLBACK  ("__BOT_CALLBACK")
-#define BOT_ON_LOGIN  ("__BOT_ON_LOGIN")
+#define BOT_ERROR_CB  ("__BOT_ON_LOGIN")
 
 #include <lua.h>
 #include <lualib.h>
@@ -93,6 +93,14 @@ class lua_connection {
   /// \return true when the servers could be read successfully
   static bool server_list(const std::string& script,
                           std::map<std::string, std::string>* servers);
+
+  /// This function should be called when an error occures in an asynchronous
+  /// function call (like http.xy). It calls the callback function registered
+  /// in the state AND CLOSES IT (!) (do NOT reuse or call functions on this).
+  ///
+  /// \param state the lua state
+  /// \param error_msg the message of the error that occured
+  static void on_error(lua_State* state, const std::string& error_msg);
 
   /// Calls the function that is on top of the stack.
   ///

@@ -11,14 +11,6 @@ SET (CMAKE_CXX_FLAGS                "-std=c++0x -g -O0")
 #SET (CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
 #SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 
-add_executable(botscript
-  src/main.cpp
-  src/bot.cpp
-  src/lua/lua_connection.cpp
-  src/lua/lua_http.cpp
-  src/lua/lua_util.cpp
-)
-
 add_executable(proxy_check
   src/http/url.cc
   src/http/http_source.cc
@@ -34,8 +26,6 @@ include_directories("external_lib/lua-5.2.0/src")
 include_directories("external_lib/tidy/include")
 include_directories("external_lib/pugixml-1.0/src")
 
-set_target_properties(botscript PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 set_target_properties(proxy_check PROPERTIES LINK_FLAGS "-L../ -L${BOOST_PATH}stage/lib/")
 
-target_link_libraries(botscript boost_system boost_thread boost_regex boost_iostreams boost_filesystem -pthread tidy pugixml lua z dl)
 target_link_libraries(proxy_check boost_system boost_thread boost_regex boost_iostreams -pthread z tidy pugixml lua z dl)

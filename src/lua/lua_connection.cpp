@@ -90,20 +90,37 @@ bool lua_connection::server_list(const std::string& script,
   return true;
 }
 
+void lua_connection::on_error(lua_State* state, const std::string& error_msg) {
+  // Check if callback is set.
+  lua_getglobal(state, BOT_ERROR_CB);
+  if (!lua_isuserdata(state, -1)) {
+    std::cerr << "fatal error: BOT_CALLBACK not set\n";
+    lua_close(state);
+    return;
+  }
+
+  // Get callback.
+  void* p = lua_touserdata(state, -1);
+  bot::error_callback* cb = static_cast<bot::error_callback*>(p);
+  lua_pop(state, 1);
+
+  // Call callback with error message.
+  (*cb)(error_msg);
+
+  // Close state.
+  lua_close(state);
+}
+
 void lua_connection::exec(lua_State* state,
                           int nargs, int nresults, int errfunc)
 throw(lua_exception) {
   int ret = 0;
   if (0 != (ret = lua_pcall(state, nargs, nresults, errfunc))) {
     std::string error;
-    const char* s = lua_tostring(state, -1);
 
-    switch (ret) {
-      case LUA_ERRRUN: std::cout << "runtime error"; break;
-      case LUA_ERRMEM: std::cout << "out of memory"; break;
-      case LUA_ERRERR: std::cout << "error handling error"; break;
-      default: std::cout << "unknown error: " << ret << "\n";
-               std::cout << "error str: " << s << "\n";
+    const char* s = nullptr;
+    if (lua_isstring(state, -1)) {
+      s = lua_tostring(state, -1);
     }
 
     if (nullptr == s || std::strlen(s) == 0) {
@@ -129,7 +146,7 @@ throw(lua_exception) {
   // Create new script state.
   lua_State* state = luaL_newstate();
   if (nullptr == state) {
-    throw lua_exception("script initialization: out of memory");
+    throw lua_exception("script initialisation: out of memory");
   }
 
   // Load standard libraries.
@@ -143,7 +160,11 @@ throw(lua_exception) {
   int ret = 0;
   if (0 != (ret = luaL_loadfile(state, script.c_str()))) {
     std::string error;
-    const char* s = lua_tostring(state, -1);
+
+    const char* s = nullptr;
+    if (lua_isstring(state, -1)) {
+      s = lua_tostring(state, -1);
+    }
 
     if (nullptr == s || std::strlen(s) == 0) {
       switch (ret) {
@@ -162,7 +183,11 @@ throw(lua_exception) {
   // Execute file.
   if (0 != (ret = lua_pcall(state, 0, LUA_MULTRET, 0))) {
     std::string error;
-    const char* s = lua_tostring(state, -1);
+
+    const char* s = nullptr;
+    if (lua_isstring(state, -1)) {
+      s = lua_tostring(state, -1);
+    }
 
     if (nullptr == s || std::strlen(s) == 0) {
       switch (ret) {
@@ -227,8 +252,6 @@ throw(lua_exception) {
 
 void lua_connection::login(boost::shared_ptr<bot> bot,
                            bot::error_callback* cb) {
-  std::cout << "lua_connection::login START\n";
-
   // Gather login information.
   std::string username = bot->username();
   std::string password = bot->password();
@@ -238,22 +261,25 @@ void lua_connection::login(boost::shared_ptr<bot> bot,
     // Execute login function.
     run(bot->identifier(), package + "/base.lua", "login", 2, 0, 0,
         [&username, &password, &cb](lua_State* state) {
+          // Set special handle_login function.
           lua_register(state, "handle_login", lua_connection::handle_login);
+
+          // Set error callback.
           lua_pushlightuserdata(state, static_cast<void*>(cb));
-          lua_setglobal(state, BOT_ON_LOGIN);
+          lua_setglobal(state, BOT_ERROR_CB);
+
+          // Push login function arguments.
           lua_pushstring(state, username.c_str());
           lua_pushstring(state, password.c_str());
         });
   } catch(const lua_exception& e) {
     (*cb)(e.what());
   }
-
-  std::cout << "lua_connection::login END\n";
 }
 
 int lua_connection::handle_login(lua_State* state) {
   // Check if callback is set.
-  lua_getglobal(state, BOT_ON_LOGIN);
+  lua_getglobal(state, BOT_ERROR_CB);
   if (!lua_isuserdata(state, -1)) {
     std::cerr << "fatal error: BOT_CALLBACK not set\n";
     return 0;
@@ -273,6 +299,8 @@ int lua_connection::handle_login(lua_State* state) {
 
   // Call callback function.
   (*cb)(success ? "" : "login failed");
+
+  return 0;
 }
 
 void lua_connection::get_status(lua_State* state, const std::string& var,
@@ -354,7 +382,6 @@ void lua_connection::remove(const std::string& identifier) {
   // Search for identifier and delete entry.
   auto i = bots_.find(identifier);
   if (i != bots_.end()) {
-    std::cout << "lua_connection::remove() use_count: " << bots_[identifier].use_count() << "\n";
     bots_.erase(i);
   }
 }
