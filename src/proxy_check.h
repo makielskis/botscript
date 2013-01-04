@@ -19,7 +19,8 @@ namespace botscript {
 
 class proxy {
  public:
-  explicit proxy(const std::string& proxy) {
+  explicit proxy(const std::string& proxy)
+    : str_(proxy) {
     std::vector<std::string> split;
     boost::split(split, proxy, boost::is_any_of(":"));
     if (split.size() == 2) {
@@ -33,11 +34,20 @@ class proxy {
       port_(std::move(port)) {
   }
 
+  std::string str()  const { return str_; }
   std::string host() const { return host_; }
   std::string port() const { return port_; }
 
+  bool operator==(const proxy& p) {
+    return p.str() == str_;
+  }
+
+  bool operator<(const proxy& p) {
+    return p.str() < str_;
+  }
+
  private:
-  std::string host_, port_;
+  std::string host_, port_, str_;
 };
 
 class proxy_check : public std::enable_shared_from_this<proxy_check>,
@@ -75,7 +85,7 @@ class proxy_check : public std::enable_shared_from_this<proxy_check>,
   const proxy& get_proxy() const {
     return proxy_;
   }
-  
+
   const char* name() const { return "proxy"; }
   std::string message(int ev) const {
     return "check failed";

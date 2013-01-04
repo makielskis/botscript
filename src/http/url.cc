@@ -12,12 +12,14 @@ namespace http {
 boost::regex url::url_regex_("(.*)://([a-zA-Z0-9\\.\\-]*)(:[0-9]*)?(.*)");
 
 url::url(std::string host, std::string port, std::string path)
-  : host_(std::move(host)),
+  : str_(std::string("http://") + host + ":" + port + path),
+    host_(std::move(host)),
     port_(std::move(port)),
     path_(std::move(path)) {
 }
 
-url::url(const std::string& url) throw(std::invalid_argument) {
+url::url(const std::string& url) throw(std::invalid_argument)
+    : str_(url) {
   // Extract protocol, port, host address and path from the URL.
   boost::match_results<std::string::const_iterator> what;
   bool matches = boost::regex_search(url, what, url_regex_);

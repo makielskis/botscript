@@ -25,7 +25,7 @@ webclient::webclient(boost::asio::io_service* io_service)
       io_service_(io_service) {
 }
 
-void webclient::proxy(std::string host, std::string port) {
+void webclient::set_proxy(std::string host, std::string port) {
   boost::lock_guard<boost::mutex> lock(proxy_mutex_);
   proxy_host_ = std::move(host);
   proxy_port_ = std::move(port);
@@ -59,10 +59,10 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
                                           boost::posix_time::seconds(60));
   std::string req = util::build_request(u, method, body, headers_, use_proxy);
   c->operator()(req, boost::bind(&webclient::request_finish, this,
-                                 u.host(), remaining_redirects, cb, _1, _2, _3));
+                                 u, remaining_redirects, cb, _1, _2, _3));
 }
 
-void webclient::request_finish(const std::string& host,
+void webclient::request_finish(const url& request_url,
                                int remaining_redirects, callback cb,
                                std::shared_ptr<http_con> con_ptr,
                                std::string response,
@@ -75,7 +75,7 @@ void webclient::request_finish(const std::string& host,
     std::string u = con_ptr->http_src().header("location");
     if (u.empty() || !remaining_redirects) {
       if (!boost::ends_with(u, ".xml")) {
-        response = util::store_location(response, u);
+        response = util::store_location(response, request_url.str());
         response = util::tidy(response);
       }
       return cb(response, ec);
@@ -83,7 +83,7 @@ void webclient::request_finish(const std::string& host,
 
     // Fix relative location declaration.
     if (!boost::starts_with(u, "http:")) {
-      u = "http://" + host + u;
+      u = "http://" + request_url.host() + u;
     }
 
     // Redirect with HTTP GET
@@ -106,10 +106,10 @@ void webclient::submit(const std::string& xpath,
   try {
     form = doc.select_single_node(xpath.c_str()).node();
     if (form.empty()) {
-      cb("", boost::system::error_code(error::NO_FORM_OR_SUBMIT, cat_));
+      return cb("", boost::system::error_code(error::NO_FORM_OR_SUBMIT, cat_));
     }
   } catch(pugi::xpath_exception) {
-    cb("", boost::system::error_code(error::INVALID_XPATH, cat_));
+    return cb("", boost::system::error_code(error::INVALID_XPATH, cat_));
   }
 
   // Store submit element.

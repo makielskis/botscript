@@ -10,13 +10,20 @@
 #include <string>
 #include <set>
 #include <utility>
+#include <algorithm>
+#include <memory>
+#include <functional>
 
 #include "boost/utility.hpp"
 #include "boost/asio/io_service.hpp"
 
 #include "./bot_browser.h"
 
+#define CONTAINS(c, e) (std::find(c.begin(), c.end(), e) != c.end())
+
 namespace botscript {
+
+class bot_browser;
 
 /// Bot class.
 class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
@@ -64,7 +71,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Further configuration values are: proxy, wait_time_factor and modules
   /// \code
   /// {
-  ///   # basic configuration values
+  ///   ...
   ///   "modules":{
   ///     "a": {
   ///        "active":"1",
@@ -87,6 +94,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
                                 const std::string& package,
                                 const std::string& server);
 
+  /// Loads the packages located in the specified folder.
+  ///
+  /// \return the loaded packages as JSON string
   static std::string load_packages(const std::string& folder);
 
   /// Login callback function to be called when an login try finished.
@@ -119,7 +129,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   double wait_time_factor() const;
 
   /// \return the webclient
-  http::webclient* webclient();
+  bot_browser* browser();
+
+  boost::asio::io_service* io_service() { return io_service_; }
 
   /// \return a random wait time between min and max (multiplied with the wtf).
   int random(int a, int b);
@@ -161,7 +173,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   boost::asio::io_service* io_service_;
 
   /// Web browser agent.
-  bot_browser webclient_;
+  std::shared_ptr<bot_browser> browser_;
 
   /// Basic bot information.
   std::string username_, password_, package_, server_, identifier_;

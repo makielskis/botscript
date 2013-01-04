@@ -137,14 +137,20 @@ void http_source::read_header() {
       continue;
     }
 
-    std::string header_to_lower;
-    header_to_lower.resize(header.size());
-    std::transform(header.begin(), header.end(),
-                   header_to_lower.begin(), ::tolower);
+    std::string key = header.substr(0, seperator_pos);
+    std::string key_to_lower;
+    key_to_lower.resize(key.size());
+    std::transform(key.begin(), key.end(), key_to_lower.begin(), ::tolower);
+    std::string header_value = header.substr(seperator_pos + 2);
 
-    std::string header_key = header_to_lower.substr(0, seperator_pos);
-    std::string header_value = header_to_lower.substr(seperator_pos + 2);
-    header_[header_key] = header_value;
+    if (key_to_lower == "set-cookie") {
+      std::size_t val_end_pos = header_value.find(";");
+      if (val_end_pos != std::string::npos) {
+        header_["set-cookie"] += header_value.substr(0, val_end_pos + 1);
+      }
+    } else {
+      header_[key_to_lower] = header_value;
+    }
   }
 }
 

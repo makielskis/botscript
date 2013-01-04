@@ -4,9 +4,8 @@
 
 #include "./bot.h"
 
-#include "boost/foreach.hpp"
-#include "boost/algorithm/string.hpp"
 #include "boost/date_time/posix_time/posix_time.hpp"
+#include "boost/algorithm/string.hpp"
 #include "boost/lexical_cast.hpp"
 
 #include "rapidjson/document.h"
@@ -36,8 +35,8 @@ boost::mutex bot::server_mutex_;
 boost::mutex bot::log_mutex_;
 
 bot::bot(boost::asio::io_service* io_service)
-  : io_service_(io_service),
-    webclient_(io_service) {
+    : io_service_(io_service) {
+  browser_ = std::make_shared<bot_browser>(io_service, this);
 }
 
 bot::~bot() {
@@ -54,7 +53,7 @@ std::string bot::identifier()  const { return identifier_; }
 std::string bot::package()     const { return package_; }
 std::string bot::server()      const { return server_; }
 double bot::wait_time_factor() const { return wait_time_factor_; }
-http::webclient* bot::webclient()    { return &webclient_; }
+bot_browser* bot::browser()          { return browser_.get(); }
 
 void bot::init(const std::string& config, const error_callback& cb) {
   // Read JSON.
@@ -168,7 +167,7 @@ void bot::init(const std::string& config, const error_callback& cb) {
     login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 2);
     lua_connection::login(shared_from_this(), &login_cb_);
   } else {
-    set_proxy(proxy, cb, commands);
+    //set_proxy(proxy, cb, commands);
   }
 }
 
@@ -178,7 +177,7 @@ void bot::handle_login(const std::string& err,
                        int tries) {
   // Call final callback if the login was successful
   // or there are no tries remaining.
-  if (!err.empty() && tries == 0) {
+  if (!err.empty() /* && tries == 0 */) {
     return cb(err);
   } else if (err.empty()) {
     return cb("");
@@ -265,8 +264,7 @@ std::string bot::load_packages(const std::string& folder) {
     rapidjson::Value l(rapidjson::kArrayType);
     std::map<std::string, std::string> s;
     lua_connection::server_list(server_list, &s);
-    typedef std::pair<std::string, std::string> str_pair;
-    BOOST_FOREACH(str_pair server, s) {
+    for(const auto& server : s) {
       rapidjson::Value server_name(server.first.c_str(), allocator);
       l.PushBack(server_name, allocator);
     }
@@ -331,16 +329,24 @@ void bot::log(int type, const std::string& source, const std::string& message) {
   // Build date string.
   std::stringstream time;
   boost::posix_time::time_facet* p_time_output =
-      new boost::posix_time::time_facet;
+      new boost::posix_time::time_facet();
   std::locale special_locale(std::locale(""), p_time_output);
   // special_locale takes ownership of the p_time_output facet
   time.imbue(special_locale);
   p_time_output->format("%d.%m %H:%M:%S");
   time << boost::posix_time::second_clock::local_time();
 
+  // Determine type.
+  std::string type_str;
+  switch(type) {
+    case BS_LOG_DBG: type_str = "[DEBUG]"; break;
+    case BS_LOG_NFO: type_str = "[INFO ]"; break;
+    case BS_LOG_ERR: type_str = "[ERROR]"; break;
+  }
+
   // Build log string.
   std::stringstream msg;
-  msg << "[" << time.str() << "]["\
+  msg << type_str << "[" << time.str() << "]["\
       << std::left << std::setw(20) << identifier_
       << "][" << std::left << std::setw(8) << source << "] " << message << "\n";
 
@@ -354,7 +360,7 @@ void bot::log(int type, const std::string& source, const std::string& message) {
 
 std::string bot::log_msgs() {
   std::stringstream log;
-  BOOST_FOREACH(std::string msg, log_msgs_) {
+  for(const std::string& msg : log_msgs_) {
     log << msg;
   }
   return log.str();
@@ -363,35 +369,16 @@ std::string bot::log_msgs() {
 std::string bot::status(const std::string key) {
   // Lock because of status map r/w access.
   boost::lock_guard<boost::mutex> lock(status_mutex_);
-  std::map<std::string, std::string>::const_iterator i = status_.find(key);
+  auto i = status_.find(key);
   return (i == status_.end()) ? "" : i->second;
 }
 
 void bot::status(const std::string key, const std::string value) {
-  // Lock because of status map r/w access.
-  bool update = false;
   {
     boost::lock_guard<boost::mutex> lock(status_mutex_);
-
-    // Update value.
-    if (status_.find(key) != status_.end()) {
-      // Key is already available - set new value.
-      std::string& current = status_[key];
-      if (current != value) {
-        current = value;
-        update = true;
-      }
-    } else {
-      // Insert new (key, value) pair.
-      status_[key] = value;
-      update = true;
-    }
+    status_[key] = value;
   }
-
-  // Call update callback if this was a change.
-  if (update) {
-    callback_(identifier_, key, value);
-  }
+  callback_(identifier_, key, value);
 }
 
 std::map<std::string, std::string> bot::module_status(
@@ -401,8 +388,7 @@ std::map<std::string, std::string> bot::module_status(
 
   // Read module settings.
   std::map<std::string, std::string> module_status;
-  typedef std::pair<std::string, std::string> str_pair;
-  BOOST_FOREACH(str_pair j, status_) {
+  for(const auto& j : status_) {
     if (boost::algorithm::starts_with(j.first, module)) {
       std::string key = j.first.substr(module.length() + 1);
       module_status[key] = j.second;

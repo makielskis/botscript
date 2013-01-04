@@ -4,6 +4,12 @@
 
 #include "./lua_util.h"
 
+#include <memory>
+#include <string>
+#include <sstream>
+
+#include "pugixml.hpp"
+
 namespace botscript {
 
 void lua_util::open(lua_State* state) {
@@ -187,8 +193,8 @@ int lua_util::set_status(lua_State* state) {
   lua_pop(state, 2);
 
   // Get the calling bot.
-  boost::shared_ptr<bot> b = lua_connection::get_bot(state);
-  if (boost::shared_ptr<bot>() == b) {
+  std::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (std::shared_ptr<bot>() == b) {
     return luaL_error(state, "no bot for state");
   }
 
@@ -208,8 +214,8 @@ void lua_util::log(lua_State* state, int log_level) {
   lua_pop(state, 1);
 
   // Get bot.
-  boost::shared_ptr<bot> b = lua_connection::get_bot(state);
-  if (boost::shared_ptr<bot>() == b) {
+  std::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (std::shared_ptr<bot>() == b) {
     luaL_error(state, "no bot for state");
     return;
   }

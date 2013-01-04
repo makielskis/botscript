@@ -29,6 +29,14 @@ class url {
   /// \param url the url to split
   explicit url(const std::string& url) throw(std::invalid_argument);
 
+  /// Returns the input URL:
+  ///
+  ///  * http://host:port/path if the first constructor was used
+  ///  * the url constructor parameter of the second constructor was used
+  ///
+  /// \return the input url
+  std::string str()  const { return str_; }
+
   /// \return the host address
   std::string host() const { return host_; }
 
@@ -41,6 +49,9 @@ class url {
  private:
   /// Regular expression that matches URLs.
   static boost::regex url_regex_;
+
+  /// The original URL.
+  std::string str_;
 
   /// The URL host.
   std::string host_;

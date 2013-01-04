@@ -8,28 +8,28 @@
 #define BOT_IDENTIFER ("__BOT_IDENTIFIER")
 #define BOT_MODULE    ("__BOT_MODULE")
 #define BOT_CALLBACK  ("__BOT_CALLBACK")
-#define BOT_ERROR_CB  ("__BOT_ON_LOGIN")
+#define BOT_LOGIN_CB  ("__BOT_ON_LOGIN")
 
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include <memory>
 #include <functional>
 #include <map>
 #include <string>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
-#include <boost/filesystem.hpp>
+#include "boost/thread.hpp"
+#include "boost/filesystem.hpp"
 
-#include <rapidjson/document.h>
+#include "rapidjson/document.h"
 
 #include "../bot.h"
 
 namespace botscript {
 
 ///  Shared pointer to a JSON value.
-typedef boost::shared_ptr<rapidjson::Value> jsonval_ptr;
+typedef std::shared_ptr<rapidjson::Value> jsonval_ptr;
 
 class bot;
 
@@ -121,7 +121,7 @@ class lua_connection {
   ///
   /// \param bot the bot to login
   /// \param cb the callback to call on finish
-  static void login(boost::shared_ptr<bot> bot, bot::error_callback* cb);
+  static void login(std::shared_ptr<bot> bot, bot::error_callback* cb);
 
   /// Login callback function (lua_CFunction).
   static int handle_login(lua_State* state);
@@ -147,12 +147,12 @@ class lua_connection {
   ///
   /// \param state the script state to extract the bot identifier from
   /// \return the pointer to the bot (or nullptr if the bot could not be found)
-  static boost::shared_ptr<bot> get_bot(lua_State* state);
+  static std::shared_ptr<bot> get_bot(lua_State* state);
 
   /// Adds the specified bot to the lua connection bot map.
   ///
   /// \param bot the bot to add
-  static void add(boost::shared_ptr<bot> bot);
+  static void add(std::shared_ptr<bot> bot);
 
   /// Removes the bot with the given identifier from the bot map .
   ///
@@ -182,7 +182,7 @@ class lua_connection {
                              rapidjson::Document::AllocatorType* allocator);
 
   /// Bots mapping from identifier to bot pointer.
-  static std::map<std::string, boost::shared_ptr<bot>> bots_;
+  static std::map<std::string, std::shared_ptr<bot>> bots_;
 
   /// Mutex to synchronize access to the lua_connection::bots_ mapping.
   static boost::mutex bots_mutex_;

@@ -36,7 +36,7 @@ class webclient {
   webclient(boost::asio::io_service* io_service);
 
   // Proxy settings
-  void proxy(std::string host, std::string port);
+  void set_proxy(std::string host, std::string port);
   std::string proxy_host() const { return proxy_host_; }
   std::string proxy_port() const { return proxy_port_; }
 
@@ -49,10 +49,10 @@ class webclient {
   /// \param action the action attribute of the form to use (empty string to use
   ///               the default form action
   /// \param cb the callback to call on request finish
-  void submit(const std::string& xpath, const std::string& page,
-              std::map<std::string, std::string> input_params,
-              const std::string& action,
-              callback cb);
+  virtual void submit(const std::string& xpath, const std::string& page,
+                      std::map<std::string, std::string> input_params,
+                      const std::string& action,
+                      callback cb);
 
   /// Does a asynchronous HTTP request.
   ///
@@ -61,8 +61,8 @@ class webclient {
   /// \param body the request content to send (if request type is util::POST)
   /// \param cb the callback to call on request finish
   /// \param remaining_redirects the maximum number of redirects
-  void request(const url& u, int method, std::string body, callback cb,
-               int remaining_redirects);
+  virtual void request(const url& u, int method, std::string body, callback cb,
+                       int remaining_redirects);
 
  protected:
   /// Function that will be called on request finish. Calls the user callback
@@ -75,7 +75,7 @@ class webclient {
   /// \param con_ptr points to the connection used to do the request
   /// \param response the response
   /// \param ec the error code
-  void request_finish(const std::string& host,
+  void request_finish(const url& request_url,
                       int remaining_redirects, callback cb,
                       std::shared_ptr<http_con> con_ptr,
                       std::string response,

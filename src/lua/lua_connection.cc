@@ -11,7 +11,7 @@
 
 namespace botscript {
 
-std::map<std::string, boost::shared_ptr<bot>> lua_connection::bots_;
+std::map<std::string, std::shared_ptr<bot>> lua_connection::bots_;
 boost::mutex lua_connection::bots_mutex_;
 
 jsonval_ptr lua_connection::iface(const std::string& script,
@@ -76,9 +76,9 @@ bool lua_connection::server_list(const std::string& script,
 
 void lua_connection::on_error(lua_State* state, const std::string& error_msg) {
   // Check if callback is set.
-  lua_getglobal(state, BOT_ERROR_CB);
+  lua_getglobal(state, BOT_LOGIN_CB);
   if (!lua_isuserdata(state, -1)) {
-    std::cerr << "fatal error: BOT_CALLBACK not set\n";
+    lua_pop(state, 1);
     lua_close(state);
     return;
   }
@@ -234,7 +234,7 @@ throw(lua_exception) {
   }
 }
 
-void lua_connection::login(boost::shared_ptr<bot> bot,
+void lua_connection::login(std::shared_ptr<bot> bot,
                            bot::error_callback* cb) {
   // Gather login information.
   std::string username = bot->username();
@@ -250,7 +250,7 @@ void lua_connection::login(boost::shared_ptr<bot> bot,
 
           // Set error callback.
           lua_pushlightuserdata(state, static_cast<void*>(cb));
-          lua_setglobal(state, BOT_ERROR_CB);
+          lua_setglobal(state, BOT_LOGIN_CB);
 
           // Push login function arguments.
           lua_pushstring(state, username.c_str());
@@ -263,9 +263,8 @@ void lua_connection::login(boost::shared_ptr<bot> bot,
 
 int lua_connection::handle_login(lua_State* state) {
   // Check if callback is set.
-  lua_getglobal(state, BOT_ERROR_CB);
+  lua_getglobal(state, BOT_LOGIN_CB);
   if (!lua_isuserdata(state, -1)) {
-    std::cerr << "fatal error: BOT_CALLBACK not set\n";
     return 0;
   }
 
@@ -326,7 +325,7 @@ void lua_connection::set_status(lua_State* state,
   lua_settable(state, -3);
 }
 
-boost::shared_ptr<bot> lua_connection::get_bot(lua_State* state) {
+std::shared_ptr<bot> lua_connection::get_bot(lua_State* state) {
   // Lock because of bots map r/w access.
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
 
@@ -334,7 +333,7 @@ boost::shared_ptr<bot> lua_connection::get_bot(lua_State* state) {
   lua_getglobal(state, BOT_IDENTIFER);
   if (!lua_isstring(state, -1)) {
     lua_pop(state, 1);
-    return boost::shared_ptr<bot>();
+    return std::shared_ptr<bot>();
   }
 
   // Extract and pop bot identifier string.
@@ -343,13 +342,13 @@ boost::shared_ptr<bot> lua_connection::get_bot(lua_State* state) {
 
   // Check if bot exists.
   if (bots_.find(identifier) == bots_.end()) {
-    return boost::shared_ptr<bot>();
+    return std::shared_ptr<bot>();
   }
 
   return bots_[identifier];
 }
 
-void lua_connection::add(boost::shared_ptr<bot> bot) {
+void lua_connection::add(std::shared_ptr<bot> bot) {
   // Lock because of bots map r/w access.
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
 

@@ -15,12 +15,8 @@ class lua_http {
  public:
   static void open(lua_State* state);
 
-  static int sync_get(lua_State* state, bool path);
-  static int async_get(lua_State* state, bool path);
-  static int sync_post(lua_State* state, bool path);
-  static int async_post(lua_State* state, bool path);
-  static int sync_submit_form(lua_State* state);
-  static int async_submit_form(lua_State* state);
+  static int get(lua_State* state, bool path);
+  static int post(lua_State* state, bool path);
 
   static int get(lua_State* state);
   static int get_path(lua_State* state);
@@ -29,8 +25,8 @@ class lua_http {
   static int submit_form(lua_State* state);
 
  private:
-  static void on_req_finish(lua_State* state, bool cb_on_fail,
-                            const std::string& response, bool success);
+  static void on_req_finish(lua_State* state, std::string response,
+                            boost::system::error_code ec);
 };
 
 static const luaL_Reg httplib[] = {
