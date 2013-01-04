@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "boost/asio/io_service.hpp"
+#include "boost/asio/deadline_timer.hpp"
 
 #include "./bot.h"
 
@@ -32,7 +33,13 @@ int main() {
           "\"server\": \"http://www.knastvoegel.de\" }",
           cb);
 
+  asio::deadline_timer stop_timer(io_service, boost::posix_time::seconds(30));
+  stop_timer.async_wait([&io_service](boost::system::error_code) {
+    io_service.stop();
+  });
+
   io_service.run();
+  b->shutdown();
 
   return 0;
 }

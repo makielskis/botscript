@@ -277,7 +277,7 @@ int lua_connection::handle_login(lua_State* state) {
   if (!lua_isboolean(state, -1)) {
     return luaL_error(state, "no login result set");
   }
-  bool success = lua_toboolean(state, -1);
+  bool success = static_cast<bool>(lua_toboolean(state, -1));
   lua_pop(state, 1);
 
   // Call callback function.

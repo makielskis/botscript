@@ -10,9 +10,11 @@
 #define BOT_CALLBACK  ("__BOT_CALLBACK")
 #define BOT_LOGIN_CB  ("__BOT_ON_LOGIN")
 
+extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
+}
 
 #include <memory>
 #include <functional>

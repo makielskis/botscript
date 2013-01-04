@@ -82,9 +82,12 @@ void http_source::transfer(boost::system::error_code ec,
         }
         response_.resize(length_);
 
-        yield asio::async_read(*socket_,
-                               asio::buffer(&(response_[read]), length_ - read),
-                               asio::transfer_at_least(length_ - read), re);
+        if (length_ - read != 0) {
+          yield asio::async_read(*socket_,
+                                 asio::buffer(&(response_[read]),
+                                              length_ - read),
+                                 asio::transfer_at_least(length_ - read), re);
+        }
       } else if (header_.find("transfer-encoding") != header_.end()) {
         while(true) {
           yield asio::async_read_until(*socket_, buf_, chunk_size_rx_, re);
