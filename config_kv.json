@@ -1,0 +1,10 @@
+{
+    "username":"oclife",
+    "password":"blabla",
+    "package":"packages/du",
+    "server":"http://www.knastvoegel.de",
+    "proxy":"",
+    "wait_time_factor":"1.00",
+    "modules":{
+    }
+}
