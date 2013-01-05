@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 
 #include "boost/asio/io_service.hpp"
 #include "boost/asio/deadline_timer.hpp"
@@ -21,7 +22,6 @@ int main() {
 
   asio::io_service::work work(io_service);
 
-  bot::load_packages("packages");
   std::shared_ptr<bot> b = std::make_shared<bot>(&io_service);
   b->callback_ = [](std::string, std::string k, std::string v) {
     if (k == "log") { std::cout << v << std::flush; }
@@ -30,7 +30,10 @@ int main() {
           "\"username\": \"oclife\","\
           "\"password\": \"blabla\","\
           "\"package\": \"packages/du\","\
-          "\"server\": \"http://www.knastvoegel.de\" }",
+          "\"proxy\": \"122.72.0.6:80 106.186.19.40:8000 123.125.116.243:8820 173.213.108.114:8080 213.142.136.80:6654 219.234.82.74:8160\","\
+          "\"server\": \"http://www.knastvoegel.de\","\
+          "\"modules\": { \"train\": { \"active\":\"1\", \"timeslot\": \"0\", \"type\": \"mental\" } }"\
+          "}",
           cb);
 
   asio::deadline_timer stop_timer(io_service, boost::posix_time::seconds(30));
@@ -40,6 +43,7 @@ int main() {
 
   io_service.run();
   b->shutdown();
+  b.reset();
 
   return 0;
 }

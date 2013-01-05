@@ -45,6 +45,10 @@ bot::~bot() {
 
 void bot::shutdown() {
   lua_connection::remove(identifier_);
+  for (const auto m : modules_) {
+    m->execute("global_set_active", "0");
+  }
+  modules_.clear();
 }
 
 std::string bot::username()    const { return username_; }
@@ -160,14 +164,22 @@ void bot::init(const std::string& config, const error_callback& cb) {
     }
   }
 
-  // Login either while setting the proxy
-  // or by calling the (asynchronous) login function directly.
-  if (proxy.empty()) {
+  // Set proxy if available.
+  if (!proxy.empty()) {
+    std::shared_ptr<bot> self = shared_from_this();
+    browser_->set_proxy_list(proxy, [this, commands, cb, self](int success) {
+      if (!success) {
+        return cb("no working proxy found");
+      } else {
+        log(BS_LOG_NFO, "base", "login: 1. try");
+        login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 2);
+        lua_connection::login(self, &login_cb_);
+      }
+    });
+  } else {
     log(BS_LOG_NFO, "base", "login: 1. try");
     login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 2);
     lua_connection::login(shared_from_this(), &login_cb_);
-  } else {
-    //set_proxy(proxy, cb, commands);
   }
 }
 
@@ -177,9 +189,10 @@ void bot::handle_login(const std::string& err,
                        int tries) {
   // Call final callback if the login was successful
   // or there are no tries remaining.
-  if (!err.empty() /* && tries == 0 */) {
+  if (!err.empty() && tries == 0) {
     return cb(err);
   } else if (err.empty()) {
+    load_modules(init_commands);
     return cb("");
   }
 
@@ -190,10 +203,38 @@ void bot::handle_login(const std::string& err,
   std::string t =  boost::lexical_cast<std::string>(4 - tries);
   log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
 
-  // Start another try
+  // Start another try.
   login_cb_ = boost::bind(&bot::handle_login, this,
                           _1, cb, init_commands, tries - 1);
   lua_connection::login(shared_from_this(), &login_cb_);
+}
+
+void bot::load_modules(const command_sequence& init_commands) {
+  // Load modules from package folder:
+  // Read every non-hidden file except servers.lua and base.lua
+  using boost::filesystem::directory_iterator;
+  if (boost::filesystem::is_directory(package_)) {
+    for (directory_iterator i = directory_iterator(package_);
+         i != directory_iterator(); ++i) {
+      std::string path = i->path().relative_path().generic_string();
+      if (!boost::algorithm::ends_with(path, "servers.lua") &&
+          !boost::algorithm::ends_with(path, "base.lua") &&
+          !boost::starts_with(i->path().filename().string(), ".")) {
+        try {
+          auto m = std::make_shared<module>(path, shared_from_this(),
+                                            io_service_);
+          modules_.push_back(m);
+        } catch(lua_exception) {
+          log(BS_LOG_ERR, "base", path + " could not be loaded");
+        }
+      }
+    }
+  }
+
+  // Initialize modules.
+  for(auto command : init_commands) {
+    execute(command.first, command.second);
+  }
 }
 
 std::string bot::identifier(const std::string& username,
@@ -396,6 +437,33 @@ std::map<std::string, std::string> bot::module_status(
   }
 
   return module_status;
+}
+
+
+void bot::execute(const std::string& command, const std::string& argument) {
+  // Handle wait time factor command.
+  if (command == "base_set_wait_time_factor") {
+    std::string new_wait_time_factor = argument;
+    if (new_wait_time_factor.find(".") == std::string::npos) {
+      new_wait_time_factor += ".0";
+    }
+    wait_time_factor_ = atof(new_wait_time_factor.c_str());
+    char buf[5];
+    sprintf(buf, "%.2f", wait_time_factor_);
+    status("base_wait_time_factor", buf);
+    log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + buf);
+    return;
+  }
+
+  // Handle set proxy command.
+  if (command == "base_set_proxy") {
+    // TODO set proxy list
+  }
+
+  // Forward all other commands to modules.
+  for (auto module : modules_) {
+    module->execute(command, argument);
+  }
 }
 
 }  // namespace botscript

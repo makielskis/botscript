@@ -18,12 +18,14 @@
 #include "boost/asio/io_service.hpp"
 
 #include "./bot_browser.h"
+#include "./module.h"
 
 #define CONTAINS(c, e) (std::find(c.begin(), c.end(), e) != c.end())
 
 namespace botscript {
 
 class bot_browser;
+class module;
 
 /// Bot class.
 class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
@@ -160,12 +162,21 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \return the status of a module
   std::map<std::string, std::string> module_status(const std::string& module);
 
-  void execute(std::string, std::string) { std::cout << "exec not implmented\n"; }
+  /// \param command   the command to execute
+  /// \param argument  the command argument
+  void execute(const std::string& command, const std::string& argument);
 
   /// This is the update/status change callback.
   upd_cb callback_;
 
  private:
+  /// Loads the lua modules located at package_. This includes only files that
+  /// end on ".lua", don't start with '.' and are not named 'servers.lua' or
+  /// 'base.lua'. Executes the given command sequence to initialize the modules.
+  ///
+  /// \param init_commands the initialization commands
+  void load_modules(const command_sequence& init_commands);
+
   /// Login callback.
   error_callback login_cb_;
 
@@ -177,6 +188,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// Basic bot information.
   std::string username_, password_, package_, server_, identifier_;
+
+  /// Modules.
+  std::vector<std::shared_ptr<module>> modules_;
 
   /// Wait time factor.
   double wait_time_factor_;

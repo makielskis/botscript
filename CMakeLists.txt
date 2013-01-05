@@ -21,6 +21,7 @@ add_executable(botscript
   src/lua/lua_util.cc
   src/lua/lua_http.cc
   src/bot_browser.cc
+  src/module.cc
   src/bot.cc
   src/main.cc
 )

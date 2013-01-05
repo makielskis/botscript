@@ -3,7 +3,7 @@ function login(username, password)
 	http.get_path("/", function(response)
     if string.find(response, '/logout.html', 0, true) then
 	    util.log("already logged in")
-      handle_login(true)
+      on_finish(true)
       return
     end
 
@@ -16,11 +16,11 @@ function login(username, password)
       util.log("checking response")
       if string.find(response, '/logout.html', 0, true) then
         util.log("logged in")
-        handle_login(true)
+        on_finish(true)
         return
       else
         util.log("not logged in")
-        handle_login(false)
+        on_finish(false)
         return
       end
     end)

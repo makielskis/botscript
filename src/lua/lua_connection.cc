@@ -83,13 +83,37 @@ void lua_connection::on_error(lua_State* state, const std::string& error_msg) {
     return;
   }
 
-  // Get callback.
-  void* p = lua_touserdata(state, -1);
-  bot::error_callback* cb = static_cast<bot::error_callback*>(p);
+  // Get module name to distinguish login (module == "base")
+  // from module run (module != "base").
+  lua_getglobal(state, BOT_MODULE);
+  std::string module;
+  if (lua_isstring(state, -1)) {
+    module = lua_tostring(state, -1);
+  } else {
+    lua_pop(state, 1);
+    lua_close(state);
+    return;
+  }
   lua_pop(state, 1);
 
-  // Call callback with error message.
-  (*cb)(error_msg);
+  if (module == "base") {
+    // Get login callback.
+    void* p = lua_touserdata(state, -1);
+    bot::error_callback* cb = static_cast<bot::error_callback*>(p);
+    lua_pop(state, 1);
+
+    // Call callback with error message.
+    (*cb)(error_msg);
+  } else {
+    // Get module run callback.
+    void* p = lua_touserdata(state, -1);
+    std::function<void (std::string, int, int)>* cb =
+        static_cast<std::function<void (std::string, int, int)>*>(p);
+    lua_pop(state, 1);
+
+    // Call callback with error message.
+    (*cb)(error_msg, -1, -1);
+  }
 
   // Close state.
   lua_close(state);
@@ -234,8 +258,7 @@ throw(lua_exception) {
   }
 }
 
-void lua_connection::login(std::shared_ptr<bot> bot,
-                           bot::error_callback* cb) {
+void lua_connection::login(std::shared_ptr<bot> bot, bot::error_callback* cb) {
   // Gather login information.
   std::string username = bot->username();
   std::string password = bot->password();
@@ -244,9 +267,9 @@ void lua_connection::login(std::shared_ptr<bot> bot,
   try {
     // Execute login function.
     run(bot->identifier(), package + "/base.lua", "login", 2, 0, 0,
-        [&username, &password, &cb](lua_State* state) {
-          // Set special handle_login function.
-          lua_register(state, "handle_login", lua_connection::handle_login);
+        [username, password, cb](lua_State* state) {
+          // Set special on_finish function.
+          lua_register(state, "on_finish", lua_connection::on_login_finish);
 
           // Set error callback.
           lua_pushlightuserdata(state, static_cast<void*>(cb));
@@ -261,7 +284,7 @@ void lua_connection::login(std::shared_ptr<bot> bot,
   }
 }
 
-int lua_connection::handle_login(lua_State* state) {
+int lua_connection::on_login_finish(lua_State* state) {
   // Check if callback is set.
   lua_getglobal(state, BOT_LOGIN_CB);
   if (!lua_isuserdata(state, -1)) {
@@ -275,15 +298,92 @@ int lua_connection::handle_login(lua_State* state) {
 
   // Get result.
   if (!lua_isboolean(state, -1)) {
-    return luaL_error(state, "no login result set");
+    return luaL_error(state, "no result set");
   }
   bool success = static_cast<bool>(lua_toboolean(state, -1));
   lua_pop(state, 1);
 
   // Call callback function.
-  (*cb)(success ? "" : "login failed");
+  (*cb)(success ? "" : "failed");
 
   return 0;
+}
+
+void lua_connection::module_run(module* module_ptr,
+    std::function<void (std::string, int, int)>* cb) {
+  // Gather run information.
+  std::shared_ptr<bot> bot = module_ptr->get_bot();
+  std::string script = module_ptr->script();
+  std::string run_fun = module_ptr->lua_run();
+
+  try {
+    // Execute login function.
+    run(bot->identifier(), script, run_fun, 0, 0, 0,
+        [cb](lua_State* state) {
+          // Set special on_finish function.
+          lua_register(state, "on_finish", lua_connection::on_run_finish);
+
+          // Set error callback.
+          lua_pushlightuserdata(state, static_cast<void*>(cb));
+          lua_setglobal(state, BOT_LOGIN_CB);
+        });
+  } catch(const lua_exception& e) {
+    (*cb)(e.what(), -1, -1);
+  }
+}
+
+int lua_connection::on_run_finish(lua_State* state) {
+  // Check if callback is set.
+  lua_getglobal(state, BOT_LOGIN_CB);
+  if (!lua_isuserdata(state, -1)) {
+    return 0;
+  }
+
+  // Get callback.
+  void* p = lua_touserdata(state, -1);
+  std::function<void (std::string, int, int)>* cb =
+      static_cast<std::function<void (std::string, int, int)>*>(p);
+  lua_pop(state, 1);
+
+  // Wait time.
+  int argc = lua_gettop(state);
+  int n1 = -1, n0 = -1;
+  if (argc >= 2) {
+    n1 = lua_isnumber(state, -2) ? luaL_checkint(state, -2) : -1;
+  }
+  if (argc >= 1) {
+    n0 = lua_isnumber(state, -1) ? luaL_checkint(state, -1) : -1;
+  }
+
+  // Call callback function.
+  (*cb)("", n1, n0);
+
+  return 0;
+}
+
+bool lua_connection::get_status(const std::string& script,
+                                const std::string& var,
+                                std::map<std::string, std::string>* status) {
+  // Initialize lua_State.
+  lua_State* state = luaL_newstate();
+  if (nullptr == state) {
+    return false;
+  }
+  luaL_openlibs(state);
+
+  // Execute script.
+  if (0 != luaL_dofile(state, script.c_str())) {
+    lua_close(state);
+    return false;
+  }
+
+  // Read servers list.
+  get_status(state, var, status);
+
+  // Free resources.
+  lua_close(state);
+
+  return true;
 }
 
 void lua_connection::get_status(lua_State* state, const std::string& var,

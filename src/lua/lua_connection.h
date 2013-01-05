@@ -10,12 +10,11 @@
 #define BOT_CALLBACK  ("__BOT_CALLBACK")
 #define BOT_LOGIN_CB  ("__BOT_ON_LOGIN")
 
-extern "C" {
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-}
 
+#include <exception>
 #include <memory>
 #include <functional>
 #include <map>
@@ -27,6 +26,7 @@ extern "C" {
 #include "rapidjson/document.h"
 
 #include "../bot.h"
+#include "../module.h"
 
 namespace botscript {
 
@@ -34,6 +34,7 @@ namespace botscript {
 typedef std::shared_ptr<rapidjson::Value> jsonval_ptr;
 
 class bot;
+class module;
 
 /// This exception indicates an error that occured at lua script execution.
 class lua_exception : public std::exception {
@@ -123,17 +124,39 @@ class lua_connection {
   ///
   /// \param bot the bot to login
   /// \param cb the callback to call on finish
-  static void login(std::shared_ptr<bot> bot, bot::error_callback* cb);
+  static void login(std::shared_ptr<bot> bot,
+                    std::function<void(std::string)>* cb);
 
   /// Login callback function (lua_CFunction).
-  static int handle_login(lua_State* state);
+  static int on_login_finish(lua_State* state);
+
+  /// Runs the module asynchronously. Calls the callback with an error string
+  /// and -1, -1 if an error occurs. Otherwise (if on_finish got called), the
+  /// callback will be called with the parameters provided to on_finish.
+  ///
+  /// \param module_ptr  pointer to the module which asks to launch the script
+  /// \param cb          the callack to call on error / on_finish(...) call
+  static void module_run(module* module_ptr,
+                         std::function<void (std::string, int, int)>* cb);
+
+  /// Run callback function (lua_CFunction).
+  static int on_run_finish(lua_State* state);
 
   /// Reads the lua table var from the lua script state to the given status.
   ///
   /// \param state the lua script state
-  /// \param status the std::map status to write to
   /// \param var the variable name to load
+  /// \param status the std::map status to write to
   static void get_status(lua_State* state, const std::string& var,
+                         std::map<std::string, std::string>* status);
+
+  /// Reads the lua table var from the lua script to the given status.
+  ///
+  /// \param script path to the script to read from
+  /// \param var the variable name to load
+  /// \param status the std::map status to write to
+  /// \return whether the script could be loaded or not
+  static bool get_status(const std::string& script, const std::string& var,
                          std::map<std::string, std::string>* status);
 
   /// Writes the key and value to the given variable in the given scrip state
