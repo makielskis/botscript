@@ -9,10 +9,25 @@
 using namespace botscript;
 namespace asio = boost::asio;
 
+void print_log(const std::string& msg) {
+#if defined _WIN32 || defined _WIN64
+  HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+  int color = 0x0007;
+  if (msg.substr(0, 4) == "[ERR") {
+    color = FOREGROUND_RED;
+  } else if (msg.substr(0, 4) == "[INF") {
+    color = FOREGROUND_GREEN;
+  }
+  SetConsoleTextAttribute(console, color);
+  std::cout << msg << std::flush;
+  SetConsoleTextAttribute(console, 0x0007);
+#else
+  std::cout << msg << std::flush;
+#endif
+}
+
 void cb(std::string error) {
-  if (error.empty()) {
-    std::cout << "login successful!\n";
-  } else {
+  if (!error.empty()) {
     std::cout << "ERROR: " << error << "\n";
   }
 }
@@ -24,7 +39,7 @@ int main() {
 
   std::shared_ptr<bot> b = std::make_shared<bot>(&io_service);
   b->callback_ = [](std::string, std::string k, std::string v) {
-    if (k == "log") { std::cout << v << std::flush; }
+    if (k == "log") { print_log(v); }
   };
   b->init("{ "\
           "\"username\": \"oclife\","\
@@ -43,7 +58,6 @@ int main() {
 
   io_service.run();
   b->shutdown();
-  b.reset();
 
   return 0;
 }

@@ -35,7 +35,8 @@ boost::mutex bot::server_mutex_;
 boost::mutex bot::log_mutex_;
 
 bot::bot(boost::asio::io_service* io_service)
-    : io_service_(io_service) {
+    : io_service_(io_service),
+      wait_time_factor_(1.0f) {
   browser_ = std::make_shared<bot_browser>(io_service, this);
 }
 
@@ -109,9 +110,7 @@ void bot::init(const std::string& config, const error_callback& cb) {
   }
 
   // Set wait time factor.
-  if (wait_time_factor != "1") {
-    execute("base_set_wait_time_factor", wait_time_factor);
-  }
+   execute("base_set_wait_time_factor", wait_time_factor);
 
   // Create execute command sequence from module configurations
   // for later execution (after the login has been performed).
