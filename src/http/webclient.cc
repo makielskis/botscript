@@ -49,9 +49,9 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
   }
 
   // Get host and port to connect to.
-  bool use_proxy = proxy_host_.empty();
-  std::string host = use_proxy ? u.host() : proxy_host_;
-  std::string port = use_proxy ? u.port() : proxy_port_;
+  bool use_proxy = !proxy_host_.empty();
+  std::string host = use_proxy ? proxy_host_ : u.host();
+  std::string port = use_proxy ? proxy_port_ : u.port();
 
   // Start request.
   typedef std::shared_ptr<http_con> http_ptr;

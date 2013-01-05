@@ -14,10 +14,17 @@ bot_browser::bot_browser(boost::asio::io_service* io_service, bot* b)
                          std::placeholders::_1);
 }
 
-void bot_browser::change_proxy() {
-  if (good_.size() <= 1) {
-    bot_->log(bot::BS_LOG_NFO, "browser", "not enough proxies to change");
-    return;
+bool bot_browser::change_proxy() {
+  if (good_.empty()) {
+    return false;
+  }
+
+  if (good_.size() == 1) {
+    proxy& p = good_[0];
+    bot_->log(bot::BS_LOG_NFO, "browser",
+              std::string("set proxy to ") + p.str());
+    set_proxy(p.host(), p.port());
+    return false;
   }
 
   if (current_proxy_ >= good_.size() - 1) {
@@ -26,9 +33,10 @@ void bot_browser::change_proxy() {
     ++current_proxy_;
   }
 
-
   proxy& p = good_[current_proxy_];
   bot_->log(bot::BS_LOG_NFO, "browser", std::string("set proxy to ") + p.str());
+  set_proxy(p.host(), p.port());
+  return true;
 }
 
 void bot_browser::set_proxy_list(const std::string& proxies,

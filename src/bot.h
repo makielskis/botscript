@@ -42,7 +42,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Callback function for asynchronous actions.
   /// Provides the error message if an error was thrown. The error string is
   /// empty for operations that were completed successfuly.
-  typedef std::function<void (std::string)> error_callback;
+  typedef std::function<void (std::shared_ptr<bot>, std::string)> error_cb;
 
   /// Creates a new bot. The bot needs to be initialized
   /// by a seperate call to bot::init() to be ready for usage.
@@ -84,7 +84,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   ///
   /// \param config the configuration to load
   /// \param cb the callback to call when the operation has finished
-  void init(const std::string& config, const error_callback& cb);
+  void init(const std::string& config, const error_cb& cb);
 
   /// Creates a unique identifier with the given information.
   ///
@@ -103,13 +103,14 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// Login callback function to be called when an login try finished.
   ///
+  /// \param self shared pointer to self to keep us in mind
   /// \param error the error message (empty if no errors occured)
   /// \param cb the callback to call on login finish
   /// \param init_commands the commands to call when the login finished
   /// \param tries the count of remaining tries
-  void handle_login(const std::string& err,
-                    const error_callback& cb,
-                    const command_sequence& init_commands,
+  void handle_login(std::shared_ptr<bot> self, const std::string& err,
+                    const error_cb& cb,
+                    const command_sequence& init_commands, bool load_mod,
                     int tries);
 
   /// \return the username
@@ -178,7 +179,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   void load_modules(const command_sequence& init_commands);
 
   /// Login callback.
-  error_callback login_cb_;
+  std::function<void(std::string)> login_cb_;
 
   /// Boost Asio I/O service object.
   boost::asio::io_service* io_service_;

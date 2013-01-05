@@ -35,7 +35,7 @@ class bot_browser : public http::webclient {
   /// \param b the bot that owns this bot_browser
   bot_browser(boost::asio::io_service* io_service, bot* b);
 
-  void change_proxy();
+  bool change_proxy();
 
   void set_proxy_list(const std::string& proxy_list,
                       std::function<void(int)> callback);

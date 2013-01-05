@@ -99,7 +99,8 @@ void lua_connection::on_error(lua_State* state, const std::string& error_msg) {
   if (module == "base") {
     // Get login callback.
     void* p = lua_touserdata(state, -1);
-    bot::error_callback* cb = static_cast<bot::error_callback*>(p);
+    std::function<void(std::string)>* cb =
+        static_cast<std::function<void(std::string)>*>(p);
     lua_pop(state, 1);
 
     // Call callback with error message.
@@ -258,7 +259,8 @@ throw(lua_exception) {
   }
 }
 
-void lua_connection::login(std::shared_ptr<bot> bot, bot::error_callback* cb) {
+void lua_connection::login(std::shared_ptr<bot> bot,
+                           std::function<void(std::string)>* cb) {
   // Gather login information.
   std::string username = bot->username();
   std::string password = bot->password();
@@ -293,7 +295,8 @@ int lua_connection::on_login_finish(lua_State* state) {
 
   // Get callback.
   void* p = lua_touserdata(state, -1);
-  bot::error_callback* cb = static_cast<bot::error_callback*>(p);
+  std::function<void(std::string)>* cb =
+      static_cast<std::function<void(std::string)>*>(p);
   lua_pop(state, 1);
 
   // Get result.

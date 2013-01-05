@@ -60,11 +60,14 @@ std::string bot::server()      const { return server_; }
 double bot::wait_time_factor() const { return wait_time_factor_; }
 bot_browser* bot::browser()          { return browser_.get(); }
 
-void bot::init(const std::string& config, const error_callback& cb) {
+void bot::init(const std::string& config, const error_cb& cb) {
+  // Get shared pointer to keep alive.
+  std::shared_ptr<bot> self = shared_from_this();
+
   // Read JSON.
   rapidjson::Document document;
   if (document.Parse<0>(config.c_str()).HasParseError()) {
-    return cb("invalid JSON");
+    return cb(self, "invalid JSON");
   }
 
   // Check if all necessary configuration values are available.
@@ -76,7 +79,7 @@ void bot::init(const std::string& config, const error_callback& cb) {
       !document["password"].IsString() ||
       !document["package"].IsString() ||
       !document["server"].IsString()) {
-    return cb("invalid configuration");
+    return cb(self, "invalid configuration");
   }
 
   // Read basic configuration values.
@@ -88,7 +91,7 @@ void bot::init(const std::string& config, const error_callback& cb) {
 
   // Do not create a bot that already exists.
   if (lua_connection::contains(identifier_)) {
-    return cb("bot already registered");
+    return cb(self, "bot already registered");
   }
   lua_connection::add(shared_from_this());
 
@@ -165,34 +168,41 @@ void bot::init(const std::string& config, const error_callback& cb) {
 
   // Set proxy if available.
   if (!proxy.empty()) {
-    std::shared_ptr<bot> self = shared_from_this();
     browser_->set_proxy_list(proxy, [this, commands, cb, self](int success) {
       if (!success) {
-        return cb("no working proxy found");
+        return cb(self, "no working proxy found");
       } else {
         log(BS_LOG_NFO, "base", "login: 1. try");
-        login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 2);
+        login_cb_ = boost::bind(&bot::handle_login, this,
+                                self, _1, cb, commands, true, 2);
         lua_connection::login(self, &login_cb_);
       }
     });
   } else {
     log(BS_LOG_NFO, "base", "login: 1. try");
-    login_cb_ = boost::bind(&bot::handle_login, this, _1, cb, commands, 2);
+    login_cb_ = boost::bind(&bot::handle_login, this,
+                            self, _1, cb, commands, true, 2);
     lua_connection::login(shared_from_this(), &login_cb_);
   }
 }
 
-void bot::handle_login(const std::string& err,
-                       const error_callback& cb,
-                       const command_sequence& init_commands,
+void bot::handle_login(std::shared_ptr<bot> self, const std::string& err,
+                       const error_cb& cb,
+                       const command_sequence& init_commands, bool load_mod,
                        int tries) {
   // Call final callback if the login was successful
   // or there are no tries remaining.
   if (!err.empty() && tries == 0) {
-    return cb(err);
+    cb(self, err);
+    login_cb_ = nullptr;
+    return;
   } else if (err.empty()) {
-    load_modules(init_commands);
-    return cb("");
+    if (load_mod) {
+      load_modules(init_commands);
+    }
+    cb(self, "");
+    login_cb_ = nullptr;
+    return;
   }
 
   // Login failed, but we have tries remaining.
@@ -203,8 +213,9 @@ void bot::handle_login(const std::string& err,
   log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
 
   // Start another try.
+  browser_->change_proxy();
   login_cb_ = boost::bind(&bot::handle_login, this,
-                          _1, cb, init_commands, tries - 1);
+                          self, _1, cb, init_commands, load_mod, tries - 1);
   lua_connection::login(shared_from_this(), &login_cb_);
 }
 
@@ -456,7 +467,21 @@ void bot::execute(const std::string& command, const std::string& argument) {
 
   // Handle set proxy command.
   if (command == "base_set_proxy") {
-    // TODO set proxy list
+    std::shared_ptr<bot> self = shared_from_this();
+    browser_->set_proxy_list(argument, [this, self](int success) {
+      if (!success) {
+        log(BS_LOG_ERR, "base", "no working proxy found");
+      } else {
+        log(BS_LOG_NFO, "base", "login: 1. try");
+        command_sequence commands;
+        auto cb = [this](std::shared_ptr<bot>, std::string err) {
+          if (!err.empty()) log(BS_LOG_ERR, "base", err);
+        };
+        login_cb_ = boost::bind(&bot::handle_login, this,
+                                self, _1, cb, commands, false, 2);
+        lua_connection::login(self, &login_cb_);
+      }
+    });
   }
 
   // Forward all other commands to modules.

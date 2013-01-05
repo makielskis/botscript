@@ -22,11 +22,16 @@ void print_log(const std::string& msg) {
   std::cout << msg << std::flush;
   SetConsoleTextAttribute(console, 0x0007);
 #else
-  std::cout << msg << std::flush;
+  if (msg.substr(0, 4) == "[ERR") {
+    std::cout << "\033[0;31m";
+  } else if (msg.substr(0, 4) == "[INF") {
+    std::cout << "\033[0;32m";
+  }
+  std::cout << msg << "\033[0m" << std::flush;
 #endif
 }
 
-void cb(std::string error) {
+void cb(std::shared_ptr<bot>, std::string error) {
   if (!error.empty()) {
     std::cout << "ERROR: " << error << "\n";
   }
@@ -45,7 +50,7 @@ int main() {
           "\"username\": \"oclife\","\
           "\"password\": \"blabla\","\
           "\"package\": \"packages/du\","\
-          "\"proxy\": \"122.72.0.6:80 106.186.19.40:8000 123.125.116.243:8820 173.213.108.114:8080 213.142.136.80:6654 219.234.82.74:8160\","\
+          "\"proxy\": \"81.169.173.88:3128\","\
           "\"server\": \"http://www.knastvoegel.de\","\
           "\"modules\": { \"train\": { \"active\":\"1\", \"timeslot\": \"0\", \"type\": \"mental\" } }"\
           "}",
