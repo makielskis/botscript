@@ -23,8 +23,8 @@ boost::regex http_source::chunk_size_rx_("\r?\n?[0-9a-fA-F]+\r\n");
 http_source::http_source(boost::asio::ip::tcp::socket* socket)
     : socket_(socket),
       status_code_(0),
-      length_(0),
-      response_stream_(&buf_) {
+      response_stream_(&buf_),
+      length_(0) {
 }
 
 std::streamsize http_source::read(char_type* s, std::streamsize n) {
