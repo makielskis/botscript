@@ -28,9 +28,13 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
   /// \param argument  the command argument
   void execute(const std::string& command, const std::string& argument);
 
+  /// \param lua_state the state to write the module_status_ to
+  void set_lua_status(lua_State* lua_state);
+
   std::shared_ptr<bot> get_bot() const { return bot_; }
   std::string script()           const { return script_; }
   std::string lua_run()          const { return lua_run_; }
+  std::string name()             const { return module_name_; }
 
  private:
   /// Enum representing the different states the module can be in.
@@ -52,9 +56,6 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
       default:        return "UNKNOWN";
     }
   }
-
-  /// \param lua_state the state to write the module_status_ to
-  void set_lua_status(lua_State* lua_state);
 
   /// \param self shared pointer to self to keep us in mind
   /// \param ec the error code provided by the Asio deadline_timer

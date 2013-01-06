@@ -322,9 +322,12 @@ void lua_connection::module_run(module* module_ptr,
   try {
     // Execute login function.
     run(bot->identifier(), script, run_fun, 0, 0, 0,
-        [cb](lua_State* state) {
+        [cb, module_ptr](lua_State* state) {
           // Set special on_finish function.
           lua_register(state, "on_finish", lua_connection::on_run_finish);
+
+          // Set module state.
+          module_ptr->set_lua_status(state);
 
           // Set error callback.
           lua_pushlightuserdata(state, static_cast<void*>(cb));
@@ -419,6 +422,7 @@ void lua_connection::set_status(lua_State* state,
   // Get and check state.
   lua_getglobal(state, var.c_str());
   if (!lua_istable(state, -1)) {
+    lua_pop(state, 1);
     throw lua_exception("module status is not a table");
   }
 
@@ -426,6 +430,7 @@ void lua_connection::set_status(lua_State* state,
   lua_pushstring(state, key.c_str());
   lua_pushstring(state, value.c_str());
   lua_settable(state, -3);
+  lua_pop(state, 1);
 }
 
 std::shared_ptr<bot> lua_connection::get_bot(lua_State* state) {
