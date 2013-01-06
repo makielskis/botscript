@@ -50,7 +50,7 @@ int main() {
           "\"username\": \"oclife\","\
           "\"password\": \"blabla\","\
           "\"package\": \"packages/du\","\
-          "\"proxy\": \"81.169.173.88:3128\","\
+          /* "\"proxy\": \"81.169.173.88:3128\","\ */
           "\"server\": \"http://www.knastvoegel.de\","\
           "\"modules\": { \"train\": { \"active\":\"1\", \"timeslot\": \"0\", \"type\": \"mental\" } }"\
           "}",
@@ -58,7 +58,7 @@ int main() {
 
   asio::deadline_timer stop_timer(io_service, boost::posix_time::seconds(30));
   stop_timer.async_wait([&io_service](boost::system::error_code) {
-    io_service.stop();
+    //io_service.stop();
   });
 
   io_service.run();

@@ -5,6 +5,8 @@
 #ifndef BOT_BROWSER_H_
 #define BOT_BROWSER_H_
 
+#include <ctime>
+#include <list>
 #include <string>
 #include <vector>
 #include <map>
@@ -29,7 +31,8 @@ class bot;
 ///     proxy failed more than 8 times in this time period
 ///   - Retries failed requests up to three times with increasing timeout values
 ///     (first try 15sec, second try 30sec, last try 60sec)
-class bot_browser : public http::webclient {
+class bot_browser : public http::webclient,
+                    public std::enable_shared_from_this<bot_browser> {
  public:
   /// \param io_service the Asio io_service to use
   /// \param b the bot that owns this bot_browser
@@ -44,13 +47,19 @@ class bot_browser : public http::webclient {
 
   void submit(const std::string& xpath, const std::string& page,
               std::map<std::string, std::string> input_params,
-              const std::string& action,
-              callback cb);
+              const std::string& action, callback cb,
+              boost::posix_time::time_duration timeout, int tries);
 
   void request(const http::url& u, int method, std::string body, callback cb,
-               int remaining_redirects);
+               boost::posix_time::time_duration timeout, int tries);
 
  private:
+  void request_cb(std::shared_ptr<bot_browser> self, int tries,
+                  std::function<void(int)> retry_fun, callback cb,
+                  std::string response, boost::system::error_code ec);
+
+  void log_error();
+
   void proxy_check_callback(std::function<void(int)> callback,
                             std::shared_ptr<proxy_check> check,
                             boost::system::error_code ec);
@@ -62,6 +71,7 @@ class bot_browser : public http::webclient {
   std::map<std::string, std::shared_ptr<proxy_check>> proxy_checks_;
   std::function<bool(std::string)> check_fun_;
   std::size_t current_proxy_;
+  std::list<std::time_t> error_log_;
 };
 
 }  // namespace botscript

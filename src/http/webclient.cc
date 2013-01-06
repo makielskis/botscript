@@ -32,7 +32,8 @@ void webclient::set_proxy(std::string host, std::string port) {
 }
 
 void webclient::request(const url& u, int method, std::string body, callback cb,
-                        int remaining_redirects) {
+                        int remaining_redirects,
+                        boost::posix_time::time_duration timeout) {
   std::map<std::string, std::string> headers;
   {
     // Lock because of read access to the cookies map.
@@ -55,14 +56,15 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
 
   // Start request.
   typedef std::shared_ptr<http_con> http_ptr;
-  http_ptr c = std::make_shared<http_con>(io_service_, host, port,
-                                          boost::posix_time::seconds(60));
+  http_ptr c = std::make_shared<http_con>(io_service_, host, port, timeout);
   std::string req = util::build_request(u, method, body, headers_, use_proxy);
   c->operator()(req, boost::bind(&webclient::request_finish, this,
-                                 u, remaining_redirects, cb, _1, _2, _3));
+                                 u, timeout, remaining_redirects, cb,
+                                 _1, _2, _3));
 }
 
 void webclient::request_finish(const url& request_url,
+                               boost::posix_time::time_duration timeout,
                                int remaining_redirects, callback cb,
                                std::shared_ptr<http_con> con_ptr,
                                std::string response,
@@ -87,7 +89,7 @@ void webclient::request_finish(const url& request_url,
     }
 
     // Redirect with HTTP GET
-    return request(url(u), util::GET, "", cb, remaining_redirects - 1);
+    return request(url(u), util::GET, "", cb, remaining_redirects - 1, timeout);
   } else {
     return cb("", ec);
   }
@@ -97,7 +99,7 @@ void webclient::submit(const std::string& xpath,
                        const std::string& page,
                        std::map<std::string, std::string> input_params,
                        const std::string& action,
-                       callback cb) {
+                       callback cb, boost::posix_time::time_duration timeout) {
   // Determine XML element from given XPath.
   pugi::xml_document doc;
   doc.load(page.c_str());
@@ -181,7 +183,7 @@ void webclient::submit(const std::string& xpath,
     u.append(action);
   }
 
-  return request(url(u), util::POST, params_str, cb, MAX_REDIRECT);
+  return request(url(u), util::POST, params_str, cb, MAX_REDIRECT, timeout);
 }
 
 void webclient::store_cookies(const std::string& new_cookies) {

@@ -52,7 +52,7 @@ class webclient {
   virtual void submit(const std::string& xpath, const std::string& page,
                       std::map<std::string, std::string> input_params,
                       const std::string& action,
-                      callback cb);
+                      callback cb, boost::posix_time::time_duration timeout);
 
   /// Does a asynchronous HTTP request.
   ///
@@ -62,7 +62,8 @@ class webclient {
   /// \param cb the callback to call on request finish
   /// \param remaining_redirects the maximum number of redirects
   virtual void request(const url& u, int method, std::string body, callback cb,
-                       int remaining_redirects);
+                       int remaining_redirects,
+                       boost::posix_time::time_duration timeout);
 
  protected:
   /// Function that will be called on request finish. Calls the user callback
@@ -76,6 +77,7 @@ class webclient {
   /// \param response the response
   /// \param ec the error code
   void request_finish(const url& request_url,
+                      boost::posix_time::time_duration timeout,
                       int remaining_redirects, callback cb,
                       std::shared_ptr<http_con> con_ptr,
                       std::string response,

@@ -1,6 +1,7 @@
 #include "./bot_browser.h"
 
 #include <sstream>
+#include <algorithm>
 
 #include "boost/regex.hpp"
 
@@ -88,13 +89,66 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
 
 void bot_browser::submit(const std::string& xpath, const std::string& page,
                          std::map<std::string, std::string> input_params,
-                         const std::string& action, callback cb) {
-  webclient::submit(xpath, page, input_params, action, cb);
+                         const std::string& action, callback cb,
+                         boost::posix_time::time_duration timeout, int tries) {
+  std::function<void(int)> retry = boost::bind(&bot_browser::submit, this,
+                                               xpath, page,
+                                               input_params, action,
+                                               cb, timeout * 2, _1);
+  callback req_cb = boost::bind(&bot_browser::request_cb, this,
+                            shared_from_this(), tries, retry, cb, _1, _2);
+  webclient::submit(xpath, page, input_params, action, req_cb, timeout);
 }
 
 void bot_browser::request(const http::url& u, int method, std::string body,
-                          callback cb, int remaining_redirects) {
-  webclient::request(u, method, body, cb, remaining_redirects);
+                          callback cb,
+                          boost::posix_time::time_duration timeout, int tries) {
+  std::function<void(int)> retry = boost::bind(&bot_browser::request, this,
+                                               u, method, body,
+                                               cb, timeout * 2, _1);
+  callback req_cb = boost::bind(&bot_browser::request_cb, this,
+                            shared_from_this(), tries, retry, cb, _1, _2);
+  webclient::request(u, method, body, req_cb, MAX_REDIRECT, timeout);
+}
+
+
+void bot_browser::request_cb(std::shared_ptr<bot_browser> self, int tries,
+                             std::function<void(int)> retry_fun, callback cb,
+                             std::string response,
+                             boost::system::error_code ec) {
+  if (!ec || tries <= 0) {
+    if (ec) {
+      log_error();
+    }
+    return cb(response, ec);
+  } else {
+    std::string msg = std::string("error: '") + ec.message() + "', ";
+    if (tries == 1) {
+      msg += "last try";
+    } else {
+      msg += boost::lexical_cast<std::string>(tries - 1) + " tries remaining";
+    }
+    bot_->log(bot::BS_LOG_ERR, "browser", msg);
+    return retry_fun(tries - 1);
+  }
+}
+
+void bot_browser::log_error() {
+  bot_->log(bot::BS_LOG_DBG, "browser", "logging connection error");
+
+  // Remove entries older than one hour.
+  std::time_t now = std::time(NULL);
+  std::time_t t = now - 3600;
+  error_log_.remove_if([&t](std::time_t entry) { return entry < t; });
+
+  // Add current entry.
+  error_log_.push_back(now);
+
+  // Change proxy if proxy failed >8 times last hour.
+  if (error_log_.size() > 8) {
+    bot_->log(bot::BS_LOG_DBG, "browser", "proxy failed too often - changing");
+    change_proxy();
+  }
 }
 
 void bot_browser::proxy_check_callback(std::function<void(int)> callback,

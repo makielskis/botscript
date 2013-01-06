@@ -7,6 +7,7 @@
 #include <iostream>
 #include <memory>
 
+#include "boost/date_time/posix_time/posix_time.hpp"
 #include "boost/lambda/lambda.hpp"
 #include "boost/bind.hpp"
 
@@ -99,7 +100,8 @@ int lua_http::get(lua_State* state, bool path) {
   // Do asynchronous call.
   url = path ? b->server() + url : url;
   b->browser()->request(http::url(url), http::util::GET, "",
-                        boost::bind(on_req_finish, state, _1, _2), 3);
+                        boost::bind(on_req_finish, state, _1, _2),
+                        boost::posix_time::seconds(15), 3);
 
   return 0;
 }
@@ -128,7 +130,8 @@ int lua_http::post(lua_State* state, bool path) {
   // Do asynchronous call.
   url = path ? b->server() + url : url;
   b->browser()->request(http::url(url), http::util::POST, content,
-                        boost::bind(on_req_finish, state, _1, _2), 3);
+                        boost::bind(on_req_finish, state, _1, _2),
+                        boost::posix_time::seconds(15), 3);
 
   return 0;
 }
@@ -183,9 +186,11 @@ int lua_http::submit_form(lua_State* state) {
   }
 
   // Do asynchronous call.
-  auto cb = std::bind(on_req_finish, state, std::placeholders::_1, std::placeholders::_2);
-  b->io_service()->post(boost::bind(&bot_browser::submit, (bot_browser*) b->browser(),
-                                    xpath, content, parameters, action, cb));
+  auto cb = std::bind(on_req_finish, state,
+                      std::placeholders::_1, std::placeholders::_2);
+  b->io_service()->post(boost::bind(&bot_browser::submit, b->browser(),
+                                    xpath, content, parameters, action, cb,
+                                    boost::posix_time::seconds(15), 3));
 
   return 0;
 }
