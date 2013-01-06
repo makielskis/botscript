@@ -65,6 +65,9 @@ class webclient {
                        int remaining_redirects,
                        boost::posix_time::time_duration timeout);
 
+  /// Error category to express HTTP errors.
+  static error::http_category cat_;
+
  protected:
   /// Function that will be called on request finish. Calls the user callback
   /// function provided when calling request / submit.
@@ -87,9 +90,6 @@ class webclient {
   ///
   /// \param new_cookies the Set-Cookies header provided by the server
   void store_cookies(const std::string& new_cookies);
-
-  /// Error category to express HTTP errors.
-  static error::http_category cat_;
 
   // Proxy settings
   boost::mutex proxy_mutex_;

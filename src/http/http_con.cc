@@ -12,6 +12,8 @@
 #include "boost/iostreams/filter/gzip.hpp"
 #include "boost/bind.hpp"
 
+#include "./webclient.h"
+
 namespace asio = boost::asio;
 
 namespace http {
@@ -110,10 +112,15 @@ void http_con::request_finish(std::shared_ptr<http_con> self, callback cb,
 
     std::stringstream response;
     if (http_src->header("content-encoding") == "gzip") {
-      boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
-      filter.push(boost::iostreams::gzip_decompressor());
-      filter.push(s);
-      boost::iostreams::copy(filter, response);
+      try {
+        boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
+        filter.push(boost::iostreams::gzip_decompressor());
+        filter.push(s);
+        boost::iostreams::copy(filter, response);
+      } catch (const boost::iostreams::gzip_error& e) {
+        cb(self, "", boost::system::error_code(error::GZIP_FAILURE,
+                                               webclient::cat_));
+      }
     } else {
       boost::iostreams::copy(s, response);
     }

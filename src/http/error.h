@@ -16,7 +16,8 @@ enum {
   INVALID_XPATH = 201,
   NO_FORM_OR_SUBMIT = 202,
   SUBMIT_NOT_IN_FORM = 203,
-  PARAM_MISMATCH = 204
+  PARAM_MISMATCH = 204,
+  GZIP_FAILURE = 205
 };
 
 class http_category : public boost::system::error_category {
@@ -28,6 +29,7 @@ class http_category : public boost::system::error_category {
       case NO_FORM_OR_SUBMIT:  return "element not a form or submit";
       case SUBMIT_NOT_IN_FORM: return "submit element not in a form";
       case PARAM_MISMATCH:     return "parameters don't match";
+      case GZIP_FAILURE:       return "gzip error";
     }
     return "unkown error";
   }
