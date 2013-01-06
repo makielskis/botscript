@@ -76,7 +76,7 @@ void webclient::request_finish(const url& request_url,
     // Check for redirect (new location given).
     std::string u = con_ptr->http_src().header("location");
     if (u.empty() || !remaining_redirects) {
-      if (!boost::ends_with(u, ".xml")) {
+      if (!boost::ends_with(request_url.str(), ".xml")) {
         response = util::store_location(response, request_url.str());
         response = util::tidy(response);
       }
