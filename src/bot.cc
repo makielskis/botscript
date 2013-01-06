@@ -186,6 +186,59 @@ void bot::init(const std::string& config, const error_cb& cb) {
   }
 }
 
+std::string bot::configuration(bool with_password) {
+  // Lock for status r/w access.
+  boost::lock_guard<boost::mutex> lock(status_mutex_);
+
+  // Write basic configuration values.
+  rapidjson::Document document;
+  document.SetObject();
+  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+  document.AddMember("username", username_.c_str(), allocator);
+  if (with_password) {
+    document.AddMember("password", password_.c_str(), allocator);
+  }
+  document.AddMember("package", package_.c_str(), allocator);
+  document.AddMember("server", server_.c_str(), allocator);
+  document.AddMember("wait_time_factor",
+                     status_["base_wait_time_factor"].c_str(), allocator);
+
+  // Write proxy.
+  std::map<std::string, std::string>::const_iterator i =
+      status_.find("base_proxy");
+  std::string proxy = (i == status_.end()) ? "" : i->second;
+  rapidjson::Value proxy_value(proxy.c_str(), allocator);
+  document.AddMember("proxy", proxy_value, allocator);
+
+  // Write module configuration values.
+  rapidjson::Value modules(rapidjson::kObjectType);
+  for(const auto& m : modules_) {
+    // Initialize module JSON object and add name property.
+    std::string module_name = m->name();
+    rapidjson::Value module(rapidjson::kObjectType);
+
+    // Add module settings.
+    for(const auto& j : status_) {
+      if (boost::algorithm::starts_with(j.first, module_name)) {
+        std::string key = j.first.substr(module_name.length() + 1);
+        rapidjson::Value key_attr(key.c_str(), allocator);
+        rapidjson::Value val_attr(j.second.c_str(), allocator);
+        module.AddMember(key_attr, val_attr, allocator);
+      }
+    }
+    rapidjson::Value name_attr(module_name.c_str(), allocator);
+    modules.AddMember(name_attr, module, allocator);
+  }
+  document.AddMember("modules", modules, allocator);
+
+  // Convert to string.
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  document.Accept(writer);
+
+  return buffer.GetString();
+}
+
 void bot::handle_login(std::shared_ptr<bot> self, const std::string& err,
                        const error_cb& cb,
                        const command_sequence& init_commands, bool load_mod,

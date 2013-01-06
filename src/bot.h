@@ -86,6 +86,13 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \param cb the callback to call when the operation has finished
   void init(const std::string& config, const error_cb& cb);
 
+  /// Creates a configuration string.
+  ///
+  /// \param with_password whether to include the password in the configuration
+  /// \return the JSON configuration string
+  std::string configuration(bool with_password);
+
+
   /// Creates a unique identifier with the given information.
   ///
   /// \param username the bot username
