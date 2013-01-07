@@ -178,7 +178,7 @@ void bot_browser::proxy_check_callback(std::function<void(int)> callback,
 }
 
 bool bot_browser::check_proxy_response(const std::string& page) {
-  return page.find("Farbflut") != std::string::npos;
+  return true;
 }
 
 }  // namespace botscript
