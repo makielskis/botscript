@@ -1,8 +1,12 @@
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <vector>
 
 #include "boost/asio/io_service.hpp"
 #include "boost/asio/deadline_timer.hpp"
+#include "boost/iostreams/copy.hpp"
+#include "boost/filesystem.hpp"
 
 #include "./bot.h"
 
@@ -42,27 +46,44 @@ int main() {
 
   asio::io_service::work work(io_service);
 
-  std::shared_ptr<bot> b = std::make_shared<bot>(&io_service);
-  b->callback_ = [](std::string, std::string k, std::string v) {
-    if (k == "log") { print_log(v); }
-  };
-  b->init("{ "\
-          "\"username\": \"oclife\","\
-          "\"password\": \"blabla\","\
-          "\"package\": \"packages/du\","\
-          /* "\"proxy\": \"81.169.173.88:3128\","\ */
-          "\"server\": \"http://www.knastvoegel.de\","\
-          "\"modules\": { \"train\": { \"active\":\"1\", \"timeslot\": \"0\", \"type\": \"mental\" } }"\
-          "}",
-          cb);
+  std::map<std::string, std::string> configs;
 
+  using boost::filesystem::directory_iterator;
+  for (directory_iterator i = directory_iterator("configs");
+      i != directory_iterator(); ++i) {
+    std::string path = i->path().relative_path().generic_string();
+
+    std::ifstream file;
+    file.open(path.c_str(), std::ios::in);
+    std::stringstream content;
+    boost::iostreams::copy(file, content);
+    file.close();
+
+    configs[path] = content.str();
+  }
+
+  std::vector<std::shared_ptr<bot>> bots;
+  for(const auto& c : configs) {
+    std::shared_ptr<bot> b = std::make_shared<bot>(&io_service);
+    b->callback_ = [](std::string, std::string k, std::string v) {
+      if (k == "log") { print_log(v); }
+    };
+    b->init(c.second, cb);
+    bots.push_back(b);
+  }
+
+/*
   asio::deadline_timer stop_timer(io_service, boost::posix_time::seconds(30));
   stop_timer.async_wait([&io_service](boost::system::error_code) {
-    //io_service.stop();
+    io_service.stop();
   });
+*/
 
   io_service.run();
-  b->shutdown();
+
+  for (auto& b : bots) {
+    b->shutdown();
+  }
 
   return 0;
 }
