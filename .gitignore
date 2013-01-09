@@ -6,3 +6,6 @@ build/
 *.am
 *.in
 Makefile
+Release
+Debug
+configs
