@@ -459,7 +459,7 @@ int bot::random(int a, int b) {
   seed *= 31;
   seed %= 32768;
   double r = seed / static_cast<double>(32768);
-  int wait_time = a + std::round(r * (b - a) * wait_time_factor_);
+  int wait_time = a + static_cast<int>(std::round(r * (b - a) * wait_time_factor_));
   return wait_time;
 }
 
