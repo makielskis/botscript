@@ -19,6 +19,7 @@
 
 #include "./bot_browser.h"
 #include "./module.h"
+#include "./lua/state_wrapper.h"
 
 #define CONTAINS(c, e) (std::find(c.begin(), c.end(), e) != c.end())
 
@@ -110,12 +111,15 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// Login callback function to be called when an login try finished.
   ///
-  /// \param self shared pointer to self to keep us in mind
-  /// \param error the error message (empty if no errors occured)
-  /// \param cb the callback to call on login finish
-  /// \param init_commands the commands to call when the login finished
-  /// \param tries the count of remaining tries
-  void handle_login(std::shared_ptr<bot> self, const std::string& err,
+  /// \param self           shared pointer to self to keep us in mind
+  /// \param state_wr       the lua state that's executing the login script
+  /// \param error          the error message (empty if no errors occured)
+  /// \param cb             the callback to call on login finish
+  /// \param init_commands  the commands to call when the login finished
+  /// \param tries          the count of remaining tries
+  void handle_login(std::shared_ptr<bot> self,
+                    std::shared_ptr<state_wrapper> state_wr,
+                    const std::string& err,
                     const error_cb& cb,
                     const command_sequence& init_commands, bool load_mod,
                     int tries);
@@ -214,6 +218,14 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// Mutex to synchronize status access.
   boost::mutex status_mutex_;
+
+  /// Flag indicating whether the login_result_ variable is active.
+  bool login_result_stored_;
+
+  /// Stores the login result.
+  bool login_result_;
+
+  bool init_;
 
   /// Mutex synchronizing the access the server address list.
   static boost::mutex server_mutex_;

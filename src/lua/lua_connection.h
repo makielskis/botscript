@@ -9,6 +9,7 @@
 #define BOT_MODULE    ("__BOT_MODULE")
 #define BOT_CALLBACK  ("__BOT_CALLBACK")
 #define BOT_LOGIN_CB  ("__BOT_ON_LOGIN")
+#define BOT_FINISH    ("__BOT_FINISH")
 
 #include <lua.h>
 #include <lualib.h>
@@ -29,6 +30,32 @@
 #include "../module.h"
 
 namespace botscript {
+
+/// Callback function for asynchronous lua scripts. If the lua script can be
+/// executed correctly, the function is called 2x (""), (""):
+///    * The first time in the function call of on_finish. Extract the provided
+///      parameters and store them.
+///    * The second time when the lua script stops execution. Close the state
+///      and call your own callback function.
+///
+/// If the function throws an error after the on_finish call, the callback fun.
+/// will also be called 2x (""), ("error"):
+///    * The first time in the function call of on_finish. Extract the provided
+///      parameters and store them.
+///    * The second time when the lua script throws an error when finishing
+///      execution. This error can be ignored, because on_finish() provided
+///      already valid results.
+///
+/// If the function throws an error before the on_finish call, the callback fun.
+/// will be called just 1x ("error") providing the error string. Close
+/// the lua state and call your own callback with the provided error string.
+///
+/// Generally speaking, the state can always be closed if an error is set.
+///
+/// Warning! The state is only provided in success cases to extract on_finish
+/// function call arguments, not to call lua_close() on it. State livetime
+/// should be managed with the state_wrapper class.
+typedef std::function<void (std::string)> on_finish_cb;
 
 ///  Shared pointer to a JSON value.
 typedef std::shared_ptr<rapidjson::Value> jsonval_ptr;
@@ -100,17 +127,20 @@ class lua_connection {
 
   /// Calls the function previously pushed to the stack of the lua state.
   ///
-  /// \param bot_identifier the identifier of the calling bot
-  /// \param module_name the module name of the calling module
-  /// \param script the script path where the script to execute is located
-  /// \param function the name of the function to call
-  /// \param nargs the argument count
-  /// \param nresults the result count
-  /// \param errfunc the error function
-  /// \param pre_exec pre execution hook function
-  /// \param post_exec post exection hook function
+  /// \param state            the lua state to run the script on
+  /// \param bot_identifier   the identifier of the calling bot
+  /// \param module_name      the module name of the calling module
+  /// \param script           the path where the script to execute is located
+  /// \param function         the name of the function to call
+  /// \param nargs            the argument count
+  /// \param nresults         the result count
+  /// \param errfunc          the error function
+  /// \param pre_exec         pre execution hook function
+  /// \param post_exec        post exection hook function
   /// \exception lua_exception if the function call fails
-  static void run(const std::string& bot_identifier,
+  static void run(lua_State* state,
+                  on_finish_cb* cb,
+                  const std::string& bot_identifier,
                   const std::string& script,
                   const std::string& function,
                   int nargs, int nresults, int errfunc,
@@ -122,25 +152,24 @@ class lua_connection {
   /// Calls the callback function with an empty string on success and with an
   /// errro message if the login failed.
   ///
-  /// \param bot the bot to login
-  /// \param cb the callback to call on finish
-  static void login(std::shared_ptr<bot> bot,
-                    std::function<void(std::string)>* cb);
-
-  /// Login callback function (lua_CFunction).
-  static int on_login_finish(lua_State* state);
+  /// \param state  the lua state to run the login script on
+  /// \param bot    the bot to login
+  /// \param cb     the callback to call on finish
+  static void login(lua_State* state, std::shared_ptr<bot> bot,
+                    on_finish_cb* cb);
 
   /// Runs the module asynchronously. Calls the callback with an error string
   /// and -1, -1 if an error occurs. Otherwise (if on_finish got called), the
   /// callback will be called with the parameters provided to on_finish.
   ///
+  /// \param state       the lua state to run the module on
   /// \param module_ptr  pointer to the module which asks to launch the script
   /// \param cb          the callack to call on error / on_finish(...) call
-  static void module_run(module* module_ptr,
-                         std::function<void (std::string, int, int)>* cb);
+  static void module_run(lua_State* state, module* module_ptr,
+                         on_finish_cb* cb);
 
-  /// Run callback function (lua_CFunction).
-  static int on_run_finish(lua_State* state);
+  /// On finish function (lua_Cfunction).
+  static int on_finish(lua_State* state);
 
   /// Reads the lua table var from the lua script state to the given status.
   ///

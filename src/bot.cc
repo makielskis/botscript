@@ -36,7 +36,10 @@ boost::mutex bot::log_mutex_;
 
 bot::bot(boost::asio::io_service* io_service)
     : io_service_(io_service),
-      wait_time_factor_(1.0f) {
+      wait_time_factor_(1.0f),
+      login_result_stored_(false),
+      login_result_(false),
+      init_(false) {
   browser_ = std::make_shared<bot_browser>(io_service, this);
 }
 
@@ -61,6 +64,9 @@ double bot::wait_time_factor() const { return wait_time_factor_; }
 bot_browser* bot::browser()          { return browser_.get(); }
 
 void bot::init(const std::string& config, const error_cb& cb) {
+  assert(!init_);
+  init_ = true;
+
   // Get shared pointer to keep alive.
   std::shared_ptr<bot> self = shared_from_this();
 
@@ -173,16 +179,18 @@ void bot::init(const std::string& config, const error_cb& cb) {
         return cb(self, "no working proxy found");
       } else {
         log(BS_LOG_NFO, "base", "login: 1. try");
+        std::shared_ptr<state_wrapper> s = std::make_shared<state_wrapper>();
         login_cb_ = boost::bind(&bot::handle_login, this,
-                                self, _1, cb, commands, true, 2);
-        lua_connection::login(self, &login_cb_);
+                                self, s, _1, cb, commands, true, 2);
+        lua_connection::login(s->get(), self, &login_cb_);
       }
     });
   } else {
     log(BS_LOG_NFO, "base", "login: 1. try");
+    std::shared_ptr<state_wrapper> s = std::make_shared<state_wrapper>();
     login_cb_ = boost::bind(&bot::handle_login, this,
-                            self, _1, cb, commands, true, 2);
-    lua_connection::login(shared_from_this(), &login_cb_);
+                            self, s, _1, cb, commands, true, 2);
+    lua_connection::login(s->get(), shared_from_this(), &login_cb_);
   }
 }
 
@@ -239,37 +247,65 @@ std::string bot::configuration(bool with_password) {
   return buffer.GetString();
 }
 
-void bot::handle_login(std::shared_ptr<bot> self, const std::string& err,
+void bot::handle_login(std::shared_ptr<bot> self,
+                       std::shared_ptr<state_wrapper> state_wr,
+                       const std::string& err,
                        const error_cb& cb,
                        const command_sequence& init_commands, bool load_mod,
                        int tries) {
-  // Call final callback if the login was successful
-  // or there are no tries remaining.
-  if (!err.empty() && tries == 0) {
-    cb(self, err);
-    login_cb_ = nullptr;
-    return;
-  } else if (err.empty()) {
-    if (load_mod) {
-      load_modules(init_commands);
+  if (!err.empty()) {
+    login_result_stored_ = false;
+
+    log(BS_LOG_NFO, "base", std::string("login failed: ") + err);
+
+    if (tries == 0) {
+      cb(self, err);
+      login_cb_ = nullptr;
+      return;
+    } else {
+      browser_->change_proxy();
+      std::shared_ptr<state_wrapper> next_state = std::make_shared<state_wrapper>();
+      login_cb_ = boost::bind(&bot::handle_login, this,
+                              self, next_state, _1, cb, init_commands,
+                              load_mod, tries - 1);
+      std::string t =  boost::lexical_cast<std::string>(4 - tries);
+      log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
+      lua_connection::login(next_state->get(), shared_from_this(), &login_cb_);
     }
-    cb(self, "");
-    login_cb_ = nullptr;
-    return;
+  } else {
+    lua_State* state = state_wr->get();
+
+    if (!login_result_stored_) {
+      assert(lua_isboolean(state, -1));
+      login_result_stored_ = true;
+      login_result_ = static_cast<bool>(lua_toboolean(state, -1));
+      lua_pop(state, 1);
+    } else {
+      login_result_stored_ = false;
+      if (!login_result_ && tries == 0) {
+        cb(self, "Login -> not logged in (wrong login data?)");
+        login_cb_ = nullptr;
+        return;
+      } else if (!login_result_ && tries > 0) {
+        browser_->change_proxy();
+        std::shared_ptr<state_wrapper> next_state
+            = std::make_shared<state_wrapper>();
+        login_cb_ = boost::bind(&bot::handle_login, this,
+                                self, next_state, _1, cb, init_commands,
+                                load_mod, tries - 1);
+        std::string t =  boost::lexical_cast<std::string>(4 - tries);
+        log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
+        lua_connection::login(next_state->get(), shared_from_this(), &login_cb_);
+      } else /* if (login_result_) */ {
+        if (load_mod) {
+          load_modules(init_commands);
+        }
+        cb(self, "");
+        login_cb_ = nullptr;
+        return;
+      }
+    }
   }
-
-  // Login failed, but we have tries remaining.
-  log(BS_LOG_ERR, "base", err);
-
-  // Write information to the log.
-  std::string t =  boost::lexical_cast<std::string>(4 - tries);
-  log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
-
-  // Start another try.
-  browser_->change_proxy();
-  login_cb_ = boost::bind(&bot::handle_login, this,
-                          self, _1, cb, init_commands, load_mod, tries - 1);
-  lua_connection::login(shared_from_this(), &login_cb_);
 }
 
 void bot::load_modules(const command_sequence& init_commands) {
@@ -530,9 +566,10 @@ void bot::execute(const std::string& command, const std::string& argument) {
         auto cb = [this](std::shared_ptr<bot>, std::string err) {
           if (!err.empty()) log(BS_LOG_ERR, "base", err);
         };
+        std::shared_ptr<state_wrapper> state = std::make_shared<state_wrapper>();
         login_cb_ = boost::bind(&bot::handle_login, this,
-                                self, _1, cb, commands, false, 2);
-        lua_connection::login(self, &login_cb_);
+                                self, state, _1, cb, commands, false, 2);
+        lua_connection::login(state->get(), self, &login_cb_);
       }
     });
   }

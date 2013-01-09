@@ -18,7 +18,10 @@ module::module(const std::string& script, std::shared_ptr<bot> bot,
       lua_run_("run_"),
       lua_status_("status_"),
       timer_(*io_service),
-      module_state_(OFF) {
+      module_state_(OFF),
+      run_result_stored_(false),
+      wait_min_(-1),
+      wait_max_(-1) {
   bot_->log(bot::BS_LOG_NFO, "base", std::string("loading module ") + script);
 
   // Discover module name.
@@ -59,46 +62,72 @@ void module::run(std::shared_ptr<module> self, boost::system::error_code) {
 
   // Start module.
   bot_->log(bot::BS_LOG_NFO, module_name_, "starting");
-  run_callback_ = boost::bind(&module::run_cb, this, self, _1, _2, _3);
-  lua_connection::module_run(this, &run_callback_);
+  std::shared_ptr<state_wrapper> state = std::make_shared<state_wrapper>();
+  run_callback_ = boost::bind(&module::run_cb, this, self, state, _1);
+  lua_connection::module_run(state->get(), this, &run_callback_);
 }
 
 void module::run_cb(std::shared_ptr<module> self,
-                    std::string error, int wait_min, int wait_max) {
-  run_callback_ = nullptr;
+                    std::shared_ptr<state_wrapper> state_wr,
+                    std::string err) {
+  if (!err.empty()) {
+    run_callback_ = nullptr;
+    run_result_stored_ = false;
 
-  // Check module state.
-  {
-    boost::lock_guard<boost::mutex> lock(state_mutex_);
-    if (module_state_ == OFF || module_state_ == STOP_RUN) {
-      // Module state is STOP_RUN - stop!
-      bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> run(): OFF");
-      module_state_ = OFF;
-      return;
+    bot_->log(bot::BS_LOG_ERR, module_name_, err);
+
+    module_state_ = WAIT;
+    int sleep = bot_->random(60, 120);
+    timer_.expires_from_now(boost::posix_time::seconds(sleep));
+    timer_.async_wait(boost::bind(&module::run, this, self, _1));
+    std::string s_str = boost::lexical_cast<std::string>(sleep);
+    bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + s_str);
+  } else {
+    if (!run_result_stored_) {
+      run_result_stored_ = true;
+
+      lua_State* state = state_wr->get();
+      int argc = lua_gettop(state);
+      wait_min_ = -1;
+      wait_max_ = -1;
+      if (argc >= 2) {
+        wait_min_ = lua_isnumber(state, -2) ? luaL_checkint(state, -2) : -1;
+      }
+      if (argc >= 1) {
+        wait_max_ = lua_isnumber(state, -1) ? luaL_checkint(state, -1) : -1;
+      }
+    } else {
+      run_callback_ = nullptr;
+      run_result_stored_ = false;
+
+      {
+        boost::lock_guard<boost::mutex> lock(state_mutex_);
+        if (module_state_ == OFF || module_state_ == STOP_RUN) {
+          // Module state is STOP_RUN - stop!
+          bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> run(): OFF");
+          module_state_ = OFF;
+          return;
+        }
+      }
+
+      module_state_ = WAIT;
+
+      int sleep;
+      if (wait_min_ >= 0 && wait_max_ >= 0) {
+        sleep = bot_->random(wait_min_, wait_max_);
+      } else if (wait_min_ >= 0) {
+        sleep = wait_min_;
+      } else {
+        sleep = bot_->random(60, 120);
+      }
+
+      timer_.expires_from_now(boost::posix_time::seconds(sleep));
+      timer_.async_wait(boost::bind(&module::run, this, self, _1));
+
+      std::string str = boost::lexical_cast<std::string>(sleep);
+      bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + str);
     }
   }
-
-  // Check error.
-  if (!error.empty()) {
-    bot_->log(bot::BS_LOG_ERR, module_name_, error);
-  }
-
-  // Discover sleep time and start timer_.
-  int sleep;
-  if (wait_min >= 0 && wait_max >= 0) {
-    sleep = bot_->random(wait_min, wait_max);
-  } else if (wait_min >= 0) {
-    sleep = wait_min;
-  } else {
-    sleep = bot_->random(60, 120);
-  }
-  timer_.expires_from_now(boost::posix_time::seconds(sleep));
-
-  module_state_ = WAIT;
-  timer_.async_wait(boost::bind(&module::run, this, self, _1));
-
-  std::string sleep_s = boost::lexical_cast<std::string>(sleep);
-  bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + sleep_s);
 }
 
 void module::execute(const std::string& command, const std::string& argument) {

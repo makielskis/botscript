@@ -78,46 +78,16 @@ void lua_connection::on_error(lua_State* state, const std::string& error_msg) {
   // Check if callback is set.
   lua_getglobal(state, BOT_LOGIN_CB);
   if (!lua_isuserdata(state, -1)) {
+    std::cerr << "fatal: \"" << error_msg << "\" happened but no cb set\n";
     lua_pop(state, 1);
     lua_close(state);
     return;
   }
 
-  // Get module name to distinguish login (module == "base")
-  // from module run (module != "base").
-  lua_getglobal(state, BOT_MODULE);
-  std::string module;
-  if (lua_isstring(state, -1)) {
-    module = lua_tostring(state, -1);
-  } else {
-    lua_pop(state, 1);
-    lua_close(state);
-    return;
-  }
+  void* p = lua_touserdata(state, -1);
+  on_finish_cb* cb = static_cast<on_finish_cb*>(p);
   lua_pop(state, 1);
-
-  if (module == "base") {
-    // Get login callback.
-    void* p = lua_touserdata(state, -1);
-    std::function<void(std::string)>* cb =
-        static_cast<std::function<void(std::string)>*>(p);
-    lua_pop(state, 1);
-
-    // Call callback with error message.
-    (*cb)(error_msg);
-  } else {
-    // Get module run callback.
-    void* p = lua_touserdata(state, -1);
-    std::function<void (std::string, int, int)>* cb =
-        static_cast<std::function<void (std::string, int, int)>*>(p);
-    lua_pop(state, 1);
-
-    // Call callback with error message.
-    (*cb)(error_msg, -1, -1);
-  }
-
-  // Close state.
-  lua_close(state);
+  (*cb)(error_msg);
 }
 
 void lua_connection::exec(lua_State* state,
@@ -146,14 +116,13 @@ throw(lua_exception) {
   }
 }
 
-void lua_connection::run(const std::string& bot_identifier,
-                         const std::string& script,
-                         const std::string& function,
+void lua_connection::run(lua_State* state, on_finish_cb* cb,
+                         const std::string& bot_identifier,
+                         const std::string& script, const std::string& function,
                          int nargs, int nresults, int errfunc,
                          execution_hook pre_exec, execution_hook post_exec)
 throw(lua_exception) {
   // Create new script state.
-  lua_State* state = luaL_newstate();
   if (nullptr == state) {
     throw lua_exception("script initialisation: out of memory");
   }
@@ -164,6 +133,13 @@ throw(lua_exception) {
   // Register botscript functions.
   lua_http::open(state);
   lua_util::open(state);
+
+  // Set special on_finish function.
+  lua_register(state, "on_finish", lua_connection::on_finish);
+
+  // Set error callback.
+  lua_pushlightuserdata(state, static_cast<void*>(cb));
+  lua_setglobal(state, BOT_LOGIN_CB);
 
   // Load file.
   int ret = 0;
@@ -185,7 +161,6 @@ throw(lua_exception) {
       error = s;
     }
 
-    lua_close(state);
     throw lua_exception(error.empty() ? "unknown error" : error);
   }
 
@@ -208,7 +183,6 @@ throw(lua_exception) {
       error = s;
     }
 
-    lua_close(state);
     throw lua_exception(error.empty() ? "unknown error" : error);
   }
 
@@ -228,7 +202,6 @@ throw(lua_exception) {
   // Check function.
   lua_getglobal(state, function.c_str());
   if (!lua_isfunction(state, -1)) {
-    lua_close(state);
     throw lua_exception(std::string("function ") + function + " not defined");
   }
 
@@ -241,7 +214,6 @@ throw(lua_exception) {
   try {
     exec(state, nargs, nresults, errfunc);
   } catch(const lua_exception& e) {
-    lua_close(state);
     throw e;
   }
 
@@ -250,17 +222,33 @@ throw(lua_exception) {
     post_exec(state);
   }
 
-  // Check whether an asynchronous action was startet (callback set).
-  // If this is NOT the case: close state.
-  // Otherwise, the asynchronous function is responsible to handle the lifetime.
+  // Check whether an asynchronous action was startet (BOT_CALLBACK set).
+  // If this is NOT the case: call terminated - call on_finish cb the 2nd time.
+  // Otherwise (BOT_CALLBACK is set), the asynchronous function will do this.
   lua_getglobal(state, BOT_CALLBACK);
   if (!lua_isfunction(state, -1)) {
-    lua_close(state);
+    // Check if callback is set.
+    lua_getglobal(state, BOT_LOGIN_CB);
+    if (!lua_isuserdata(state, -1)) {
+      assert(false);
+    }
+
+    // Get callback.
+    void* p = lua_touserdata(state, -1);
+    on_finish_cb* cb = static_cast<on_finish_cb*>(p);
+    lua_pop(state, 1);
+
+    // Unset login callback
+    lua_pushnil(state);
+    lua_setglobal(state, BOT_LOGIN_CB);
+
+    // Call callback function.
+    (*cb)("");
   }
 }
 
-void lua_connection::login(std::shared_ptr<bot> bot,
-                           std::function<void(std::string)>* cb) {
+void lua_connection::login(lua_State* state, std::shared_ptr<bot> bot,
+                           on_finish_cb* cb) {
   // Gather login information.
   std::string username = bot->username();
   std::string password = bot->password();
@@ -268,15 +256,9 @@ void lua_connection::login(std::shared_ptr<bot> bot,
 
   try {
     // Execute login function.
-    run(bot->identifier(), package + "/base.lua", "login", 2, 0, 0,
-        [username, password, cb](lua_State* state) {
-          // Set special on_finish function.
-          lua_register(state, "on_finish", lua_connection::on_login_finish);
-
-          // Set error callback.
-          lua_pushlightuserdata(state, static_cast<void*>(cb));
-          lua_setglobal(state, BOT_LOGIN_CB);
-
+    run(state, cb, bot->identifier(), package + "/base.lua",
+        "login", 2, 0, 0,
+        [&username, &password](lua_State* state) {
           // Push login function arguments.
           lua_pushstring(state, username.c_str());
           lua_pushstring(state, password.c_str());
@@ -286,34 +268,8 @@ void lua_connection::login(std::shared_ptr<bot> bot,
   }
 }
 
-int lua_connection::on_login_finish(lua_State* state) {
-  // Check if callback is set.
-  lua_getglobal(state, BOT_LOGIN_CB);
-  if (!lua_isuserdata(state, -1)) {
-    return 0;
-  }
-
-  // Get callback.
-  void* p = lua_touserdata(state, -1);
-  std::function<void(std::string)>* cb =
-      static_cast<std::function<void(std::string)>*>(p);
-  lua_pop(state, 1);
-
-  // Get result.
-  if (!lua_isboolean(state, -1)) {
-    return luaL_error(state, "no result set");
-  }
-  bool success = static_cast<bool>(lua_toboolean(state, -1));
-  lua_pop(state, 1);
-
-  // Call callback function.
-  (*cb)(success ? "" : "failed");
-
-  return 0;
-}
-
-void lua_connection::module_run(module* module_ptr,
-    std::function<void (std::string, int, int)>* cb) {
+void lua_connection::module_run(lua_State* state, module* module_ptr,
+                                on_finish_cb* cb) {
   // Gather run information.
   std::shared_ptr<bot> bot = module_ptr->get_bot();
   std::string script = module_ptr->script();
@@ -321,48 +277,40 @@ void lua_connection::module_run(module* module_ptr,
 
   try {
     // Execute login function.
-    run(bot->identifier(), script, run_fun, 0, 0, 0,
-        [cb, module_ptr](lua_State* state) {
-          // Set special on_finish function.
-          lua_register(state, "on_finish", lua_connection::on_run_finish);
-
-          // Set module state.
-          module_ptr->set_lua_status(state);
-
-          // Set error callback.
-          lua_pushlightuserdata(state, static_cast<void*>(cb));
-          lua_setglobal(state, BOT_LOGIN_CB);
-        });
+    run(state, cb, bot->identifier(), script, run_fun, 0, 0, 0,
+        [module_ptr](lua_State* state) { module_ptr->set_lua_status(state); });
   } catch(const lua_exception& e) {
-    (*cb)(e.what(), -1, -1);
+    (*cb)(e.what());
   }
 }
 
-int lua_connection::on_run_finish(lua_State* state) {
+int lua_connection::on_finish(lua_State* state) {
+  // Check if state is already finished.
+  lua_getglobal(state, BOT_FINISH);
+  bool finished = lua_isboolean(state, -1) && lua_toboolean(state, -1);
+  lua_pop(state, 1);
+  if (finished) {
+    return luaL_error(state, "on_finish_error");
+  }
+
+  // Mark state as finished.
+  lua_pushboolean(state, static_cast<int>(true));
+  lua_setglobal(state, BOT_FINISH);
+
   // Check if callback is set.
   lua_getglobal(state, BOT_LOGIN_CB);
   if (!lua_isuserdata(state, -1)) {
+    std::cout << "login cb not set\n";
     return 0;
   }
 
   // Get callback.
   void* p = lua_touserdata(state, -1);
-  std::function<void (std::string, int, int)>* cb =
-      static_cast<std::function<void (std::string, int, int)>*>(p);
+  on_finish_cb* cb = static_cast<on_finish_cb*>(p);
   lua_pop(state, 1);
 
-  // Wait time.
-  int argc = lua_gettop(state);
-  int n1 = -1, n0 = -1;
-  if (argc >= 2) {
-    n1 = lua_isnumber(state, -2) ? luaL_checkint(state, -2) : -1;
-  }
-  if (argc >= 1) {
-    n0 = lua_isnumber(state, -1) ? luaL_checkint(state, -1) : -1;
-  }
-
   // Call callback function.
-  (*cb)("", n1, n0);
+  (*cb)("");
 
   return 0;
 }

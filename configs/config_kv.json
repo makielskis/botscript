@@ -1,0 +1,41 @@
+{
+  "username":"oclife",
+  "password":"blablaa",
+  "package":"packages/kv",
+  "server":"http://www.knastvoegel.de",
+  "wait_time_factor":"1.00",
+  "proxy":"",
+  "modules":{
+    "boost":{
+      "active":"1",
+      "maxmissinghealth":"5",
+      "maxmissingsatisfaction":"5",
+      "wastetolerance":"0"
+    },
+    "mission":{
+      "active":"1",
+      "mission_index":"1",
+      "missions":"Hauptmission",
+      "missions_from":"Hauptmission,Flirt-Kurs,Geld eintreiben,Müllräume säubern,Wäschetransport,Vom Gesellen zum Chefkoch,Lackierermeister,Aller Anfang ist schwer,Informationsaustausch,Sparringspartner,Erobere dir deinen Platz,Mach dir einen Namen,Heizkörper reparieren,Zelle einrichten,Nagerabschussrampe,Eiskalte Engel,Wer ist hier Psycho?,Was war los?,Burn, Direx, Burn!,In 80 Tagen aus dem Knast,Schallisolation,Der gute Samariter,Stadtguerilla-Trainingscamp,Wolke 7,Die wundersamen Wundersamen,Gib mir noch Zeit,Lenk den Wärter ab,Die Wundersalbe,Ärger machen,Ausbruchshelfer"
+    },
+    "looting":{
+      "active":"1",
+      "area":"",
+      "area_from":"",
+      "auto_area":"1",
+      "caught_strategy":"bribe",
+      "caught_strategy_from":"bribe,soap,risk",
+      "gangtoll_strategy":"payToll",
+      "gangtoll_strategy_from":"payToll",
+      "timeslot":"0",
+      "timeslot_from":"0,1,2,3,4,5,6"
+    },
+    "train":{
+      "active":"1",
+      "timeslot":"0",
+      "timeslot_from":"0,1,2,3,4,5,6",
+      "type":"physical",
+      "type_from":"mental,physical"
+    }
+  }
+}

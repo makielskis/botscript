@@ -11,6 +11,7 @@
 #include "boost/utility.hpp"
 
 #include "./bot.h"
+#include "./lua/state_wrapper.h"
 #include "./lua/lua_connection.h"
 
 namespace botscript {
@@ -66,15 +67,15 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
   /// status has not changed to STOP_RUN.
   ///
   /// \param self      shared pointer to self to keep us in mind
-  /// \param error     empty string on success, error message on error
-  /// \param wait_min  minimum wait time
-  /// \param wait_max  maximum wait time
+  /// \param state_wr  wrapped lua state that executes the module script
+  /// \param err       empty string on success, error message on error
   void run_cb(std::shared_ptr<module> self,
-              std::string error, int wait_min, int wait_max);
-
-  std::shared_ptr<bot> bot_;
+              std::shared_ptr<state_wrapper> state_wr,
+              std::string err);
 
   boost::asio::io_service* io_service_;
+
+  std::shared_ptr<bot> bot_;
 
   std::string script_;
   std::string module_name_;
@@ -87,7 +88,10 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
   boost::mutex state_mutex_;
   char module_state_;
 
-  std::function<void (std::string, int, int)> run_callback_;
+  std::function<void(std::string)> run_callback_;
+
+  bool run_result_stored_;
+  int wait_min_, wait_max_;
 };
 
 }  // namespace botscript
