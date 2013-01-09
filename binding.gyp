@@ -32,7 +32,7 @@
       },
       "cflags!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
-      "cflags": [ "-std=c++0x -D BS_DEBUG" ],
+      "cflags": [ "-std=c++0x" ],
       "sources": [
         "src/http/url.cc",
         "src/http/http_source.cc",
