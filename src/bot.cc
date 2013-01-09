@@ -260,11 +260,13 @@ void bot::handle_login(std::shared_ptr<bot> self,
 
     if (tries == 0) {
       cb(self, err);
+      state_wr->close();
       login_cb_ = nullptr;
       return;
     } else {
       browser_->change_proxy();
       std::shared_ptr<state_wrapper> next_state = std::make_shared<state_wrapper>();
+      state_wr->close();
       login_cb_ = boost::bind(&bot::handle_login, this,
                               self, next_state, _1, cb, init_commands,
                               load_mod, tries - 1);
@@ -284,12 +286,14 @@ void bot::handle_login(std::shared_ptr<bot> self,
       login_result_stored_ = false;
       if (!login_result_ && tries == 0) {
         cb(self, "Login -> not logged in (wrong login data?)");
+        state_wr->close();
         login_cb_ = nullptr;
         return;
       } else if (!login_result_ && tries > 0) {
         browser_->change_proxy();
         std::shared_ptr<state_wrapper> next_state
             = std::make_shared<state_wrapper>();
+        state_wr->close();
         login_cb_ = boost::bind(&bot::handle_login, this,
                                 self, next_state, _1, cb, init_commands,
                                 load_mod, tries - 1);
@@ -301,6 +305,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
           load_modules(init_commands);
         }
         cb(self, "");
+        state_wr->close();
         login_cb_ = nullptr;
         return;
       }

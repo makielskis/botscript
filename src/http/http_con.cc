@@ -34,18 +34,19 @@ http_con::http_con(boost::asio::io_service* io_service,
 void http_con::operator()(std::string request_str, callback cb) {
   req_timeout_timer_.async_wait(boost::bind(&http_con::timer_callback, this,
                                             shared_from_this(), _1));
-  request(shared_from_this(), std::move(request_str), std::move(cb));
+  return request(shared_from_this(), std::move(request_str), std::move(cb));
 }
 
 void http_con::request(std::shared_ptr<http_con> self,
                        std::string request_str, callback cb) {
   if (!connected_) {
-    resolve(std::move(self), std::move(request_str), std::move(cb));
+    return resolve(std::move(self), std::move(request_str), std::move(cb));
   } else {
-    src_->operator()(std::move(request_str),
-                     std::bind(&http_con::request_finish, this,
-                               std::move(self), std::move(cb),
-                               std::placeholders::_1, std::placeholders::_2));
+    return src_->operator()(std::move(request_str),
+                            std::bind(&http_con::request_finish, this,
+                                      std::move(self), std::move(cb),
+                                      std::placeholders::_1,
+                                      std::placeholders::_2));
   }
 }
 
@@ -63,12 +64,13 @@ void http_con::connect(std::shared_ptr<http_con> self,
                        boost::system::error_code ec,
                        asio::ip::tcp::resolver::iterator iterator) {
   if (!ec) {
-    asio::async_connect(socket_, iterator,
-                        boost::bind(&http_con::on_connect, this,
-                                    std::move(self), std::move(request_str),
-                                    std::move(cb), _1, _2));
+    return asio::async_connect(socket_, iterator,
+                               boost::bind(&http_con::on_connect, this,
+                                           std::move(self),
+                                           std::move(request_str),
+                                           std::move(cb), _1, _2));
   } else {
-    cb(self, "", ec);
+    return cb(self, "", ec);
   }
 }
 
@@ -78,11 +80,12 @@ void http_con::on_connect(std::shared_ptr<http_con> self,
                           asio::ip::tcp::resolver::iterator iterator) {
   if (!ec) {
     connected_ = true;
-    src_->operator()(std::move(request_str),
-                     boost::bind(&http_con::request_finish, this,
-                                 std::move(self), std::move(cb), _1, _2));
+    return src_->operator()(std::move(request_str),
+                            boost::bind(&http_con::request_finish, this,
+                                        std::move(self), std::move(cb),
+                                        _1, _2));
   } else {
-    cb(self, "", ec);
+    return cb(self, "", ec);
   }
 }
 
@@ -118,16 +121,16 @@ void http_con::request_finish(std::shared_ptr<http_con> self, callback cb,
         filter.push(s);
         boost::iostreams::copy(filter, response);
       } catch (const boost::iostreams::gzip_error& e) {
-        cb(self, "", boost::system::error_code(error::GZIP_FAILURE,
-                                               webclient::cat_));
+        return cb(self, "", boost::system::error_code(error::GZIP_FAILURE,
+                                                      webclient::cat_));
       }
     } else {
       boost::iostreams::copy(s, response);
     }
 
-    cb(self, response.str(), boost::system::error_code());
+    return cb(self, response.str(), boost::system::error_code());
   } else {
-    cb(self, "", ec);
+    return cb(self, "", ec);
   }
 }
 

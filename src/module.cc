@@ -71,6 +71,7 @@ void module::run_cb(std::shared_ptr<module> self,
                     std::shared_ptr<state_wrapper> state_wr,
                     std::string err) {
   if (!err.empty()) {
+    state_wr->close();
     run_callback_ = nullptr;
     run_result_stored_ = false;
 
@@ -97,6 +98,7 @@ void module::run_cb(std::shared_ptr<module> self,
         wait_max_ = lua_isnumber(state, -1) ? luaL_checkint(state, -1) : -1;
       }
     } else {
+      state_wr->close();
       run_callback_ = nullptr;
       run_result_stored_ = false;
 
