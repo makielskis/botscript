@@ -1,0 +1,42 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "botscript", "botscript.vcxproj", "{4EF8E0A5-6616-4A18-8CC8-8E9C2CAE4A15}"
+	ProjectSection(ProjectDependencies) = postProject
+		{BFB9551E-0EC1-4964-9708-9CC9DCCF65B4} = {BFB9551E-0EC1-4964-9708-9CC9DCCF65B4}
+		{2CE9C659-43FF-4DA5-811A-BC29C9C1EFE5} = {2CE9C659-43FF-4DA5-811A-BC29C9C1EFE5}
+		{E902A8D0-0750-4D91-952D-D17A215E519A} = {E902A8D0-0750-4D91-952D-D17A215E519A}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lua", "..\lua\lua.vcxproj", "{BFB9551E-0EC1-4964-9708-9CC9DCCF65B4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pugi", "..\pugi\pugi.vcxproj", "{E902A8D0-0750-4D91-952D-D17A215E519A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tidy", "..\tidy\tidy.vcxproj", "{2CE9C659-43FF-4DA5-811A-BC29C9C1EFE5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4EF8E0A5-6616-4A18-8CC8-8E9C2CAE4A15}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4EF8E0A5-6616-4A18-8CC8-8E9C2CAE4A15}.Debug|Win32.Build.0 = Debug|Win32
+		{4EF8E0A5-6616-4A18-8CC8-8E9C2CAE4A15}.Release|Win32.ActiveCfg = Release|Win32
+		{4EF8E0A5-6616-4A18-8CC8-8E9C2CAE4A15}.Release|Win32.Build.0 = Release|Win32
+		{BFB9551E-0EC1-4964-9708-9CC9DCCF65B4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BFB9551E-0EC1-4964-9708-9CC9DCCF65B4}.Debug|Win32.Build.0 = Debug|Win32
+		{BFB9551E-0EC1-4964-9708-9CC9DCCF65B4}.Release|Win32.ActiveCfg = Release|Win32
+		{BFB9551E-0EC1-4964-9708-9CC9DCCF65B4}.Release|Win32.Build.0 = Release|Win32
+		{E902A8D0-0750-4D91-952D-D17A215E519A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E902A8D0-0750-4D91-952D-D17A215E519A}.Debug|Win32.Build.0 = Debug|Win32
+		{E902A8D0-0750-4D91-952D-D17A215E519A}.Release|Win32.ActiveCfg = Release|Win32
+		{E902A8D0-0750-4D91-952D-D17A215E519A}.Release|Win32.Build.0 = Release|Win32
+		{2CE9C659-43FF-4DA5-811A-BC29C9C1EFE5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2CE9C659-43FF-4DA5-811A-BC29C9C1EFE5}.Debug|Win32.Build.0 = Debug|Win32
+		{2CE9C659-43FF-4DA5-811A-BC29C9C1EFE5}.Release|Win32.ActiveCfg = Release|Win32
+		{2CE9C659-43FF-4DA5-811A-BC29C9C1EFE5}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
