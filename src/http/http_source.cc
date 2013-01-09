@@ -82,7 +82,7 @@ void http_source::transfer(boost::system::error_code ec,
         }
         response_.resize(length_);
 
-        if (length_ - read != 0) {
+        if (static_cast<int>(length_) - static_cast<int>(read) > 0) {
           yield asio::async_read(*socket_,
                                  asio::buffer(&(response_[read]),
                                               length_ - read),
@@ -103,8 +103,8 @@ void http_source::transfer(boost::system::error_code ec,
           chunk_bytes = std::min(buf_.size(), chunk_size);
           copy_content(chunk_bytes);
 
-          to_transfer = chunk_size - chunk_bytes;
-          if (to_transfer != 0) {
+          if (static_cast<int>(chunk_size) - static_cast<int>(chunk_bytes) > 0) {
+            to_transfer = chunk_size - chunk_bytes;
             original = response_.size();
             response_.resize(response_.size() + to_transfer);
             yield asio::async_read(*socket_,
