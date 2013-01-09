@@ -36,6 +36,7 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
   std::string script()           const { return script_; }
   std::string lua_run()          const { return lua_run_; }
   std::string name()             const { return module_name_; }
+  bool load_success()            const { return load_success_; }
 
  private:
   /// Enum representing the different states the module can be in.
@@ -92,6 +93,8 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
 
   bool run_result_stored_;
   int wait_min_, wait_max_;
+
+  bool load_success_;
 };
 
 }  // namespace botscript

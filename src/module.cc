@@ -21,7 +21,8 @@ module::module(const std::string& script, std::shared_ptr<bot> bot,
       module_state_(OFF),
       run_result_stored_(false),
       wait_min_(-1),
-      wait_max_(-1) {
+      wait_max_(-1),
+      load_success_(false) {
   bot_->log(bot::BS_LOG_NFO, "base", std::string("loading module ") + script);
 
   // Discover module name.
@@ -39,7 +40,7 @@ module::module(const std::string& script, std::shared_ptr<bot> bot,
 
   // Initialize status.
   std::map<std::string, std::string> lua_status;
-  lua_connection::get_status(script, lua_status_, &lua_status);
+  load_success_ = lua_connection::get_status(script, lua_status_, &lua_status);
   for(const auto& s : lua_status) {
     bot->status(module_name_ + "_" + s.first, s.second);
   }

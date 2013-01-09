@@ -311,6 +311,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
 void bot::load_modules(const command_sequence& init_commands) {
   // Load modules from package folder:
   // Read every non-hidden file except servers.lua and base.lua
+  std::shared_ptr<bot> self = shared_from_this();
   using boost::filesystem::directory_iterator;
   if (boost::filesystem::is_directory(package_)) {
     for (directory_iterator i = directory_iterator(package_);
@@ -319,11 +320,10 @@ void bot::load_modules(const command_sequence& init_commands) {
       if (!boost::algorithm::ends_with(path, "servers.lua") &&
           !boost::algorithm::ends_with(path, "base.lua") &&
           !boost::starts_with(i->path().filename().string(), ".")) {
-        try {
-          auto m = std::make_shared<module>(path, shared_from_this(),
-                                            io_service_);
-          modules_.push_back(m);
-        } catch(lua_exception) {
+        auto new_module = std::make_shared<module>(path, self, io_service_);
+        if (new_module->load_success()) {
+          modules_.push_back(new_module);
+        } else {
           log(BS_LOG_ERR, "base", path + " could not be loaded");
         }
       }

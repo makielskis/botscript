@@ -96,7 +96,7 @@ class http_source : coroutine,
   int status_code_;
 
   /// The HTTP response Content-Length.
-  int length_;
+  std::size_t length_;
 
   /// The HTTP response header.
   std::map<std::string, std::string> header_;

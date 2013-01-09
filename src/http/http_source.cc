@@ -22,8 +22,8 @@ boost::regex http_source::chunk_size_rx_("\r?\n?[0-9a-fA-F]+\r\n");
 
 http_source::http_source(boost::asio::ip::tcp::socket* socket)
     : socket_(socket),
-      status_code_(0),
       response_stream_(&buf_),
+      status_code_(0),
       length_(0) {
 }
 
@@ -169,10 +169,11 @@ std::size_t http_source::copy_content(std::size_t buffer_size) {
 }
 
 void http_source::read_content_length() throw(std::bad_cast) {
-  length_ = boost::lexical_cast<int>(header_["content-length"]);
-  if (length_ < 0) {
+  int l = boost::lexical_cast<int>(header_["content-length"]);
+  if (l < 0) {
     throw std::bad_cast();
   }
+  length_ = static_cast<std::size_t>(l);
 }
 
 }  // namespace http
