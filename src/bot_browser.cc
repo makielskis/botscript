@@ -47,8 +47,12 @@ void bot_browser::set_proxy_list(const std::string& proxies,
   boost::regex regex(
       "((\\d{1, 3}\\.\\d{1, 3}\\.\\d{1, 3}\\.\\d{1, 3}):(\\d{1, 5}))");
   boost::sregex_iterator regex_iter(proxies.begin(), proxies.end(), regex), end;
+  int count = 0;
   for (; regex_iter != end; ++regex_iter) {
     proxy_list.push_back((*regex_iter)[1].str());
+	if (++count > 10) {
+		break;
+	}
   }
   return set_proxy_list(proxy_list, callback);
 }
