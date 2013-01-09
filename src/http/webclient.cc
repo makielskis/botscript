@@ -95,23 +95,23 @@ void webclient::request_finish(const url& request_url,
   }
 }
 
-void webclient::submit(const std::string& xpath,
-                       const std::string& page,
-                       std::map<std::string, std::string> input_params,
-                       const std::string& action,
-                       callback cb, boost::posix_time::time_duration timeout) {
-  // Determine XML element from given XPath.
+boost::system::error_code webclient::submit(
+    const std::string& xpath, const std::string& page,
+    std::map<std::string, std::string> input_params, const std::string& action,
+    callback cb, boost::posix_time::time_duration timeout) {
+  // Load document.
   pugi::xml_document doc;
   doc.load(page.c_str());
   pugi::xml_node form;
 
+  // Determine XML element from given XPath.
   try {
     form = doc.select_single_node(xpath.c_str()).node();
     if (form.empty()) {
-      return cb("", boost::system::error_code(error::NO_FORM_OR_SUBMIT, cat_));
+      return boost::system::error_code(error::NO_FORM_OR_SUBMIT, cat_);
     }
   } catch(pugi::xpath_exception) {
-    return cb("", boost::system::error_code(error::INVALID_XPATH, cat_));
+    return boost::system::error_code(error::INVALID_XPATH, cat_);
   }
 
   // Store submit element.
@@ -121,7 +121,7 @@ void webclient::submit(const std::string& xpath,
     // Node is not a form, so it has to be a submit element.
     if (std::strcmp(form.attribute("type").value(), "submit") != 0) {
       // Neither a form nor a submit? We're out.
-      return cb("", boost::system::error_code(error::NO_FORM_OR_SUBMIT, cat_));
+      return boost::system::error_code(error::NO_FORM_OR_SUBMIT, cat_);
     }
 
     // The node is the submit element. Find corresponding form element.
@@ -130,8 +130,7 @@ void webclient::submit(const std::string& xpath,
 
       if (form == form.root()) {
         // Root reached, no form found.
-        using boost::system::error_code;
-        return cb("", error_code(error::SUBMIT_NOT_IN_FORM, cat_));
+        return boost::system::error_code(error::SUBMIT_NOT_IN_FORM, cat_);
       }
     }
   }
@@ -162,7 +161,7 @@ void webclient::submit(const std::string& xpath,
 
   // Check if all input parameters were found.
   if (!input_params.empty()) {
-    return cb("", boost::system::error_code(error::PARAM_MISMATCH, cat_));
+    return boost::system::error_code(error::PARAM_MISMATCH, cat_);
   }
 
   // Remove last '&'.
@@ -183,7 +182,8 @@ void webclient::submit(const std::string& xpath,
     u.append(action);
   }
 
-  return request(url(u), util::POST, params_str, cb, MAX_REDIRECT, timeout);
+  request(url(u), util::POST, params_str, cb, MAX_REDIRECT, timeout);
+  return boost::system::error_code();
 }
 
 void webclient::store_cookies(const std::string& new_cookies) {

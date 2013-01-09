@@ -45,10 +45,11 @@ class bot_browser : public http::webclient,
   void set_proxy_list(std::vector<std::string> proxy_list,
                       std::function<void(int)> callback);
 
-  void submit(const std::string& xpath, const std::string& page,
-              std::map<std::string, std::string> input_params,
-              const std::string& action, callback cb,
-              boost::posix_time::time_duration timeout, int tries);
+  boost::system::error_code submit(
+      const std::string& xpath, const std::string& page,
+      std::map<std::string, std::string> input_params,
+      const std::string& action, callback cb,
+      boost::posix_time::time_duration timeout, int tries);
 
   void request(const http::url& u, int method, std::string body, callback cb,
                boost::posix_time::time_duration timeout, int tries);

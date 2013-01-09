@@ -262,9 +262,13 @@ int lua_http::submit_form(lua_State* state) {
 ,debug
 #endif
 );
-  b->io_service()->post(boost::bind(&bot_browser::submit, b->browser(),
-                                    xpath, content, parameters, action, cb,
-                                    boost::posix_time::seconds(15), 3));
+
+  boost::system::error_code ec;
+  ec = b->browser()->submit(xpath, content, parameters, action, cb,
+                            boost::posix_time::seconds(15), 3);
+  if (ec) {
+    return luaL_error(state, ec.message().c_str());
+  }
 
   return 0;
 }

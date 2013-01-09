@@ -49,10 +49,11 @@ class webclient {
   /// \param action the action attribute of the form to use (empty string to use
   ///               the default form action
   /// \param cb the callback to call on request finish
-  virtual void submit(const std::string& xpath, const std::string& page,
-                      std::map<std::string, std::string> input_params,
-                      const std::string& action,
-                      callback cb, boost::posix_time::time_duration timeout);
+  virtual boost::system::error_code submit(
+      const std::string& xpath, const std::string& page,
+      std::map<std::string, std::string> input_params,
+      const std::string& action,
+      callback cb, boost::posix_time::time_duration timeout);
 
   /// Does a asynchronous HTTP request.
   ///
