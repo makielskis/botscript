@@ -62,7 +62,7 @@ class proxy_check : public std::enable_shared_from_this<proxy_check>,
     : request_(std::move(request)),
       con_(std::make_shared<http::http_con>(io_service,
                                             proxy.host(), proxy.port(),
-                                            boost::posix_time::seconds(50))),
+                                            boost::posix_time::seconds(180))),
       check_fun_(check_fun),
       proxy_(proxy) {
   }
