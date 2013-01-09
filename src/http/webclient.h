@@ -42,25 +42,26 @@ class webclient {
 
   /// Submits the form that is specified by the given XPath. 
   ///
-  /// \param xpath The XPath can either point to the form itself or to an submit
-  ///              input contained in the form (preferred).
-  /// \param page the page that contains the form specified by the xpath param.
-  /// \param input_params the input values to set when submitting
-  /// \param action the action attribute of the form to use (empty string to use
-  ///               the default form action
-  /// \param cb the callback to call on request finish
-  virtual boost::system::error_code submit(
-      const std::string& xpath, const std::string& page,
-      std::map<std::string, std::string> input_params,
-      const std::string& action,
-      callback cb, boost::posix_time::time_duration timeout);
+  /// \param xpath         can either point to the form itself or to
+  ///                      an submit input contained in the form (preferred).
+  /// \param page          page that contains the specified form
+  /// \param input_params  input values to set when submitting
+  /// \param action        action attribute of the form to use
+  ///                      (empty string to use the default form action)
+  /// \param cb            the callback to call on request finish
+  /// \param ec            error code, callback won't be called if cb is set!
+  virtual void submit(const std::string& xpath, const std::string& page,
+                      std::map<std::string, std::string> input_params,
+                      const std::string& action,
+                      callback cb, boost::posix_time::time_duration timeout,
+                      boost::system::error_code& ec);
 
   /// Does a asynchronous HTTP request.
   ///
-  /// \param u the URL to request
-  /// \param method the method to use (util::GET or util::POST)
-  /// \param body the request content to send (if request type is util::POST)
-  /// \param cb the callback to call on request finish
+  /// \param u       the URL to request
+  /// \param method  the method to use (util::GET or util::POST)
+  /// \param body    the request content to send (if request type is util::POST)
+  /// \param cb      the callback to call on request finish
   /// \param remaining_redirects the maximum number of redirects
   virtual void request(const url& u, int method, std::string body, callback cb,
                        int remaining_redirects,
@@ -73,13 +74,13 @@ class webclient {
   /// Function that will be called on request finish. Calls the user callback
   /// function provided when calling request / submit.
   ///
-  /// \param host the originally requested host
-  ///             (to be able to handle relative redirects)
-  /// \param remaining_redirects the number of remaining redirects
-  /// \param cb the callback to call on request finish
-  /// \param con_ptr points to the connection used to do the request
-  /// \param response the response
-  /// \param ec the error code
+  /// \param request_url          the originally requested url
+  ///                             (to be able to handle relative redirects)
+  /// \param remaining_redirects  the number of remaining redirects
+  /// \param cb                   callback to call on request finish
+  /// \param con_ptr              connection used to do the request
+  /// \param response             the response
+  /// \param ec                   the error code
   void request_finish(const url& request_url,
                       boost::posix_time::time_duration timeout,
                       int remaining_redirects, callback cb,

@@ -91,18 +91,20 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
   }
 }
 
-boost::system::error_code bot_browser::submit(
-    const std::string& xpath, const std::string& page,
-    std::map<std::string, std::string> input_params,
-    const std::string& action, callback cb,
-    boost::posix_time::time_duration timeout, int tries) {
+void bot_browser::submit(const std::string& xpath, const std::string& page,
+                         std::map<std::string, std::string> input_params,
+                         const std::string& action, callback cb,
+                         boost::posix_time::time_duration timeout, int tries,
+                         boost::system::error_code& ec) {
   std::function<void(int)> retry = boost::bind(&bot_browser::submit, this,
                                                xpath, page,
                                                input_params, action,
-                                               cb, timeout * 2, _1);
+                                               cb, timeout * 2, _1,
+                                               boost::system::error_code());
   callback req_cb = boost::bind(&bot_browser::request_cb, this,
       shared_from_this(), tries, retry, cb, _1, _2);
-  return webclient::submit(xpath, page, input_params, action, req_cb, timeout);
+  return webclient::submit(xpath, page, input_params, action,
+                           req_cb, timeout, ec);
 }
 
 void bot_browser::request(const http::url& u, int method, std::string body,

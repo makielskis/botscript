@@ -211,8 +211,8 @@ int lua_http::submit_form(lua_State* state) {
                       std::placeholders::_1, std::placeholders::_2);
 
   boost::system::error_code ec;
-  ec = b->browser()->submit(xpath, content, parameters, action, cb,
-                            boost::posix_time::seconds(15), 3);
+  b->browser()->submit(xpath, content, parameters, action, cb,
+                            boost::posix_time::seconds(15), 3, ec);
   if (ec) {
     return luaL_error(state, ec.message().c_str());
   }

@@ -3,13 +3,7 @@ project(botscript)
 
 set(BOOST_PATH "/home/wasabi/boost_1_52_0/")
 
-# Uncomment to use Clang compiler (improved error/warning output).
-#SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
-SET (CMAKE_CXX_FLAGS                "-std=c++0x -g -O0")
-#SET (CMAKE_CXX_FLAGS_DEBUG          "-g")
-#SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
-#SET (CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
-#SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
+SET (CMAKE_CXX_FLAGS "-std=c++0x")
 
 add_executable(botscript
   src/http/url.cc

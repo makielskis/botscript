@@ -36,10 +36,10 @@ class http_con : public std::enable_shared_from_this<http_con> {
   /// Constructor. Does not establish the connection itself. The connection will
   /// be established on the first call to operator()(...).
   ///
-  /// \param io_service points to the Asio io_service object to use for requests
-  /// \param host the host to connect to
-  /// \param port the port to connect to
-  /// \param timeout the request timeout
+  /// \param io_service  points to the Asio io_service object
+  /// \param host        the host to connect to
+  /// \param port        the port to connect to
+  /// \param timeout     the request timeout
   http_con(boost::asio::io_service* io_service,
            std::string host, std::string port,
            boost::posix_time::time_duration timeout);
@@ -64,9 +64,9 @@ class http_con : public std::enable_shared_from_this<http_con> {
   /// request -> resolve -> connect -> on_connect
   ///         -> http_source() -> request_finish
   ///
-  /// \param self shared pointer to self
-  /// \param request_str the request string to send
-  /// \param cb the callback to call on request finish
+  /// \param self         shared pointer to self
+  /// \param request_str  request string to send
+  /// \param cb           callback to call on request finish
   void request(std::shared_ptr<http_con> self,
                std::string request_str, callback cb);
 

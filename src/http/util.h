@@ -23,11 +23,11 @@ typedef std::vector<std::pair<std::string, std::string>> parameters;
 
 /// Builds a HTTP request using the provided information.
 ///
-/// \param u the URL to request
-/// \param method the HTTP method to use (util::GET or util::POST)
-/// \param content the request content to send (request body)
-/// \param head the HTTP headers to send
-/// \param use_proxy flag indicating whether this is a request to a proxy
+/// \param u          URL to request
+/// \param method     HTTP method to use (util::GET or util::POST)
+/// \param content    request content to send (request body)
+/// \param head       HTTP headers to send
+/// \param use_proxy  flag indicating whether this is a request to a proxy
 std::string build_request(const url& u, const int method,
                           const std::string& content,
                           const std::map<std::string, std::string>& head,
@@ -35,8 +35,8 @@ std::string build_request(const url& u, const int method,
 
 /// Stores the given URL as location meta tag in the given page.
 ///
-/// \param page the page to store the location in
-/// \param url the URL to store
+/// \param page  page to store the location in
+/// \param url   URL to store
 /// \return the page with the stored URL
 std::string store_location(std::string page, const std::string& url);
 

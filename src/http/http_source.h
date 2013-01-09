@@ -42,8 +42,8 @@ class http_source : coroutine,
 
   /// Starts the asynchronous operation.
   ///
-  /// \param requerst the request to send
-  /// \param cb the callback to call on finish
+  /// \param request  request to send
+  /// \param cb       callback to call on finish
   void operator()(std::string request, callback cb);
 
   /// \sa Boost Iostreams
@@ -60,8 +60,8 @@ class http_source : coroutine,
  private:
   /// Reentrant transfer function.
   ///
-  /// \param ec the error code produced by the last operation
-  /// \param cb the callback to call on finish
+  /// \param ec  error code produced by the last operation
+  /// \param cb  callback to call on finish
   void transfer(boost::system::error_code ec,
                 std::function<void(boost::system::error_code)> cb);
 
