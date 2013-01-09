@@ -6,9 +6,6 @@
 
 #include <iostream>
 #include <memory>
-#ifdef BS_DEBUG
-#include <sstream>
-#endif
 
 #include "boost/date_time/posix_time/posix_time.hpp"
 #include "boost/lambda/lambda.hpp"
@@ -29,12 +26,7 @@ void lua_http::open(lua_State* state) {
 }
 
 void lua_http::on_req_finish(lua_State* state, std::string response,
-                             boost::system::error_code ec
-#ifdef BS_DEBUG
-                             ,std::string dbg) {
-#else
-                                             ) {
-#endif
+                             boost::system::error_code ec) {
   // Check failure.
   if (ec) {
     return lua_connection::on_error(state, ec.message());
@@ -110,25 +102,10 @@ int lua_http::get(lua_State* state, bool path) {
     return luaL_error(state, "no bot for state");
   }
 
-#ifdef BS_DEBUG
-  lua_Debug ar;
-  lua_getstack(state, 1, &ar);
-  lua_getinfo(state, "nSl", &ar);
-  int line = ar.currentline;
-  std::string src = ar.short_src;
-  std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line;
-  std::string debug = dbg_stream.str();
-#endif
-
   // Do asynchronous call.
   url = path ? b->server() + url : url;
   b->browser()->request(http::url(url), http::util::GET, "",
-                        boost::bind(on_req_finish, state, _1, _2
-#ifdef BS_DEBUG
-,debug
-#endif
-),
+                        boost::bind(on_req_finish, state, _1, _2),
                         boost::posix_time::seconds(15), 3);
 
   return 0;
@@ -163,25 +140,10 @@ int lua_http::post(lua_State* state, bool path) {
     return luaL_error(state, "no bot for state");
   }
 
-#ifdef BS_DEBUG
-  lua_Debug ar;
-  lua_getstack(state, 1, &ar);
-  lua_getinfo(state, "nSl", &ar);
-  int line = ar.currentline;
-  std::string src = ar.short_src;
-  std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line;
-  std::string debug = dbg_stream.str();
-#endif
-
   // Do asynchronous call.
   url = path ? b->server() + url : url;
   b->browser()->request(http::url(url), http::util::POST, content,
-                        boost::bind(on_req_finish, state, _1, _2
-#ifdef BS_DEBUG
-,debug
-#endif
-),
+                        boost::bind(on_req_finish, state, _1, _2),
                         boost::posix_time::seconds(15), 3);
 
   return 0;
@@ -244,24 +206,9 @@ int lua_http::submit_form(lua_State* state) {
     return luaL_error(state, "no bot for state");
   }
 
-#ifdef BS_DEBUG
-  lua_Debug ar;
-  lua_getstack(state, 1, &ar);
-  lua_getinfo(state, "nSl", &ar);
-  int line = ar.currentline;
-  std::string src = ar.short_src;
-  std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line;
-  std::string debug = dbg_stream.str();
-#endif
-
   // Do asynchronous call.
   auto cb = std::bind(on_req_finish, state,
-                      std::placeholders::_1, std::placeholders::_2
-#ifdef BS_DEBUG
-,debug
-#endif
-);
+                      std::placeholders::_1, std::placeholders::_2);
 
   boost::system::error_code ec;
   ec = b->browser()->submit(xpath, content, parameters, action, cb,
