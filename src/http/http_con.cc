@@ -53,10 +53,10 @@ void http_con::request(std::shared_ptr<http_con> self,
 void http_con::resolve(std::shared_ptr<http_con> self,
                        std::string request_str, callback cb) {
   asio::ip::tcp::resolver::query query(host_, port_);
-  resolver_.async_resolve(query, boost::bind(&http_con::connect, this,
-                                             std::move(self),
-                                             std::move(request_str),
-                                             std::move(cb), _1, _2));
+  return resolver_.async_resolve(query, boost::bind(&http_con::connect, this,
+                                                    std::move(self),
+                                                    std::move(request_str),
+                                                    std::move(cb), _1, _2));
 }
 
 void http_con::connect(std::shared_ptr<http_con> self,

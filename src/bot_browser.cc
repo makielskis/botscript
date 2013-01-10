@@ -50,9 +50,9 @@ void bot_browser::set_proxy_list(const std::string& proxies,
   int count = 0;
   for (; regex_iter != end; ++regex_iter) {
     proxy_list.push_back((*regex_iter)[1].str());
-	if (++count > 10) {
-		break;
-	}
+    if (++count > 10) {
+      break;
+    }
   }
   return set_proxy_list(proxy_list, callback);
 }
