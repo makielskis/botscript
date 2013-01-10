@@ -180,7 +180,16 @@ void bot_browser::proxy_check_callback(std::function<void(int)> callback,
     } else {
       bot_->log(bot::BS_LOG_ERR, "browser", "no working proxy found");
     }
-    callback(good_.size());
+
+    // Convert good_ to proxy list string and set bot status.
+    std::stringstream proxy_list;
+    for (const auto& p : good_) {
+      proxy_list << p.str() << "\n";
+    }
+    bot_->status("base_proxy", proxy_list.str());
+
+    // Last proxy - time to call back.
+    return callback(good_.size());
   }
 }
 
