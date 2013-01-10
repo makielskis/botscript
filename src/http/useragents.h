@@ -1,28 +1,12 @@
-/*
- * This code contains to one of the Makielski projects.
- * Visit http://makielski.net for more information.
- * 
- * Copyright (C) 11. April 2012  makielskis@gmail.com
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+// Copyright (c) 2012, makielski.net
+// Licensed under the MIT license
+// https://raw.github.com/makielski/botscript/master/COPYING
 
 #include <string>
 #include <map>
 
-#ifndef USERAGENTS
-#define USERAGENTS
+#ifndef HTTP_USERAGENTS_H_
+#define HTTP_USERAGENTS_H_
 
 namespace http {
 
@@ -45,7 +29,7 @@ class useragents {
     seed %= 32768;
 
     double random = static_cast<double>(seed) / 32768;
-    int id = std::floor(random * ua_count);
+    int id = static_cast<int>(std::floor(random * ua_count));
 
     return ua(id);
   }
@@ -109,4 +93,4 @@ class useragents {
 
 }  // namespace http
 
-#endif  // USERAGENTS_H_
+#endif  // HTTP_USERAGENTS_H_

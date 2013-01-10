@@ -1,6 +1,6 @@
 {
   "variables" : {
-    "boost_path": "/home/wasabi/boost_1_48_0/",
+    "boost_path": "/home/wasabi/boost_1_52_0/",
     "build_path": "/home/wasabi/Development/cppbot/botscript_new/"
   },
   "targets": [
@@ -33,7 +33,20 @@
       "cflags!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags": [ "-std=c++0x" ],
-      "sources": [ "src/node/nodejs_botscript.cc", "src/lua_connection.cpp", "src/bot.cpp", "src/module.cpp" ]
+      "sources": [
+        "src/http/url.cc",
+        "src/http/http_source.cc",
+        "src/http/http_con.cc",
+        "src/http/util.cc",
+        "src/http/webclient.cc",
+        "src/lua/lua_connection.cc",
+        "src/lua/lua_util.cc",
+        "src/lua/lua_http.cc",
+        "src/bot_browser.cc",
+        "src/module.cc",
+        "src/bot.cc",
+        "src/node/nodejs_botscript.cc"
+      ]
     }
   ]
 }
