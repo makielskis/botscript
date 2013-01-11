@@ -208,15 +208,6 @@ std::string bot::configuration(bool with_password) {
   }
   document.AddMember("package", package_.c_str(), allocator);
   document.AddMember("server", server_.c_str(), allocator);
-  document.AddMember("wait_time_factor",
-                     status_["base_wait_time_factor"].c_str(), allocator);
-
-  // Write proxy.
-  std::map<std::string, std::string>::const_iterator i =
-      status_.find("base_proxy");
-  std::string proxy = (i == status_.end()) ? "" : i->second;
-  rapidjson::Value proxy_value(proxy.c_str(), allocator);
-  document.AddMember("proxy", proxy_value, allocator);
 
   // Write module configuration values.
   rapidjson::Value modules(rapidjson::kObjectType);
@@ -237,6 +228,24 @@ std::string bot::configuration(bool with_password) {
     rapidjson::Value name_attr(module_name.c_str(), allocator);
     modules.AddMember(name_attr, module, allocator);
   }
+
+  rapidjson::Value base_module(rapidjson::kObjectType);
+
+  // Write pseudo module "base" containig the wait time factor and proxy.
+  base_module.AddMember("wait_time_factor",
+                        status_["base_wait_time_factor"].c_str(), allocator);
+
+  // Write proxy.
+  std::map<std::string, std::string>::const_iterator i =
+      status_.find("base_proxy");
+  std::string proxy = (i == status_.end()) ? "" : i->second;
+  rapidjson::Value proxy_value(proxy.c_str(), allocator);
+  base_module.AddMember("proxy", proxy_value, allocator);
+
+  // Add base module to modules.
+  modules.AddMember("base", base_module, allocator);
+
+  // Add modules to configuration.
   document.AddMember("modules", modules, allocator);
 
   // Convert to string.
