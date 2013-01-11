@@ -433,7 +433,7 @@ std::string bot::load_packages(const std::string& folder) {
     rapidjson::Value wtf_value_range_key("value_range", allocator);
     rapidjson::Value wtf_value_range_value("0.2,3.0", allocator);
     wtf_input.AddMember(wtf_value_range_key, wtf_value_range_value, allocator);
-    base.AddMember("base_wait_time_factor", wtf_input, allocator);
+    base.AddMember("wait_time_factor", wtf_input, allocator);
 
     // Add bot setting proxy as base module setting.
     rapidjson::Value proxy_input(rapidjson::kObjectType);
@@ -445,7 +445,7 @@ std::string bot::load_packages(const std::string& folder) {
     rapidjson::Value proxy_display_name_value("Proxy", allocator);
     proxy_input.AddMember(proxy_display_name_key,
                           proxy_display_name_value, allocator);
-    base.AddMember("base_proxy", proxy_input, allocator);
+    base.AddMember("proxy", proxy_input, allocator);
 
     // Set base module name.
     base.AddMember("module", "Basis Konfiguration", allocator);
