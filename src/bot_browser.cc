@@ -72,16 +72,13 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
                                             http::util::GET, "", headers_,
                                             true);
 
-  // Log proxy count.
-  std::string size_str = boost::lexical_cast<std::string>(proxy_list.size());
-  bot_->log(bot::BS_LOG_NFO, "browser",
-            std::string("checking ") + size_str + " proxies");
-
   // Start proxy checks.
+  int proxy_checks = 0;
   for (const std::string& p : proxy_list) {
     proxy pr(p);
     if (proxy_checks_.find(p) == proxy_checks_.end() &&
         std::find(good_.begin(), good_.end(), pr) == good_.end()) {
+      ++proxy_checks;
       auto c = std::make_shared<proxy_check>(io_service_, pr,
                                              check_request, &check_fun_);
       proxy_checks_[p] = c;
@@ -89,6 +86,17 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
                          std::placeholders::_1, std::placeholders::_2));
     }
   }
+
+  // Check if a single proxy check was started. Call callback if not.
+  if (proxy_checks == 0) {
+    bot_->log(bot::BS_LOG_NFO, "browser", "no new proxies, nothing to check");
+    return callback(0);
+  }
+
+  // Log proxy count.
+  std::string size_str = boost::lexical_cast<std::string>(proxy_checks);
+  bot_->log(bot::BS_LOG_NFO, "browser",
+            std::string("checking ") + size_str + " proxies");
 }
 
 void bot_browser::submit(const std::string& xpath, const std::string& page,

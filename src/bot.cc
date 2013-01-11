@@ -77,7 +77,14 @@ void bot::init(const std::string& config, const error_cb& cb) {
   }
 
   // Check if all necessary configuration values are available.
-  if (!document.HasMember("username") ||
+  if (!document.HasMember("modules") ||
+      !document["modules"].IsObject() ||
+      !document["modules"].HasMember("base") ||
+      !document["modules"]["base"].HasMember("wait_time_factor") ||
+      !document["modules"]["base"]["wait_time_factor"].IsString() ||
+      !document["modules"]["base"].HasMember("proxy") ||
+      !document["modules"]["base"]["proxy"].IsString() ||
+      !document.HasMember("username") ||
       !document.HasMember("password") ||
       !document.HasMember("package") ||
       !document.HasMember("server") ||
@@ -101,25 +108,13 @@ void bot::init(const std::string& config, const error_cb& cb) {
   }
   lua_connection::add(shared_from_this());
 
-  // Read wait time factor.
-  std::string wait_time_factor;
-  if (document.HasMember("wait_time_factor") &&
-      document["wait_time_factor"].IsString()) {
-    wait_time_factor = document["wait_time_factor"].GetString();
-  } else {
-    wait_time_factor = "1";
-  }
+  // Read and set wait time factor.
+  std::string wtf = document["modules"]["base"]["wait_time_factor"].GetString();
+  wtf = wtf.empty() ? "1.00" : wtf;
+  execute("base_set_wait_time_factor", wtf);
 
   // Read proxy settings.
-  std::string proxy;
-  if (document.HasMember("proxy") && document["proxy"].IsString()) {
-    proxy = document["proxy"].GetString();
-  } else {
-    proxy = "";
-  }
-
-  // Set wait time factor.
-   execute("base_set_wait_time_factor", wait_time_factor);
+  std::string proxy = document["modules"]["base"]["proxy"].GetString();
 
   // Create execute command sequence from module configurations
   // for later execution (after the login has been performed).
@@ -137,6 +132,11 @@ void bot::init(const std::string& config, const error_cb& cb) {
 
       // Extract module name.
       std::string module = i->name.GetString();
+
+      // Base module had been handled previously.
+      if (module == "base") {
+        continue;
+      }
 
       // Iterate module settings.
       rapidjson::Value::ConstMemberIterator it = m.MemberBegin();
@@ -601,7 +601,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
     std::shared_ptr<bot> self = shared_from_this();
     browser_->set_proxy_list(argument, [this, self](int success) {
       if (!success) {
-        log(BS_LOG_ERR, "base", "no working proxy found");
+        log(BS_LOG_ERR, "base", "no new working proxy found");
       } else {
         log(BS_LOG_NFO, "base", "login: 1. try");
         command_sequence commands;
