@@ -410,6 +410,36 @@ std::string bot::load_packages(const std::string& folder) {
     }
     a.AddMember("servers", l, allocator);
 
+    // Write pseudo module "bases" interface description.
+    rapidjson::Value base(rapidjson::kObjectType);
+
+    // Add bot setting wait time factor as base module setting.
+    rapidjson::Value wtf_input(rapidjson::kObjectType);
+    rapidjson::Value wtf_input_type_key("input_type", allocator);
+    rapidjson::Value wtf_input_type_value("slider", allocator);
+    wtf_input.AddMember(wtf_input_type_key, wtf_input_type_value, allocator);
+    rapidjson::Value wtf_display_name_key("display_name", allocator);
+    rapidjson::Value wtf_display_name_value("Wartezeiten Faktor", allocator);
+    wtf_input.AddMember(wtf_display_name_key, wtf_display_name_value, allocator);
+    rapidjson::Value wtf_value_range_key("value_range", allocator);
+    rapidjson::Value wtf_value_range_value("0.2,3.0", allocator);
+    wtf_input.AddMember(wtf_value_range_key, wtf_value_range_value, allocator);
+    base.AddMember("base_wait_time_factor", wtf_input, allocator);
+
+    // Add bot setting proxy as base module setting.
+    rapidjson::Value proxy_input(rapidjson::kObjectType);
+    rapidjson::Value proxy_input_type_key("input_type", allocator);
+    rapidjson::Value proxy_input_type_value("textarea", allocator);
+    proxy_input.AddMember(proxy_input_type_key,
+                          proxy_input_type_value, allocator);
+    rapidjson::Value proxy_display_name_key("display_name", allocator);
+    rapidjson::Value proxy_display_name_value("Proxy", allocator);
+    proxy_input.AddMember(proxy_display_name_key,
+                          proxy_display_name_value, allocator);
+    base.AddMember("base_proxy", proxy_input, allocator);
+
+    a.AddMember("base", base, allocator);
+
     // Write interface descriptions from all modules.
     for (directory_iterator j = directory_iterator(i->path());
          j != directory_iterator(); ++j) {
@@ -426,10 +456,10 @@ std::string bot::load_packages(const std::string& folder) {
             allocator);
 
         // Read interface information from lua script.
-        jsonval_ptr interface = lua_connection::iface(mod_path, &allocator);
+        jsonval_ptr iface = lua_connection::iface(mod_path, &allocator);
 
         // Write value to package information.
-        a.AddMember(module_name, *interface.get(), allocator);
+        a.AddMember(module_name, *iface.get(), allocator);
       }
     }
 
