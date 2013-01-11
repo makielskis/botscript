@@ -601,7 +601,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
     std::shared_ptr<bot> self = shared_from_this();
     browser_->set_proxy_list(argument, [this, self](int success) {
       if (!success) {
-        log(BS_LOG_ERR, "base", "no working proxy found");
+        log(BS_LOG_ERR, "base", "no new working proxy found");
       } else {
         log(BS_LOG_NFO, "base", "login: 1. try");
         command_sequence commands;

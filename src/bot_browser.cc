@@ -90,7 +90,7 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
   // Check if a single proxy check was started. Call callback if not.
   if (proxy_checks == 0) {
     bot_->log(bot::BS_LOG_NFO, "browser", "no new proxies, nothing to check");
-    return callback(good_.size());
+    return callback(0);
   }
 
   // Log proxy count.
