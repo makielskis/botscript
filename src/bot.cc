@@ -447,6 +447,9 @@ std::string bot::load_packages(const std::string& folder) {
                           proxy_display_name_value, allocator);
     base.AddMember("base_proxy", proxy_input, allocator);
 
+    // Set base module name.
+    base.AddMember("module", "Basis Konfiguration", allocator);
+
     a.AddMember("base", base, allocator);
 
     // Write interface descriptions from all modules.
