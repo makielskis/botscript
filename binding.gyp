@@ -1,7 +1,7 @@
 {
   "variables" : {
-    "boost_path": "/home/wasabi/boost_1_52_0/",
-    "build_path": "/home/wasabi/Development/cppbot/botscript_new/"
+    "boost_path": "/home/perry/boost_1_49_0/",
+    "build_path": "/home/perry/botscript/"
   },
   "targets": [
     {
