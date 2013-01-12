@@ -4,6 +4,8 @@
 
 #include "./module.h"
 
+#include <sstream>
+
 #include "boost/lexical_cast.hpp"
 
 namespace botscript {
@@ -46,6 +48,15 @@ module::module(const std::string& script, std::shared_ptr<bot> bot,
   }
 }
 
+module::~module() {
+  std::stringstream msg;
+  msg << "bot use count = " << bot_.use_count();
+  bot_->log(bot::BS_LOG_DBG, module_name_, msg.str());
+  msg.str("");
+  msg << "run callback " << (nullptr == run_callback_ ? "not " : "") << "set";
+  bot_->log(bot::BS_LOG_DBG, module_name_, msg.str());
+}
+
 void module::run(std::shared_ptr<module> self, boost::system::error_code) {
   // Check module state.
   {
@@ -76,6 +87,16 @@ void module::run_cb(std::shared_ptr<module> self,
     run_result_stored_ = false;
 
     bot_->log(bot::BS_LOG_ERR, module_name_, err);
+
+    {
+      boost::lock_guard<boost::mutex> lock(state_mutex_);
+      if (module_state_ == OFF || module_state_ == STOP_RUN) {
+        // Module state is STOP_RUN - stop!
+        bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> run(): OFF");
+        module_state_ = OFF;
+        return;
+      }
+    }
 
     module_state_ = WAIT;
     int sleep = bot_->random(60, 120);

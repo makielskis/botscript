@@ -25,6 +25,9 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
   module(const std::string& script, std::shared_ptr<bot> bot,
          boost::asio::io_service* io_service);
 
+  /// Debug deconstructor.
+  virtual ~module();
+
   /// \param command   the command to execute
   /// \param argument  the command argument
   void execute(const std::string& command, const std::string& argument);

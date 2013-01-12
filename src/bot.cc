@@ -4,6 +4,8 @@
 
 #include "./bot.h"
 
+#include <sstream>
+
 #include "boost/date_time/posix_time/posix_time.hpp"
 #include "boost/algorithm/string.hpp"
 #include "boost/lexical_cast.hpp"
@@ -44,7 +46,9 @@ bot::bot(boost::asio::io_service* io_service)
 }
 
 bot::~bot() {
-  std::cout << "deleting " << identifier_ << "\n";
+  std::stringstream msg;
+  msg << "bot::~bot() " << identifier_;
+  log(BS_LOG_ERR, "base", msg.str());
 }
 
 void bot::shutdown() {
@@ -53,6 +57,10 @@ void bot::shutdown() {
     m->execute("global_set_active", "0");
   }
   modules_.clear();
+
+  std::stringstream msg;
+  msg << "login_callback " << (nullptr == login_cb_ ? "not " : "") << "set";
+  log(BS_LOG_DBG, "base", msg.str());
 }
 
 std::string bot::username()    const { return username_; }
