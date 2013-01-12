@@ -5,6 +5,7 @@
 #include "./lua_connection.h"
 
 #include <cstring>
+#include <sstream>
 
 #include "./lua_http.h"
 #include "./lua_util.h"
@@ -421,7 +422,14 @@ void lua_connection::remove(const std::string& identifier) {
   // Search for identifier and delete entry.
   auto i = bots_.find(identifier);
   if (i != bots_.end()) {
+    std::stringstream msg;
+    msg << "lua_connection::remove(\""
+        << identifier << "\") -> " << i->second.use_count();
+    i->second->log(bot::BS_LOG_DBG, "base", msg.str());
     bots_.erase(i);
+  } else {
+    std::cout << "fatal: lua_connection::remove(\""
+              << identifier << "\") -> not found\n";
   }
 }
 

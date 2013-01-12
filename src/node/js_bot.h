@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <deque>
+#include <sstream>
 
 #include "boost/asio/io_service.hpp"
 #include "boost/lambda/lambda.hpp"
@@ -238,8 +239,11 @@ class js_bot : public node::ObjectWrap {
   }
 
   /// Destructor (currently for debugging purposes only).
-  ~js_bot() {
-    std::cerr << "deleting " << bot_->identifier() << "\n";
+  virtual ~js_bot() {
+    std::stringstream msg;
+    msg << "js_bot::~js_bot: (" << bot_->identifier()
+        << ": " << bot_.use_count() << ")";
+    bot_->log(botscript::bot::BS_LOG_DBG, "base", msg.str());
   }
 
   /// Init function registers the bot object and its member functions at Node.js
