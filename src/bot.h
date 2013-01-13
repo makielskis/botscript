@@ -168,6 +168,11 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \param value the value to set
   void status(const std::string key, const std::string value);
 
+  /// Calls the callback function with the current value of the key.
+  ///
+  /// \param key the key to refresh
+  void refresh_status(const std::string& key);
+
   /// Extracts the status of a single module from the bot state.
   ///
   /// \param module name of the module to get the status from

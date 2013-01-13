@@ -568,6 +568,13 @@ void bot::status(const std::string key, const std::string value) {
   callback_(identifier_, key, value);
 }
 
+void bot::refresh_status(const std::string& key) {
+  auto i = status_.find(key);
+  if (i != status_.end()) {
+    callback_(identifier_, i->first, i->second);
+  }
+}
+
 std::map<std::string, std::string> bot::module_status(
     const std::string& module) {
   // Lock for status r/w access.
