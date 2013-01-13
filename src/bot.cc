@@ -616,6 +616,7 @@ void bot::internal_exec(const std::string& command, const std::string& argument,
     proxy_check_active_ = true;
     browser_->set_proxy_list(argument, [this, self](int success) {
       if (!success) {
+        proxy_check_active_ = false;
         log(BS_LOG_ERR, "base", "no new working proxy found");
       } else {
         log(BS_LOG_NFO, "base", "login: 1. try");
