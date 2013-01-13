@@ -24,32 +24,6 @@
 namespace botscript {
 namespace node_bot {
 
-/// Class providing functionality to asynchronously execute bot commands.
-class async_execute : public async_action {
- public:
-  /// \param bot       the bot to execute the command on
-  /// \param command   the command to execute
-  /// \param argument  the argument to pass
-  async_execute(std::shared_ptr<botscript::bot> bot,
-                const std::string& command, const std::string& argument)
-    : bot_(bot),
-      command_(command),
-      argument_(argument) {
-  }
-
-  void background() {
-    bot_->execute(command_, argument_);
-  }
-
-  void foreground() {
-  }
-
- private:
-  std::shared_ptr<botscript::bot> bot_;
-  std::string command_;
-  std::string argument_;
-};
-
 /// Class providing functionality to asynchronously ask for a bot configuration.
 class async_get_config : public async_action {
  public:
@@ -417,13 +391,9 @@ class js_bot : public node::ObjectWrap {
     std::string command = v8String2stdString(args[0]);
     std::string argument = v8String2stdString(args[1]);
 
-    // Unwrap bot.
+    // Unwrap bot and execute command.
     js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
-
-    // Execute command.
-    async_execute* execute = new async_execute(jsbot_ptr->bot(),
-                                               command, argument);
-    async_action::invoke(execute);
+    jsbot_ptr->bot()->execute(command, argument);
 
     return scope.Close(v8::Undefined());
   }

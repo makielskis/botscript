@@ -174,12 +174,12 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \return the status of a module
   std::map<std::string, std::string> module_status(const std::string& module);
 
-  /// \param command   the command to execute
-  /// \param argument  the command argument
-  void execute(const std::string& command, const std::string& argument);
-
   /// This is the update/status change callback.
   upd_cb callback_;
+
+  /// \param command   command to execute
+  /// \param argument  command argument
+  void execute(const std::string& command, const std::string& argument);
 
  private:
   /// Loads the lua modules located at package_. This includes only files that
@@ -188,6 +188,12 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   ///
   /// \param init_commands the initialization commands
   void load_modules(const command_sequence& init_commands);
+
+  /// \param command   command to execute
+  /// \param argument  command argument
+  /// \param self      shared pointer to this bot
+  void internal_exec(const std::string& command, const std::string& argument,
+                     std::shared_ptr<bot> self);
 
   /// Login callback.
   std::function<void(std::string)> login_cb_;
@@ -225,7 +231,8 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Stores the login result.
   bool login_result_;
 
-  bool init_;
+  /// Flag indicating whether a proxy check is currently active.
+  bool proxy_check_active_;
 
   /// Mutex synchronizing the access the server address list.
   static boost::mutex server_mutex_;

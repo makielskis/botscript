@@ -41,7 +41,7 @@ bot::bot(boost::asio::io_service* io_service)
       wait_time_factor_(1.0f),
       login_result_stored_(false),
       login_result_(false),
-      init_(false) {
+      proxy_check_active_(false) {
   browser_ = std::make_shared<bot_browser>(io_service, this);
 }
 
@@ -72,9 +72,6 @@ double bot::wait_time_factor() const { return wait_time_factor_; }
 bot_browser* bot::browser()          { return browser_.get(); }
 
 void bot::init(const std::string& config, const error_cb& cb) {
-  assert(!init_);
-  init_ = true;
-
   // Get shared pointer to keep alive.
   std::shared_ptr<bot> self = shared_from_this();
 
@@ -588,8 +585,13 @@ std::map<std::string, std::string> bot::module_status(
   return module_status;
 }
 
-
 void bot::execute(const std::string& command, const std::string& argument) {
+  io_service_->post(boost::bind(&bot::internal_exec, this,
+                                command, argument, shared_from_this()));
+}
+
+void bot::internal_exec(const std::string& command, const std::string& argument,
+                        std::shared_ptr<bot> self) {
   // Handle wait time factor command.
   if (command == "base_set_wait_time_factor") {
     std::string new_wait_time_factor = argument;
@@ -606,7 +608,12 @@ void bot::execute(const std::string& command, const std::string& argument) {
 
   // Handle set proxy command.
   if (command == "base_set_proxy") {
-    std::shared_ptr<bot> self = shared_from_this();
+    if (proxy_check_active_) {
+      log(BS_LOG_ERR, "base", "another proxy check is currently active");
+      return;
+    }
+
+    proxy_check_active_ = true;
     browser_->set_proxy_list(argument, [this, self](int success) {
       if (!success) {
         log(BS_LOG_ERR, "base", "no new working proxy found");
@@ -615,6 +622,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
         command_sequence commands;
         auto cb = [this](std::shared_ptr<bot>, std::string err) {
           if (!err.empty()) log(BS_LOG_ERR, "base", err);
+          proxy_check_active_ = false;
         };
         std::shared_ptr<state_wrapper> state = std::make_shared<state_wrapper>();
         login_cb_ = boost::bind(&bot::handle_login, this,
