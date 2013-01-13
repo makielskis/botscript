@@ -195,6 +195,7 @@ void module::execute(const std::string& command, const std::string& argument) {
         }
 
         default: {
+          bot_->refresh_status(lua_active_status_);
           bot_->log(bot::BS_LOG_DBG, module_name_,
                     state2s(module_state_) + " -> start: nothing to do");
         }
@@ -218,6 +219,7 @@ void module::execute(const std::string& command, const std::string& argument) {
         }
 
         default: {
+          bot_->refresh_status(lua_active_status_);
           bot_->log(bot::BS_LOG_DBG, module_name_,
                     state2s(module_state_) + " -> stop: nothing to do");
         }
