@@ -7,10 +7,12 @@
 
 namespace botscript {
 
-bot_browser::bot_browser(boost::asio::io_service* io_service, bot* b)
+bot_browser::bot_browser(boost::asio::io_service* io_service,
+                         const std::shared_ptr<bot>& b)
     : http::webclient(io_service),
       bot_(b),
-      current_proxy_(-1) {
+      current_proxy_(-1),
+      server_(b->server()) {
   check_fun_ = std::bind(&bot_browser::check_proxy_response, this,
                          std::placeholders::_1);
 }
@@ -22,8 +24,7 @@ bool bot_browser::change_proxy() {
 
   if (good_.size() == 1) {
     proxy& p = good_[0];
-    bot_->log(bot::BS_LOG_NFO, "browser",
-              std::string("set proxy to ") + p.str());
+    log(bot::BS_LOG_NFO, std::string("set proxy to ") + p.str());
     set_proxy(p.host(), p.port());
     return false;
   }
@@ -35,7 +36,7 @@ bool bot_browser::change_proxy() {
   }
 
   proxy& p = good_[current_proxy_];
-  bot_->log(bot::BS_LOG_NFO, "browser", std::string("set proxy to ") + p.str());
+  log(bot::BS_LOG_NFO, std::string("set proxy to ") + p.str());
   set_proxy(p.host(), p.port());
   return true;
 }
@@ -61,13 +62,13 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
                                  std::function<void(int)> callback) {
   // Check whether there are already checks active.
   if (!proxy_checks_.empty()) {
-    bot_->log(bot::BS_LOG_ERR, "browser", "proxy check already active");
+    log(bot::BS_LOG_ERR, "proxy check already active");
     return callback(0);
   }
 
   // Build test request.
   using http::util::build_request;
-  std::string base_url = bot_->server() + "/index.html";
+  std::string base_url = server_ + "/index.html";
   std::string check_request = build_request(http::url(base_url),
                                             http::util::GET, "", headers_,
                                             true);
@@ -89,14 +90,13 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
 
   // Check if a single proxy check was started. Call callback if not.
   if (proxy_checks == 0) {
-    bot_->log(bot::BS_LOG_NFO, "browser", "no new proxies, nothing to check");
+    log(bot::BS_LOG_NFO, "no new proxies, nothing to check");
     return callback(0);
   }
 
   // Log proxy count.
   std::string size_str = boost::lexical_cast<std::string>(proxy_checks);
-  bot_->log(bot::BS_LOG_NFO, "browser",
-            std::string("checking ") + size_str + " proxies");
+  log(bot::BS_LOG_NFO, std::string("checking ") + size_str + " proxies");
 }
 
 void bot_browser::submit(const std::string& xpath, const std::string& page,
@@ -143,13 +143,13 @@ void bot_browser::request_cb(std::shared_ptr<bot_browser> self, int tries,
     } else {
       msg += boost::lexical_cast<std::string>(tries - 1) + " tries remaining";
     }
-    bot_->log(bot::BS_LOG_ERR, "browser", msg);
+    log(bot::BS_LOG_ERR, msg);
     return retry_fun(tries - 1);
   }
 }
 
 void bot_browser::log_error() {
-  bot_->log(bot::BS_LOG_DBG, "browser", "logging connection error");
+  log(bot::BS_LOG_DBG, "logging connection error");
 
   // Remove entries older than one hour.
   std::time_t now = std::time(NULL);
@@ -161,7 +161,7 @@ void bot_browser::log_error() {
 
   // Change proxy if proxy failed >8 times last hour.
   if (error_log_.size() > 8) {
-    bot_->log(bot::BS_LOG_DBG, "browser", "proxy failed too often - changing");
+    log(bot::BS_LOG_DBG, "proxy failed too often - changing");
     change_proxy();
   }
 }
@@ -173,7 +173,7 @@ void bot_browser::proxy_check_callback(std::function<void(int)> callback,
   std::stringstream msg;
   msg << std::left << std::setw(21) << check->get_proxy().str()
       << ": " << ec.message();
-  bot_->log(ec ? bot::BS_LOG_ERR : bot::BS_LOG_NFO, "browser", msg.str());
+  log(ec ? bot::BS_LOG_ERR : bot::BS_LOG_NFO, msg.str());
 
   // Remove check and add proxy to good_ if it passed the test.
   proxy_checks_.erase(check->get_proxy().str());
@@ -186,7 +186,7 @@ void bot_browser::proxy_check_callback(std::function<void(int)> callback,
     if (good_.size() != 0) {
       change_proxy();
     } else {
-      bot_->log(bot::BS_LOG_ERR, "browser", "no working proxy found");
+      log(bot::BS_LOG_ERR, "no working proxy found");
     }
 
     // Convert good_ to proxy list string and set bot status.
@@ -194,7 +194,12 @@ void bot_browser::proxy_check_callback(std::function<void(int)> callback,
     for (const auto& p : good_) {
       proxy_list << p.str() << "\n";
     }
-    bot_->status("base_proxy", proxy_list.str());
+
+    // Update bot status.
+    std::shared_ptr<bot> bot_lock = bot_.lock();
+    if (bot_lock != std::shared_ptr<bot>()) {
+      bot_lock->status("base_proxy", proxy_list.str());
+    }
 
     // Last proxy - time to call back.
     return callback(good_.size());
@@ -203,6 +208,13 @@ void bot_browser::proxy_check_callback(std::function<void(int)> callback,
 
 bool bot_browser::check_proxy_response(const std::string& page) {
   return true;
+}
+
+void bot_browser::log(int level, const std::string& message) {
+  std::shared_ptr<bot> bot_lock = bot_.lock();
+  if (bot_lock != std::shared_ptr<bot>()) {
+    bot_lock->log(bot::BS_LOG_DBG, "browser", message);
+  }
 }
 
 }  // namespace botscript

@@ -42,7 +42,6 @@ bot::bot(boost::asio::io_service* io_service)
       login_result_stored_(false),
       login_result_(false),
       proxy_check_active_(false) {
-  browser_ = std::make_shared<bot_browser>(io_service, this);
 }
 
 bot::~bot() {
@@ -176,6 +175,9 @@ void bot::init(const std::string& config, const error_cb& cb) {
       }
     }
   }
+
+  // Instantiate browser.
+  browser_ = std::make_shared<bot_browser>(io_service_, self);
 
   // Set proxy if available.
   if (!proxy.empty()) {
