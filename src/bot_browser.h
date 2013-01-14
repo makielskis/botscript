@@ -31,12 +31,13 @@ class bot;
 ///     proxy failed more than 8 times in this time period
 ///   - Retries failed requests up to three times with increasing timeout values
 ///     (first try 15sec, second try 30sec, last try 60sec)
-class bot_browser : public http::webclient,
-                    public std::enable_shared_from_this<bot_browser> {
+class bot_browser : public std::enable_shared_from_this<bot_browser>,
+                    public http::webclient {
  public:
   /// \param io_service the Asio io_service to use
   /// \param b the bot that owns this bot_browser
-  bot_browser(boost::asio::io_service* io_service, bot* b);
+  bot_browser(boost::asio::io_service* io_service,
+              const std::shared_ptr<bot>& b);
 
   bool change_proxy();
 
@@ -67,12 +68,15 @@ class bot_browser : public http::webclient,
 
   bool check_proxy_response(const std::string& page);
 
-  bot* bot_;
+  void log(int level, const std::string& message);
+
+  std::weak_ptr<bot> bot_;
   std::vector<proxy> good_;
   std::map<std::string, std::shared_ptr<proxy_check>> proxy_checks_;
   std::function<bool(std::string)> check_fun_;
   std::size_t current_proxy_;
   std::list<std::time_t> error_log_;
+  std::string server_;
 };
 
 }  // namespace botscript
