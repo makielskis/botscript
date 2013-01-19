@@ -13,14 +13,10 @@ output = open(sys.argv[2], "w")
 package_name = os.path.basename(os.path.splitext(sys.argv[2])[0])
 
 output.write("\
-#ifndef " + folder.replace("/", "_").upper() + "\n\
-#define " + folder.replace("/", "_").upper() + "\n\
-\n\
 #include <string>\n\
 #include <map>\n\
-#include <vector>\n\
 \n\
-std::map<std::string, std::string> load_" + package_name + "() {\n\
+extern \"C\" std::map<std::string, std::string> load_" + package_name + "() {\n\
   std::map<std::string, std::string> modules;\n\n")
 
 for name in os.listdir(folder):
@@ -66,7 +62,6 @@ for name in os.listdir(folder):
 
 output.write("\
   return modules;\n\
-}\n\
-#endif\n")
+}\n")
 
 output.close()
