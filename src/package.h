@@ -42,6 +42,20 @@ class package {
     return interface_;
   }
 
+  /// Loads all module files ("*.lua") from the specified folder.
+  /// Excludes hidden files (starting with a ".").
+  ///
+  /// \param p the folder path
+  /// \return the loaded modules
+  static std::map<std::string, std::string> from_folder(const std::string& p);
+
+  /// Loads the modules contained in the shared library
+  /// located at the specified path.
+  ///
+  /// \param p  the path where shared library is located
+  /// \return the loaded modules
+  static std::map<std::string, std::string> from_lib(const std::string& p);
+
  private:
   /// Decompresses using G(un)zip.
   /// \param data the data to decompress

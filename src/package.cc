@@ -4,6 +4,18 @@
 
 #include "./package.h"
 
+#if defined _WIN32 || defined _WIN64
+// TODO(felix) Windows includes for Windows implementation here
+#else  // defined _WIN32 || defined _WIN64  
+#include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+#endif  // defined _WIN32 || defined _WIN64
+
+#include <sstream>
+#include <fstream>
+
+#include "boost/filesystem.hpp"
 #include "boost/iostreams/copy.hpp"
 #include "boost/iostreams/filtering_stream.hpp"
 #include "boost/iostreams/filter/gzip.hpp"
@@ -91,6 +103,90 @@ package::package(const std::string& package_name,
 
   interface_ = buffer.GetString();
 }
+
+std::map<std::string, std::string> package::from_folder(
+    const std::string& p) {
+  std::map<std::string, std::string> modules;
+
+  // Return if the specified path is not a directory.
+  if (!boost::filesystem::is_directory(p)) {
+    return modules;
+  }
+
+  // Iterate over files contained in the directory.
+  using boost::filesystem::directory_iterator;
+  for (auto i = directory_iterator(p); i != directory_iterator(); ++i) {
+    // Get file path and filename.
+    std::string path = i->path().relative_path().generic_string();
+    std::string name = i->path().filename().string();
+
+    // Don't read hidden files.
+    if (boost::starts_with(name, ".")) {
+      continue;
+    }
+
+    // Remove file ending (i.e. ".lua")
+    std::size_t dot_pos = name.find(".");
+    if (dot_pos != std::string::npos) {
+      name = name.substr(0, dot_pos);
+    }
+
+    // Read file content.
+    std::ifstream file;
+    file.open(path.c_str(), std::ios::in);
+    std::stringstream content;
+    boost::iostreams::copy(file, content);
+    file.close();
+
+    // Store file content.
+    modules[name] = content.str();
+  }
+
+  return modules;
+}
+
+#if defined _WIN32 || defined _WIN64
+std::map<std::string, std::string> package::from_lib(
+    const std::string& path) {
+  std::map<std::string, std::string> modules;
+  // TODO(felix) Windows implementation here
+  return modules;
+}
+#else  // defined _WIN32 || defined _WIN64
+std::map<std::string, std::string> package::from_lib(
+    const std::string& p) {
+  std::map<std::string, std::string> modules;
+
+  // Discover package name.
+  using boost::filesystem::path;
+  std::string name = path(p).filename().generic_string();
+  std::size_t dot_pos = name.find(".");
+  if (dot_pos != std::string::npos) {
+    name = name.substr(0, dot_pos);
+  }
+
+  // Load library.
+  void* lib = dlopen(p.c_str(), RTLD_LAZY);
+  if (nullptr == lib) {
+    return modules;
+  }
+
+  // Get pointer to the load function.
+  std::map<std::string, std::string> (*get_modules)(void);
+  *(void **)(&get_modules) = dlsym(lib, (std::string("load_") + name).c_str());
+  if (nullptr == get_modules) {
+    return modules;
+  }
+
+  // Read modules.
+  modules = (*get_modules)();
+
+  // Close shared library.
+  dlclose(lib);
+
+  return modules;
+}
+#endif  // defined _WIN32 || defined _WIN64
 
 std::vector<char> package::unzip(const std::vector<char>& data) {
   namespace io = boost::iostreams;

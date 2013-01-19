@@ -15,8 +15,6 @@
 #include "rapidjson/stringbuffer.h"
 
 #include "./lua/lua_connection.h"
-#include "./packages/kv.h"
-#include "./packages/pg.h"
 
 #if defined _WIN32 || defined _WIN64
 namespace std {
@@ -70,14 +68,52 @@ std::string bot::server()      const { return server_; }
 double bot::wait_time_factor() const { return wait_time_factor_; }
 bot_browser* bot::browser()          { return browser_.get(); }
 
-std::vector<std::string> bot::load_packages(const std::string& path) {
-  packages_["kv"] = std::make_shared<botscript::package>("kv", load_kv(), true);
-  packages_["pg"] = std::make_shared<botscript::package>("pg", load_pg(), true);
+std::vector<std::string> bot::load_packages(const std::string& p) {
+  // Iterate specified directory.
+  using boost::filesystem::directory_iterator;
+  for (auto i = directory_iterator(p); i != directory_iterator(); ++i) {
+    // Get file path and filename.
+    std::string path = i->path().relative_path().generic_string();
+    std::string name = i->path().filename().string();
 
+    // Don't read hidden files.
+    if (boost::starts_with(name, ".")) {
+      continue;
+    }
+
+    // Discover package name.
+    std::size_t dot_pos = name.find(".");
+    if (dot_pos != std::string::npos) {
+      name = name.substr(0, dot_pos);
+    }
+
+    // Load modules (either from lib or from file)
+    std::map<std::string, std::string> modules;
+    bool dir = boost::filesystem::is_directory(path);
+    if (dir) {
+      modules = package::from_folder(path);
+    } else {
+      modules = package::from_lib(path);
+    }
+
+    // Check whether base and servers "modules" are contained.
+    if (modules.find("base") == modules.end() ||
+        modules.find("servers") == modules.end()) {
+      std::cerr << "fatal: " << path << " doesn't contain base/servers\n";
+      continue;
+    }
+
+    // Store.
+    std::cout << "loaded package " << name << "\n";
+    packages_[name] = std::make_shared<botscript::package>(name, modules, !dir);
+  }
+
+  // Generate interface description vector.
   std::vector<std::string> interface;
   for (const auto& p : packages_) {
     interface.emplace_back(p.second->interface());
   }
+
   return interface;
 }
 
