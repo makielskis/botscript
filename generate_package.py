@@ -31,8 +31,8 @@ for name in os.listdir(folder):
 
     output.write("  const char " + module + "[] = {\n")
 
-#    luac = module + ".lua.bin"
-#    subprocess.call(["luac  -o " + luac + " " + name], shell=True)
+    luac = module + ".lua.bin"
+    subprocess.call(["luac  -o " + luac + " " + name], shell=True)
 
     f_in = open(name, 'rb')
     f_out = gzip.open(name + ".gz", 'wb')
@@ -58,10 +58,10 @@ for name in os.listdir(folder):
         else:
           count += 1
 
-#   os.remove(luac)
+    os.remove(luac)
     os.remove(name + ".gz")
 
-    output.write("\n    };\n")
+    output.write("\n  };\n")
     output.write("  modules[\"" + module + "\"] = std::string(" + module + ", " + str(byte_count) + ");\n\n")
 
 output.write("\
