@@ -82,9 +82,10 @@ std::vector<std::string> bot::load_packages(const std::string& p) {
     }
 
     // Discover package name.
-    std::size_t dot_pos = name.find(".");
+    std::string stripped_path = path;
+    std::size_t dot_pos = path.find(".");
     if (dot_pos != std::string::npos) {
-      name = name.substr(0, dot_pos);
+      stripped_path = path.substr(0, dot_pos);
     }
 
     // Load modules (either from lib or from file)
@@ -104,8 +105,8 @@ std::vector<std::string> bot::load_packages(const std::string& p) {
     }
 
     // Store.
-    std::cout << "loaded package " << name << "\n";
-    packages_[name] = std::make_shared<botscript::package>(name, modules, !dir);
+    packages_[stripped_path] =
+        std::make_shared<botscript::package>(stripped_path, modules, !dir);
   }
 
   // Generate interface description vector.
@@ -151,6 +152,13 @@ void bot::init(const std::string& config, const error_cb& cb) {
   password_ = document["password"].GetString();
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
+
+  // Do not load a bot with a non existent package.
+  if (packages_.find(package_) == packages_.end()) {
+    return cb(self, "package not found");
+  }
+
+  // Generate identifier.
   identifier_ = identifier(username_, package_, server_);
 
   // Do not create a bot that already exists.
