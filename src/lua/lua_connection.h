@@ -92,12 +92,14 @@ class lua_connection {
   /// The interface description variable name is
   /// 'interface_' + {script path stem}
   ///
-  /// \param script the script path to load
+  /// \param script the script to load
+  /// \param name the script name
   /// \param allocator the rapid-json allocator to use
   /// \exception lua_exception if the execution of the lua script fails
   /// \return the interface description in JSON format
   static jsonval_ptr iface(const std::string& script,
-      rapidjson::Document::AllocatorType* allocator)
+                           const std::string& name,
+                           rapidjson::Document::AllocatorType* allocator)
   throw(lua_exception);
 
   /// Loads the servers table contained in the script.
@@ -141,6 +143,7 @@ class lua_connection {
   static void run(lua_State* state,
                   on_finish_cb* cb,
                   const std::string& bot_identifier,
+                  const std::string& name,
                   const std::string& script,
                   const std::string& function,
                   int nargs, int nresults, int errfunc,
@@ -156,7 +159,7 @@ class lua_connection {
   /// \param bot    the bot to login
   /// \param cb     the callback to call on finish
   static void login(lua_State* state, std::shared_ptr<bot> bot,
-                    on_finish_cb* cb);
+                    const std::string& script, on_finish_cb* cb);
 
   /// Runs the module asynchronously. Calls the callback with an error string
   /// and -1, -1 if an error occurs. Otherwise (if on_finish got called), the
@@ -165,7 +168,8 @@ class lua_connection {
   /// \param state       the lua state to run the module on
   /// \param module_ptr  pointer to the module which asks to launch the script
   /// \param cb          the callack to call on error / on_finish(...) call
-  static void module_run(lua_State* state, module* module_ptr,
+  static void module_run(const std::string module_name,
+                         lua_State* state, module* module_ptr,
                          on_finish_cb* cb);
 
   /// On finish function (lua_Cfunction).
@@ -227,6 +231,16 @@ class lua_connection {
   static void lua_str_table_to_map(lua_State* state, int stack_index,
                                    std::map<std::string, std::string>* map);
  private:
+  /// Loads and executes the given buffer.
+  ///
+  /// \param state   the state to load the buffer to
+  /// \param script  the script (buffer) to load
+  /// \param name    the name of the script (for error messages etc.)
+  static void do_buffer(lua_State* state,
+                        const std::string& script,
+                        const std::string& name)
+  throw(lua_exception);
+
   /// Recursive toJSON.
   ///
   /// \param state the lua script state

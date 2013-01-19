@@ -15,8 +15,11 @@ namespace botscript {
 std::map<std::string, std::shared_ptr<bot>> lua_connection::bots_;
 boost::mutex lua_connection::bots_mutex_;
 
+namespace json = rapidjson;
+
 jsonval_ptr lua_connection::iface(const std::string& script,
-    rapidjson::Document::AllocatorType* allocator)
+                                  const std::string& name,
+                                  json::Document::AllocatorType* allocator)
 throw(lua_exception) {
   // Initialize lua_State.
   lua_State* state = luaL_newstate();
@@ -26,20 +29,15 @@ throw(lua_exception) {
   luaL_openlibs(state);
 
   // Execute script.
-  int ret;
-  if (0 != (ret = luaL_dofile(state, script.c_str()))) {
-    std::string error = lua_tostring(state, -1);
+  try {
+    do_buffer(state, script, name);
+  } catch (const lua_exception& e) {
     lua_close(state);
-    throw lua_exception(error);
+    throw;
   }
 
-  // Discover module name.
-  using boost::filesystem::path;
-  std::string filename = path(script).filename().generic_string();
-  std::string stem = filename.substr(0, filename.length() - 4);
-
   // Push lua variable to stack.
-  lua_getglobal(state, (std::string("interface_") + stem).c_str());
+  lua_getglobal(state, (std::string("interface_") + name).c_str());
 
   // Read interface description as rapid-json value.
   jsonval_ptr interface = to_json(state, -1, allocator);
@@ -60,7 +58,9 @@ bool lua_connection::server_list(const std::string& script,
   luaL_openlibs(state);
 
   // Execute script.
-  if (0 != luaL_dofile(state, script.c_str())) {
+  try {
+    do_buffer(state, script, "servers");
+  } catch(lua_exception) {
     lua_close(state);
     return false;
   }
@@ -119,7 +119,9 @@ throw(lua_exception) {
 
 void lua_connection::run(lua_State* state, on_finish_cb* cb,
                          const std::string& bot_identifier,
-                         const std::string& script, const std::string& function,
+                         const std::string& name,
+                         const std::string& script,
+                         const std::string& function,
                          int nargs, int nresults, int errfunc,
                          execution_hook pre_exec, execution_hook post_exec)
 throw(lua_exception) {
@@ -142,58 +144,11 @@ throw(lua_exception) {
   lua_pushlightuserdata(state, static_cast<void*>(cb));
   lua_setglobal(state, BOT_LOGIN_CB);
 
-  // Load file.
-  int ret = 0;
-  if (0 != (ret = luaL_loadfile(state, script.c_str()))) {
-    std::string error;
-
-    const char* s = nullptr;
-    if (lua_isstring(state, -1)) {
-      s = lua_tostring(state, -1);
-    }
-
-    if (nullptr == s || std::strlen(s) == 0) {
-      switch (ret) {
-        case LUA_ERRFILE:   error = std::string("file error ") + script; break;
-        case LUA_ERRSYNTAX: error = "syntax error"; break;
-        case LUA_ERRMEM:    error = "out of memory"; break;
-      }
-    } else {
-      error = s;
-    }
-
-    throw lua_exception(error.empty() ? "unknown error" : error);
-  }
-
-  // Execute file.
-  if (0 != (ret = lua_pcall(state, 0, LUA_MULTRET, 0))) {
-    std::string error;
-
-    const char* s = nullptr;
-    if (lua_isstring(state, -1)) {
-      s = lua_tostring(state, -1);
-    }
-
-    if (nullptr == s || std::strlen(s) == 0) {
-      switch (ret) {
-        case LUA_ERRRUN: error = "runtime error"; break;
-        case LUA_ERRMEM: error = "out of memory"; break;
-        case LUA_ERRERR: error = "error handling error"; break;
-      }
-    } else {
-      error = s;
-    }
-
-    throw lua_exception(error.empty() ? "unknown error" : error);
-  }
-
-  // Discover module name (stem without '.lua').
-  using boost::filesystem::path;
-  std::string filename = path(script).filename().generic_string();
-  std::string stem = filename.substr(0, filename.length() - 4);
+  // Load buffer.
+  do_buffer(state, script, name);
 
   // Set module name.
-  lua_pushstring(state, stem.c_str());
+  lua_pushstring(state, name.c_str());
   lua_setglobal(state, BOT_MODULE);
 
   // Set bot identifier.
@@ -249,7 +204,7 @@ throw(lua_exception) {
 }
 
 void lua_connection::login(lua_State* state, std::shared_ptr<bot> bot,
-                           on_finish_cb* cb) {
+                           const std::string& script, on_finish_cb* cb) {
   // Gather login information.
   std::string username = bot->username();
   std::string password = bot->password();
@@ -257,7 +212,7 @@ void lua_connection::login(lua_State* state, std::shared_ptr<bot> bot,
 
   try {
     // Execute login function.
-    run(state, cb, bot->identifier(), package + "/base.lua",
+    run(state, cb, bot->identifier(), "base", script,
         "login", 2, 0, 0,
         [&username, &password](lua_State* state) {
           // Push login function arguments.
@@ -269,17 +224,22 @@ void lua_connection::login(lua_State* state, std::shared_ptr<bot> bot,
   }
 }
 
-void lua_connection::module_run(lua_State* state, module* module_ptr,
+void lua_connection::module_run(const std::string module_name,
+                                lua_State* state, module* module_ptr,
                                 on_finish_cb* cb) {
   // Gather run information.
   std::shared_ptr<bot> bot = module_ptr->get_bot();
-  std::string script = module_ptr->script();
+  const std::string& script = module_ptr->script();
+  const std::string& base_script = module_ptr->base_script();
   std::string run_fun = module_ptr->lua_run();
 
   try {
     // Execute login function.
-    run(state, cb, bot->identifier(), script, run_fun, 0, 0, 0,
-        [module_ptr](lua_State* state) { module_ptr->set_lua_status(state); });
+    run(state, cb, bot->identifier(), module_name, script, run_fun, 0, 0, 0,
+        [module_ptr, base_script](lua_State* state) {
+          do_buffer(state, base_script, "base");
+          module_ptr->set_lua_status(state);
+        });
   } catch(const lua_exception& e) {
     (*cb)(e.what());
   }
@@ -327,7 +287,10 @@ bool lua_connection::get_status(const std::string& script,
   luaL_openlibs(state);
 
   // Execute script.
-  if (0 != luaL_dofile(state, script.c_str())) {
+
+  int ret = luaL_loadbuffer(state,
+                            script.c_str(), script.length(), var.c_str());
+  if (LUA_OK != ret) {
     lua_close(state);
     return false;
   }
@@ -441,13 +404,71 @@ bool lua_connection::contains(const std::string& identifier) {
   return bots_.find(identifier) != bots_.end();
 }
 
+void lua_connection::do_buffer(lua_State* state,
+                               const std::string& script,
+                               const std::string& name) throw(lua_exception) {
+  // Load buffer to state.
+  int ret = luaL_loadbuffer(state,
+                            script.c_str(), script.length(), name.c_str());
+
+  // Check load error.
+  if (LUA_OK != ret) {
+    std::string error;
+
+    // Extract error string.
+    const char* s = nullptr;
+    if (lua_isstring(state, -1)) {
+      s = lua_tostring(state, -1);
+    }
+
+    // If extracted error string is a nullptr or empty:
+    // Translate error code.
+    if (nullptr == s || std::strlen(s) == 0) {
+      switch (ret) {
+        case LUA_ERRSYNTAX: error = "syntax error"; break;
+        case LUA_ERRMEM:    error = "out of memory"; break;
+        case LUA_ERRGCMM:   error = "gc error"; break;
+        default:            error = "unknown error code"; break;
+      }
+    } else {
+      error = s;
+    }
+
+    throw lua_exception(error.empty() ? "unknown error" : error);
+  }
+
+  // Run loaded buffer and check for errors.
+  if (0 != (ret = lua_pcall(state, 0, LUA_MULTRET, 0))) {
+    std::string error;
+
+    const char* s = nullptr;
+    if (lua_isstring(state, -1)) {
+      s = lua_tostring(state, -1);
+    }
+
+    if (nullptr == s || std::strlen(s) == 0) {
+      switch (ret) {
+        case LUA_ERRRUN:  error = "runtime error"; break;
+        case LUA_ERRMEM:  error = "out of memory"; break;
+        case LUA_ERRERR:  error = "error handling error"; break;
+        case LUA_ERRGCMM: error = "gc error"; break;
+        default:          error = "unknown error code"; break;
+      }
+    } else {
+      error = s;
+    }
+
+    throw lua_exception(error.empty() ? "unknown error" : error);
+  }
+}
+
 jsonval_ptr lua_connection::to_json(lua_State* state, int stack_index,
-    rapidjson::Document::AllocatorType* allocator) {
+    json::Document::AllocatorType* allocator) {
   switch (lua_type(state, stack_index)) {
     // Convert lua string to JSON string.
     case LUA_TSTRING: {
       const char* str = luaL_checkstring(state, stack_index);
-      return jsonval_ptr(new rapidjson::Value(str, *allocator));
+      return std::make_shared<json::Value>(str, *allocator);
     }
 
     // Convert lua table to JSON object.
@@ -457,10 +478,9 @@ jsonval_ptr lua_connection::to_json(lua_State* state, int stack_index,
       stack_index = (stack_index > 0) ? stack_index : stack_index - 1;
 
       // Iterate keys.
-      jsonval_ptr obj = jsonval_ptr(
-          new rapidjson::Value(rapidjson::kObjectType));
+      jsonval_ptr obj = std::make_shared<json::Value>(json::kObjectType);
       while (lua_next(state, stack_index) != 0) {
-        rapidjson::Value key(luaL_checkstring(state, -2), *allocator);
+        json::Value key(luaL_checkstring(state, -2), *allocator);
         jsonval_ptr val = to_json(state, -1, allocator);
         obj->AddMember(key, *val.get(), *allocator);
 
@@ -472,7 +492,7 @@ jsonval_ptr lua_connection::to_json(lua_State* state, int stack_index,
 
     // Convert unknown type (i.e. lua thread) to JSON null.
     default: {
-      return jsonval_ptr(new rapidjson::Value(rapidjson::kNullType));
+      return std::make_shared<json::Value>(json::kNullType);
     }
   }
 }
@@ -481,6 +501,7 @@ void lua_connection::lua_str_table_to_map(lua_State* state, int stack_index,
     std::map<std::string, std::string>* map) {
   // Check - check - double check!
   if (!lua_istable(state, stack_index)) {
+    std::cout << "no table at " << stack_index << "\n";
     return;
   }
 

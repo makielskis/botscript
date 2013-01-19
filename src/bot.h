@@ -20,6 +20,7 @@
 #include "./bot_browser.h"
 #include "./module.h"
 #include "./lua/state_wrapper.h"
+#include "./package.h"  
 
 #define CONTAINS(c, e) (std::find(c.begin(), c.end(), e) != c.end())
 
@@ -104,11 +105,6 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
                                 const std::string& package,
                                 const std::string& server);
 
-  /// Loads the packages located in the specified folder.
-  ///
-  /// \return the loaded packages as JSON string
-  static std::string load_packages(const std::string& folder);
-
   /// Login callback function to be called when an login try finished.
   ///
   /// \param self           shared pointer to self to keep us in mind
@@ -146,6 +142,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   bot_browser* browser();
 
   boost::asio::io_service* io_service() { return io_service_; }
+
+  /// Loads the packages and returns them JSON encoded string.
+  static std::vector<std::string> load_packages(const std::string& path);
 
   /// \return a random wait time between min and max (multiplied with the wtf).
   int random(int a, int b);
@@ -239,14 +238,8 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Flag indicating whether a proxy check is currently active.
   bool proxy_check_active_;
 
-  /// Mutex synchronizing the access the server address list.
-  static boost::mutex server_mutex_;
-
-  /// List of server lists contained in the server mapping.
-  static std::vector<std::string> server_lists_;
-
-  /// Server address to short tag mapping.
-  static std::map<std::string, std::string> servers_;
+  /// Packages.
+  static std::map<std::string, std::shared_ptr<botscript::package>> packages_;
 };
 
 }  // namespace botscript

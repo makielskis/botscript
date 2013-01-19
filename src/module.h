@@ -22,7 +22,10 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
   /// \param script      the lua script to load
   /// \param bot         the bot that owns this module
   /// \param io_service  the io_service to use for asynchronous operations
-  module(const std::string& script, std::shared_ptr<bot> bot,
+  module(const std::string& modul_name,
+         const std::string& base_script,
+         const std::string& script,
+         std::shared_ptr<bot> bot,
          boost::asio::io_service* io_service);
 
   /// Debug deconstructor.
@@ -35,11 +38,12 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
   /// \param lua_state the state to write the module_status_ to
   void set_lua_status(lua_State* lua_state);
 
-  std::shared_ptr<bot> get_bot() const { return bot_; }
-  std::string script()           const { return script_; }
-  std::string lua_run()          const { return lua_run_; }
-  std::string name()             const { return module_name_; }
-  bool load_success()            const { return load_success_; }
+  std::shared_ptr<bot> get_bot()   const { return bot_; }
+  std::string script()             const { return script_; }
+  std::string lua_run()            const { return lua_run_; }
+  std::string name()               const { return module_name_; }
+  bool load_success()              const { return load_success_; }
+  const std::string& base_script() const { return base_script_; }
 
  private:
   /// Enum representing the different states the module can be in.
@@ -81,7 +85,8 @@ class module : boost::noncopyable, public std::enable_shared_from_this<module> {
 
   std::shared_ptr<bot> bot_;
 
-  std::string script_;
+  const std::string& base_script_;
+  const std::string& script_;
   std::string module_name_;
   std::string lua_run_;
   std::string lua_status_;
