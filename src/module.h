@@ -8,8 +8,6 @@
 #include <memory>
 #include <string>
 
-#include "boost/utility.hpp"
-
 #include "./bot.h"
 #include "./lua/state_wrapper.h"
 #include "./lua/lua_connection.h"
@@ -17,11 +15,13 @@
 namespace botscript {
 
 /// Bot module using a lua script.
-class module : boost::noncopyable, public std::enable_shared_from_this<module> {
+class module : public std::enable_shared_from_this<module> {
  public:
-  /// \param script      the lua script to load
-  /// \param bot         the bot that owns this module
-  /// \param io_service  the io_service to use for asynchronous operations
+  /// \param module_name  the name of the module
+  /// \param base_script  the lua base script (containing util functions)
+  /// \param script       the lua script to load
+  /// \param bot          the bot that owns this module
+  /// \param io_service   the io_service to use for asynchronous operations
   module(const std::string& modul_name,
          const std::string& base_script,
          const std::string& script,

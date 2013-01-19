@@ -144,6 +144,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   boost::asio::io_service* io_service() { return io_service_; }
 
   /// Loads the packages and returns them JSON encoded string.
+  ///
+  /// \param path the path to load the packages from
+  /// \return the packages as vector of JSON encoded package information
   static std::vector<std::string> load_packages(const std::string& path);
 
   /// \return a random wait time between min and max (multiplied with the wtf).
