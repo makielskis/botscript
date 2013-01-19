@@ -4,14 +4,41 @@ import os, os.path
 import gzip
 from os.path import basename
 
+###################
+# CHECK ARGUMENTS #
+###################
 if len(sys.argv) != 3:
-  print("usage: " + sys.argv[0] + " package_folder output")
+  print("usage: " + sys.argv[0] + " package_folder output_folder")
   exit(1)
 
-folder = sys.argv[1] + "/"
-output = open(sys.argv[2], "w")
-package_name = os.path.basename(os.path.splitext(sys.argv[2])[0])
+#################
+# CREATE FOLDER #
+#################
+if not os.path.exists(sys.argv[2]): os.makedirs(sys.argv[2])
 
+###################
+# BASIC VARIABLES #
+###################
+package_name = os.path.basename(os.path.splitext(sys.argv[2])[0])
+folder = sys.argv[1] + "/"
+output = open(sys.argv[2] + "/" + package_name + ".cc", "w")
+
+####################
+# WRITE CMAKE FILE #
+####################
+cmake = open(sys.argv[2] + "/CMakeLists.txt", "w")
+cmake.write("\
+cmake_minimum_required (VERSION 2.6)\n\
+project(kv)\n\
+add_library(kv SHARED " + sys.argv[2] + ".cc)\n\
+set(CMAKE_SHARED_LIBRARY_SUFFIX "")\n\
+set(CMAKE_SHARED_LIBRARY_PREFIX "")\n\
+set_target_properties(kv PROPERTIES OUTPUT_NAME \"" + package_name + ".package\")")
+cmake.close()
+
+######################
+# WRITE LIBRARY CODE #
+######################
 output.write("\
 #include <string>\n\
 #include <map>\n\
