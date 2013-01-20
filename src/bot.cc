@@ -421,7 +421,12 @@ void bot::load_modules(const command_sequence& init_commands) {
 std::string bot::identifier(const std::string& username,
                             const std::string& package,
                             const std::string& server) {
-  std::string identifier = package + "_";
+  std::string print_package = package;
+  std::size_t slash_pos = print_package.find("/");
+  if (slash_pos != std::string::npos) {
+    print_package = print_package.substr(slash_pos + 1);
+  }
+  std::string identifier = print_package + "_";
   identifier += packages_[package]->tag(server);
   identifier += "_";
   identifier += username;
