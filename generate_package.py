@@ -43,8 +43,16 @@ output.write("\
 #include <string>\n\
 #include <map>\n\
 \n\
-extern \"C\" std::map<std::string, std::string> load_" + package_name + "() {\n\
-  std::map<std::string, std::string> modules;\n\n")
+#if defined _WIN32 || defined _WIN64\n\
+#define EXP_FUNCTION __declspec(dllexport) \n\
+#define CALLING_CONVENTION __cdecl \n\
+#else\n\
+#define EXP_FUNCTION extern \"C\" \n\
+#define CALLING_CONVENTION\n\
+#endif\n\
+\n\
+EXP_FUNCTION void* CALLING_CONVENTION load_" + package_name + "() {\n\
+  std::map<std::string, std::string>* modules = new std::map<std::string, std::string>;\n\n")
 
 for name in os.listdir(folder):
   module = os.path.basename(os.path.splitext(name)[0])
@@ -54,8 +62,8 @@ for name in os.listdir(folder):
 
     output.write("  const char " + module + "[] = {\n")
 
-    luac = module + ".lua.bin"
-    subprocess.call(["luac  -o " + luac + " " + name], shell=True)
+#    luac = module + ".lua.bin"
+#    subprocess.call(["luac  -o " + luac + " " + name], shell=True)
 
     f_in = open(name, 'rb')
     f_out = gzip.open(name + ".gz", 'wb')
@@ -81,11 +89,11 @@ for name in os.listdir(folder):
         else:
           count += 1
 
-    os.remove(luac)
+#    os.remove(luac)
     os.remove(name + ".gz")
 
     output.write("\n  };\n")
-    output.write("  modules[\"" + module + "\"] = std::string(" + module + ", " + str(byte_count) + ");\n\n")
+    output.write("  (*modules)[\"" + module + "\"] = std::string(" + module + ", " + str(byte_count) + ");\n\n")
 
 output.write("\
   return modules;\n\
