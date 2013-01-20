@@ -57,13 +57,13 @@ EXP_FUNCTION void* CALLING_CONVENTION load_" + package_name + "() {\n\
   std::map<std::string, std::string>* modules = new std::map<std::string, std::string>;\n\n")
 
 for name in os.listdir(folder):
- 
+
   module = os.path.basename(os.path.splitext(name)[0])
   extension = os.path.splitext(name)[1]
   name = folder + name
 
   print(module, extension, name)
-  
+
   if extension == ".lua" and not name.startswith("."):
 
     print("found: " + name)

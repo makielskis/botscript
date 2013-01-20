@@ -111,18 +111,22 @@ class async_load_packages : public async_action {
 
   void foreground() {
     v8::HandleScope scope;
+    // Create and fill array with all packages.
+    int index = 0;
+    v8::Local<v8::Array> array = v8::Array::New(packages_.size());
+    for (const auto& p : packages_) {
+      array->Set(index++, v8::String::New(p.c_str()));
+    }
 
-    v8::Local<v8::Value> args[2] = {
-        v8::Local<v8::Value>::New(v8::Undefined()),
-        v8::Local<v8::Value>::New(v8::String::New(packages_.c_str()))
-    };
-    callback_->Call(v8::Undefined().As<v8::Object>(), 2, args);
+    // Call callback function with array as argument.
+    v8::Local<v8::Value> args[1] = { array };
+    callback_->Call(v8::Undefined().As<v8::Object>(), 1, args);
   }
 
  private:
   v8::Persistent<v8::Function> callback_;
   std::string path_;
-  std::string packages_;
+  std::vector<std::string> packages_;
 };
 
 /// Update message: identifier, key, value.
