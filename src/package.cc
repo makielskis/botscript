@@ -151,7 +151,7 @@ std::map<std::string, std::string> package::from_lib(
     const std::string& p) {
   // Define module map and get_modules to simplify code.
   typedef std::map<std::string, std::string> mod_map;
-  typedef std::map<std::string, std::string>* (__cdecl *get_modules)(void);
+  typedef void* (__cdecl *get_modules)(void);
   
   // Discover package name.
   std::string name = boost::filesystem::path(p).filename().generic_string();
@@ -176,7 +176,7 @@ std::map<std::string, std::string> package::from_lib(
   }
 
   // Call load function.
-  mod_map* m = (*lib_fun)();
+  mod_map* m = static_cast<mod_map*>((*lib_fun)());
   std::unique_ptr<mod_map> ptr(static_cast<mod_map*>(m));
   FreeLibrary(lib);
 
@@ -219,13 +219,14 @@ std::map<std::string, std::string> package::from_lib(
 #endif  // defined _WIN32 || defined _WIN64
 
 std::vector<char> package::unzip(const std::vector<char>& data) {
-  namespace io = boost::iostreams;
-  std::vector<char> decompressed;
-  io::filtering_ostream os;
-  os.push(io::gzip_decompressor());
-  os.push(io::back_inserter(decompressed));
-  io::write(os, &data[0], data.size());
-  return decompressed;
+  std::stringstream s, response;
+  s << std::string(data.begin(), data.end());
+  boost::iostreams::filtering_streambuf<boost::iostreams::input> filter;
+  filter.push(boost::iostreams::gzip_decompressor());
+  filter.push(s);
+  boost::iostreams::copy(filter, response);
+  std::string res_str = response.str();
+  return std::vector<char>(res_str.begin(), res_str.end());
 }
 
 }  // namespace botscript

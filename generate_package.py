@@ -51,14 +51,22 @@ output.write("\
 #define CALLING_CONVENTION\n\
 #endif\n\
 \n\
+extern \"C\" {\n\
+\n\
 EXP_FUNCTION void* CALLING_CONVENTION load_" + package_name + "() {\n\
   std::map<std::string, std::string>* modules = new std::map<std::string, std::string>;\n\n")
 
 for name in os.listdir(folder):
+ 
   module = os.path.basename(os.path.splitext(name)[0])
   extension = os.path.splitext(name)[1]
   name = folder + name
+
+  print(module, extension, name)
+  
   if extension == ".lua" and not name.startswith("."):
+
+    print("found: " + name)
 
     output.write("  const char " + module + "[] = {\n")
 
@@ -97,6 +105,8 @@ for name in os.listdir(folder):
 
 output.write("\
   return modules;\n\
-}\n")
+}\n\
+\n\
+}")
 
 output.close()
