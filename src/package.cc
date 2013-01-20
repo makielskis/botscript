@@ -5,8 +5,7 @@
 #include "./package.h"
 
 #if defined _WIN32 || defined _WIN64
-// TODO(felix) Windows includes for Windows implementation here
-#else  // defined _WIN32 || defined _WIN64  
+#else  // defined _WIN32 || defined _WIN64
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
@@ -32,7 +31,7 @@ namespace botscript {
 
 package::package(const std::string& package_name,
                  std::map<std::string, std::string> modules, bool zipped)
-    : modules_(std::move(modules)) {
+    : modules_(modules) {
   // Unzip.
   if (zipped) {
     for (auto& module : modules_) {
@@ -41,6 +40,8 @@ package::package(const std::string& package_name,
       module.second = std::string(unzipped.begin(), unzipped.end());
     }
   }
+
+  for(const auto& m : modules_) { std::cout << m.first << ":\n\n" << m.second << "\n\n\n\n"; }
 
   // Initialize JSON document object.
   rapidjson::Document a;
@@ -147,10 +148,39 @@ std::map<std::string, std::string> package::from_folder(
 
 #if defined _WIN32 || defined _WIN64
 std::map<std::string, std::string> package::from_lib(
-    const std::string& path) {
-  std::map<std::string, std::string> modules;
-  // TODO(felix) Windows implementation here
-  return modules;
+    const std::string& p) {
+  // Define module map and get_modules to simplify code.
+  typedef std::map<std::string, std::string> mod_map;
+  typedef std::map<std::string, std::string>* (__cdecl *get_modules)(void);
+  
+  // Discover package name.
+  std::string name = boost::filesystem::path(p).filename().generic_string();
+  std::size_t dot_pos = name.find(".");
+  if (dot_pos != std::string::npos) {
+    name = name.substr(0, dot_pos);
+  }
+
+  // Load library.
+  std::wstring wpath(p.begin(), p.end());
+  HINSTANCE lib = LoadLibrary(wpath.c_str());
+  if (nullptr == lib) {
+      return std::map<std::string, std::string>();
+  }
+
+  // Get address to load function.
+  std::string fun_name = (std::string("load_") + name);
+  get_modules lib_fun = (get_modules) GetProcAddress(lib, fun_name.c_str()); 
+  if (nullptr == lib_fun) {
+    FreeLibrary(lib); 
+    return std::map<std::string, std::string>();
+  }
+
+  // Call load function.
+  mod_map* m = (*lib_fun)();
+  std::unique_ptr<mod_map> ptr(static_cast<mod_map*>(m));
+  FreeLibrary(lib);
+
+  return *m;
 }
 #else  // defined _WIN32 || defined _WIN64
 std::map<std::string, std::string> package::from_lib(

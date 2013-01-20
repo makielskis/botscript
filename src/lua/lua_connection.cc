@@ -31,7 +31,7 @@ throw(lua_exception) {
   // Execute script.
   try {
     do_buffer(state, script, name);
-  } catch (const lua_exception& e) {
+  } catch (lua_exception) {
     lua_close(state);
     throw;
   }
@@ -501,7 +501,6 @@ void lua_connection::lua_str_table_to_map(lua_State* state, int stack_index,
     std::map<std::string, std::string>* map) {
   // Check - check - double check!
   if (!lua_istable(state, stack_index)) {
-    std::cout << "no table at " << stack_index << "\n";
     return;
   }
 
