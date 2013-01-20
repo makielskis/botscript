@@ -70,10 +70,11 @@ for name in os.listdir(folder):
 
     output.write("  const char " + module + "[] = {\n")
 
-#    luac = module + ".lua.bin"
-#    subprocess.call(["luac  -o " + luac + " " + name], shell=True)
+    luac = module + ".lua.bin"
+    print("luac  -o " + luac + " " + name)
+    os.system("luac -o " + luac + " " + name)
 
-    f_in = open(name, 'rb')
+    f_in = open(luac, 'rb')
     f_out = gzip.open(name + ".gz", 'wb')
     f_out.writelines(f_in)
     f_out.close()
@@ -97,7 +98,7 @@ for name in os.listdir(folder):
         else:
           count += 1
 
-#    os.remove(luac)
+    os.remove(luac)
     os.remove(name + ".gz")
 
     output.write("\n  };\n")
