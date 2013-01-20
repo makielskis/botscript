@@ -29,6 +29,8 @@ namespace json = rapidjson;
 
 namespace botscript {
 
+typedef std::map<std::string, std::string> mod_map;
+
 package::package(const std::string& package_name,
                  std::map<std::string, std::string> modules, bool zipped)
     : modules_(modules) {
@@ -40,8 +42,6 @@ package::package(const std::string& package_name,
       module.second = std::string(unzipped.begin(), unzipped.end());
     }
   }
-
-  for(const auto& m : modules_) { std::cout << m.first << ":\n\n" << m.second << "\n\n\n\n"; }
 
   // Initialize JSON document object.
   rapidjson::Document a;
@@ -150,9 +150,8 @@ std::map<std::string, std::string> package::from_folder(
 std::map<std::string, std::string> package::from_lib(
     const std::string& p) {
   // Define module map and get_modules to simplify code.
-  typedef std::map<std::string, std::string> mod_map;
   typedef void* (__cdecl *get_modules)(void);
-  
+
   // Discover package name.
   std::string name = boost::filesystem::path(p).filename().generic_string();
   std::size_t dot_pos = name.find(".");
@@ -185,8 +184,6 @@ std::map<std::string, std::string> package::from_lib(
 #else  // defined _WIN32 || defined _WIN64
 std::map<std::string, std::string> package::from_lib(
     const std::string& p) {
-  std::map<std::string, std::string> modules;
-
   // Discover package name.
   using boost::filesystem::path;
   std::string name = path(p).filename().generic_string();
@@ -198,23 +195,24 @@ std::map<std::string, std::string> package::from_lib(
   // Load library.
   void* lib = dlopen(p.c_str(), RTLD_LAZY);
   if (nullptr == lib) {
-    return modules;
+    return std::map<std::string, std::string>();
   }
 
   // Get pointer to the load function.
-  std::map<std::string, std::string> (*get_modules)(void);
-  *(void **)(&get_modules) = dlsym(lib, (std::string("load_") + name).c_str());
-  if (nullptr == get_modules) {
-    return modules;
+  void* (*lib_fun)(void);
+  *(void **)(&lib_fun) = dlsym(lib, (std::string("load_") + name).c_str());
+  if (nullptr == lib_fun) {
+    return std::map<std::string, std::string>();
   }
 
   // Read modules.
-  modules = (*get_modules)();
+  mod_map* m = static_cast<mod_map*>((*lib_fun)());
+  std::unique_ptr<mod_map> ptr(static_cast<mod_map*>(m));
 
   // Close shared library.
   dlclose(lib);
 
-  return modules;
+  return *m;
 }
 #endif  // defined _WIN32 || defined _WIN64
 
