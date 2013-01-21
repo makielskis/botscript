@@ -120,7 +120,7 @@ void http_con::request_finish(std::shared_ptr<http_con> self, callback cb,
         filter.push(boost::iostreams::gzip_decompressor());
         filter.push(s);
         boost::iostreams::copy(filter, response);
-      } catch (const boost::iostreams::gzip_error& e) {
+      } catch (boost::iostreams::gzip_error) {
         return cb(self, "", boost::system::error_code(error::GZIP_FAILURE,
                                                       webclient::cat_));
       }

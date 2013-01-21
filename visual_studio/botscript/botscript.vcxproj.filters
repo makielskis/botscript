@@ -66,6 +66,9 @@
     <ClCompile Include="..\..\src\lua\lua_util.cc">
       <Filter>Source Files\lua</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\package.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\bot.h">
@@ -121,6 +124,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\lua\state_wrapper.h">
       <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\package.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

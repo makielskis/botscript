@@ -42,6 +42,8 @@ void cb(std::shared_ptr<bot>, std::string error) {
 }
 
 int main() {
+  bot::load_packages("packages");
+
   asio::io_service io_service;
 
   asio::io_service::work work(io_service);

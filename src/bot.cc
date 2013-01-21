@@ -31,10 +31,8 @@ double round(double r) {
 namespace botscript {
 
 // Initialization of the static bot class attributes.
-std::map<std::string, std::string> bot::servers_;
-std::vector<std::string> bot::server_lists_;
-boost::mutex bot::server_mutex_;
 boost::mutex bot::log_mutex_;
+std::map<std::string, std::shared_ptr<botscript::package>> bot::packages_;
 
 bot::bot(boost::asio::io_service* io_service)
     : io_service_(io_service),
@@ -70,6 +68,56 @@ std::string bot::server()      const { return server_; }
 double bot::wait_time_factor() const { return wait_time_factor_; }
 bot_browser* bot::browser()          { return browser_.get(); }
 
+std::vector<std::string> bot::load_packages(const std::string& p) {
+  // Iterate specified directory.
+  using boost::filesystem::directory_iterator;
+  for (auto i = directory_iterator(p); i != directory_iterator(); ++i) {
+    // Get file path and filename.
+    std::string path = i->path().relative_path().generic_string();
+    std::string name = i->path().filename().string();
+
+    // Don't read hidden files.
+    if (boost::starts_with(name, ".")) {
+      continue;
+    }
+
+    // Discover package name.
+    std::string stripped_path = path;
+    std::size_t dot_pos = path.find(".");
+    if (dot_pos != std::string::npos) {
+      stripped_path = path.substr(0, dot_pos);
+    }
+
+    // Load modules (either from lib or from file)
+    std::map<std::string, std::string> modules;
+    bool dir = boost::filesystem::is_directory(path);
+    if (dir) {
+      modules = package::from_folder(path);
+    } else {
+      modules = package::from_lib(path);
+    }
+
+    // Check whether base and servers "modules" are contained.
+    if (modules.find("base") == modules.end() ||
+        modules.find("servers") == modules.end()) {
+      std::cerr << "fatal: " << path << " doesn't contain base/servers\n";
+      continue;
+    }
+
+    // Store.
+    packages_[stripped_path] =
+        std::make_shared<botscript::package>(stripped_path, modules, !dir);
+  }
+
+  // Generate interface description vector.
+  std::vector<std::string> interface;
+  for (const auto& p : packages_) {
+    interface.emplace_back(p.second->interface());
+  }
+
+  return interface;
+}
+
 void bot::init(const std::string& config, const error_cb& cb) {
   // Get shared pointer to keep alive.
   std::shared_ptr<bot> self = shared_from_this();
@@ -104,6 +152,13 @@ void bot::init(const std::string& config, const error_cb& cb) {
   password_ = document["password"].GetString();
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
+
+  // Do not load a bot with a non existent package.
+  if (packages_.find(package_) == packages_.end()) {
+    return cb(self, "package not found");
+  }
+
+  // Generate identifier.
   identifier_ = identifier(username_, package_, server_);
 
   // Do not create a bot that already exists.
@@ -189,7 +244,10 @@ void bot::init(const std::string& config, const error_cb& cb) {
         std::shared_ptr<state_wrapper> s = std::make_shared<state_wrapper>();
         login_cb_ = boost::bind(&bot::handle_login, this,
                                 self, s, _1, cb, commands, true, 2);
-        lua_connection::login(s->get(), self, &login_cb_);
+        lua_connection::login(
+            s->get(), self,
+            packages_[package_]->modules().find("base")->second,
+            &login_cb_);
       }
     });
   } else {
@@ -197,7 +255,9 @@ void bot::init(const std::string& config, const error_cb& cb) {
     std::shared_ptr<state_wrapper> s = std::make_shared<state_wrapper>();
     login_cb_ = boost::bind(&bot::handle_login, this,
                             self, s, _1, cb, commands, true, 2);
-    lua_connection::login(s->get(), shared_from_this(), &login_cb_);
+    lua_connection::login(s->get(), self,
+                          packages_[package_]->modules().find("base")->second,
+                          &login_cb_);
   }
 }
 
@@ -286,7 +346,9 @@ void bot::handle_login(std::shared_ptr<bot> self,
                               load_mod, tries - 1);
       std::string t =  boost::lexical_cast<std::string>(4 - tries);
       log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
-      lua_connection::login(next_state->get(), shared_from_this(), &login_cb_);
+      lua_connection::login(next_state->get(), shared_from_this(),
+                            packages_[package_]->modules().find("base")->second,
+                            &login_cb_);
     }
   } else {
     lua_State* state = state_wr->get();
@@ -311,7 +373,10 @@ void bot::handle_login(std::shared_ptr<bot> self,
                                 load_mod, tries - 1);
         std::string t =  boost::lexical_cast<std::string>(4 - tries);
         log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
-        lua_connection::login(next_state->get(), shared_from_this(), &login_cb_);
+        lua_connection::login(
+            next_state->get(), shared_from_this(),
+            packages_[package_]->modules().find("base")->second,
+            &login_cb_);
       } else /* if (login_result_) */ {
         if (load_mod) {
           load_modules(init_commands);
@@ -326,23 +391,24 @@ void bot::handle_login(std::shared_ptr<bot> self,
 
 void bot::load_modules(const command_sequence& init_commands) {
   // Load modules from package folder:
-  // Read every non-hidden file except servers.lua and base.lua
+  const std::string& base_script = packages_[package_]->modules().find("base")->second;
   std::shared_ptr<bot> self = shared_from_this();
-  using boost::filesystem::directory_iterator;
-  if (boost::filesystem::is_directory(package_)) {
-    for (directory_iterator i = directory_iterator(package_);
-         i != directory_iterator(); ++i) {
-      std::string path = i->path().relative_path().generic_string();
-      if (!boost::algorithm::ends_with(path, "servers.lua") &&
-          !boost::algorithm::ends_with(path, "base.lua") &&
-          !boost::starts_with(i->path().filename().string(), ".")) {
-        auto new_module = std::make_shared<module>(path, self, io_service_);
-        if (new_module->load_success()) {
-          modules_.push_back(new_module);
-        } else {
-          log(BS_LOG_ERR, "base", path + " could not be loaded");
-        }
-      }
+  for (const auto& m : packages_[package_]->modules()) {
+    // base and servers ain't no modules.
+    if (m.first == "base" || m.first == "servers") {
+      continue;
+    }
+
+    // Create module.
+    auto new_module = std::make_shared<module>(m.first,
+                                               base_script, m.second,
+                                               self, io_service_);
+
+    // Check load success.
+    if (new_module->load_success()) {
+      modules_.push_back(new_module);
+    } else {
+      log(BS_LOG_ERR, "base", m.first + " could not be loaded");
     }
   }
 
@@ -355,150 +421,16 @@ void bot::load_modules(const command_sequence& init_commands) {
 std::string bot::identifier(const std::string& username,
                             const std::string& package,
                             const std::string& server) {
-  // Lock because of server list r/w access.
-  boost::lock_guard<boost::mutex> lock(server_mutex_);
-
-  // Load servers from package.
-  std::string server_list = package + "/servers.lua";
-  if (!CONTAINS(server_lists_, server_list)) {
-    lua_connection::server_list(server_list, &servers_);
-    server_lists_.push_back(server_list);
+  std::string print_package = package;
+  std::size_t slash_pos = print_package.find("/");
+  if (slash_pos != std::string::npos) {
+    print_package = print_package.substr(slash_pos + 1);
   }
-
-  // Create identifier.
-  std::string p = boost::filesystem::path(package).filename().string();
-  std::string identifier = p + "_";
-  if (servers_.find(server) == servers_.end()) {
-    identifier += server;
-  } else {
-    identifier += servers_[server];
-  }
+  std::string identifier = print_package + "_";
+  identifier += packages_[package]->tag(server);
   identifier += "_";
   identifier += username;
-
   return identifier;
-}
-
-std::string bot::load_packages(const std::string& folder) {
-  // Lock because of server list r/w access.
-  boost::lock_guard<boost::mutex> lock(server_mutex_);
-
-  // Folder parameter has to be a directory.
-  if (!boost::filesystem::is_directory(folder)) {
-    return "";
-  }
-
-  // Iterate packages.
-  rapidjson::Document document;
-  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
-  document.SetObject();
-  rapidjson::Value packages(rapidjson::kArrayType);
-  using boost::filesystem::directory_iterator;
-  for (directory_iterator i = directory_iterator(folder);
-       i != directory_iterator(); ++i) {
-    // Check if package is a directory.
-    if (!boost::filesystem::is_directory(*i)) {
-      continue;
-    }
-
-    // Check if servers file exists.
-    boost::filesystem::path path = i->path();
-    std::string server_list = path.relative_path().string() + "/servers.lua";
-    boost::filesystem::path servers_path(server_list);
-    if (!boost::filesystem::exists(servers_path)
-        || boost::filesystem::is_directory(servers_path)) {
-      continue;
-    }
-
-    // Write package name.
-    rapidjson::Value a(rapidjson::kObjectType);
-    rapidjson::Value package_name(path.filename().string().c_str(), allocator);
-    a.AddMember("name", package_name, allocator);
-
-    // Write servers from package:
-    // Lua table -> map -> JSON array
-    rapidjson::Value l(rapidjson::kArrayType);
-    std::map<std::string, std::string> s;
-    lua_connection::server_list(server_list, &s);
-    for(const auto& server : s) {
-      rapidjson::Value server_name(server.first.c_str(), allocator);
-      l.PushBack(server_name, allocator);
-    }
-    a.AddMember("servers", l, allocator);
-
-    // Write pseudo module "bases" interface description.
-    rapidjson::Value base(rapidjson::kObjectType);
-
-    // Add bot setting wait time factor as base module setting.
-    rapidjson::Value wtf_input(rapidjson::kObjectType);
-    rapidjson::Value wtf_input_type_key("input_type", allocator);
-    rapidjson::Value wtf_input_type_value("slider", allocator);
-    wtf_input.AddMember(wtf_input_type_key, wtf_input_type_value, allocator);
-    rapidjson::Value wtf_display_name_key("display_name", allocator);
-    rapidjson::Value wtf_display_name_value("Wartezeiten Faktor", allocator);
-    wtf_input.AddMember(wtf_display_name_key, wtf_display_name_value, allocator);
-    rapidjson::Value wtf_value_range_key("value_range", allocator);
-    rapidjson::Value wtf_value_range_value("0.2,3.0", allocator);
-    wtf_input.AddMember(wtf_value_range_key, wtf_value_range_value, allocator);
-    base.AddMember("wait_time_factor", wtf_input, allocator);
-
-    // Add bot setting proxy as base module setting.
-    rapidjson::Value proxy_input(rapidjson::kObjectType);
-    rapidjson::Value proxy_input_type_key("input_type", allocator);
-    rapidjson::Value proxy_input_type_value("textarea", allocator);
-    proxy_input.AddMember(proxy_input_type_key,
-                          proxy_input_type_value, allocator);
-    rapidjson::Value proxy_display_name_key("display_name", allocator);
-    rapidjson::Value proxy_display_name_value("Proxy", allocator);
-    proxy_input.AddMember(proxy_display_name_key,
-                          proxy_display_name_value, allocator);
-    base.AddMember("proxy", proxy_input, allocator);
-
-    // Set base module name.
-    base.AddMember("module", "Basis Konfiguration", allocator);
-
-    a.AddMember("base", base, allocator);
-
-    // Write interface descriptions from all modules.
-    for (directory_iterator j = directory_iterator(i->path());
-         j != directory_iterator(); ++j) {
-      // Iterate over all module paths but exclude hidden files
-      // and special files (servers.lua and base.lua)
-      std::string mod_path = j->path().relative_path().generic_string();
-      if (!boost::algorithm::ends_with(mod_path, "servers.lua") &&
-          !boost::algorithm::ends_with(mod_path, "base.lua") &&
-          !boost::starts_with(j->path().filename().string(), ".")) {
-        // Extract module name.
-        std::string filename = j->path().filename().string();
-        rapidjson::Value module_name(
-            filename.substr(0, filename.length() - 4).c_str(),
-            allocator);
-
-        // Read interface information from lua script.
-        jsonval_ptr iface = lua_connection::iface(mod_path, &allocator);
-
-        // Write value to package information.
-        a.AddMember(module_name, *iface.get(), allocator);
-      }
-    }
-
-    // Store package information.
-    packages.PushBack(a, allocator);
-
-    // Store result if not already done.
-    if (!CONTAINS(server_lists_, server_list)) {
-      server_lists_.push_back(server_list);
-      servers_.insert(s.begin(), s.end());
-    }
-  }
-  document.AddMember("packages", packages, allocator);
-
-  // Convert to string.
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  document.Accept(writer);
-
-  return buffer.GetString();
 }
 
 int bot::random(int a, int b) {
@@ -637,7 +569,10 @@ void bot::internal_exec(const std::string& command, const std::string& argument,
         std::shared_ptr<state_wrapper> state = std::make_shared<state_wrapper>();
         login_cb_ = boost::bind(&bot::handle_login, this,
                                 self, state, _1, cb, commands, false, 2);
-        lua_connection::login(state->get(), self, &login_cb_);
+        lua_connection::login(
+            state->get(), self,
+            packages_[package_]->modules().find("base")->second,
+            &login_cb_);
       }
     });
   }

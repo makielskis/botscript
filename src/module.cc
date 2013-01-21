@@ -12,11 +12,16 @@ namespace botscript {
 
 namespace asio = boost::asio;
 
-module::module(const std::string& script, std::shared_ptr<bot> bot,
+module::module(const std::string& module_name,
+               const std::string& base_script,
+               const std::string& script,
+               std::shared_ptr<bot> bot,
                asio::io_service* io_service)
     : io_service_(io_service),
       bot_(bot),
+      base_script_(base_script),
       script_(script),
+      module_name_(module_name),
       lua_run_("run_"),
       lua_status_("status_"),
       timer_(*io_service),
@@ -25,12 +30,8 @@ module::module(const std::string& script, std::shared_ptr<bot> bot,
       wait_min_(-1),
       wait_max_(-1),
       load_success_(false) {
-  bot_->log(bot::BS_LOG_NFO, "base", std::string("loading module ") + script);
-
-  // Discover module name.
-  using boost::filesystem::path;
-  std::string filename = path(script).filename().generic_string();
-  module_name_ = filename.substr(0, filename.length() - 4);
+  bot_->log(bot::BS_LOG_NFO, "base",
+            std::string("loading module ") + module_name_);
 
   // Build basic strings.
   lua_run_ += module_name_;
@@ -76,7 +77,7 @@ void module::run(std::shared_ptr<module> self, boost::system::error_code) {
   bot_->log(bot::BS_LOG_NFO, module_name_, "starting");
   std::shared_ptr<state_wrapper> state = std::make_shared<state_wrapper>();
   run_callback_ = boost::bind(&module::run_cb, this, self, state, _1);
-  lua_connection::module_run(state->get(), this, &run_callback_);
+  lua_connection::module_run(module_name_, state->get(), this, &run_callback_);
 }
 
 void module::run_cb(std::shared_ptr<module> self,

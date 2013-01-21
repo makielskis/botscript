@@ -3,7 +3,7 @@ project(botscript)
 
 set(BOOST_PATH "/home/wasabi/boost_1_52_0/")
 
-SET (CMAKE_CXX_FLAGS "-std=c++0x")
+SET (CMAKE_CXX_FLAGS     "-std=c++0x")
 
 add_executable(botscript
   src/http/url.cc
@@ -16,6 +16,7 @@ add_executable(botscript
   src/lua/lua_http.cc
   src/bot_browser.cc
   src/module.cc
+  src/package.cc
   src/bot.cc
   src/main.cc
 )
