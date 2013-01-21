@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -94,6 +94,7 @@
     <ClCompile Include="..\..\src\lua\lua_util.cc" />
     <ClCompile Include="..\..\src\main.cc" />
     <ClCompile Include="..\..\src\module.cc" />
+    <ClCompile Include="..\..\src\package.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\bot.h" />
@@ -113,6 +114,7 @@
     <ClInclude Include="..\..\src\lua\lua_util.h" />
     <ClInclude Include="..\..\src\lua\state_wrapper.h" />
     <ClInclude Include="..\..\src\module.h" />
+    <ClInclude Include="..\..\src\package.h" />
     <ClInclude Include="..\..\src\proxy_check.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
