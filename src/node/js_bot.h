@@ -20,6 +20,7 @@
 #include "./async.h"
 #include "./threaded_async.h"
 #include "./js_bot_motor.h"
+#include "./util.h"
 
 namespace botscript {
 namespace node_bot {
@@ -373,7 +374,7 @@ class js_bot : public node::ObjectWrap {
         std::make_shared<botscript::bot>(io_service_ptr);
     js_bot* js_bot_ptr = new js_bot(bot_ptr);
 
-    // Extract logging callback.
+    // Set bot change callback.
     bot_ptr->callback_ = boost::bind(&js_bot::call_callback, js_bot_ptr,
                                      _1, _2, _3);
 
@@ -415,12 +416,14 @@ class js_bot : public node::ObjectWrap {
     js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
 
     // Execute command asynchronously.
-    v8::Persistent<v8::Function> callback = v8::Persistent<v8::Function>::New(args[1].As<v8::Function>());
-    jsbot_ptr->bot()->init(v8String2stdString(args[0]),
-                           [&load_cb_, callback](std::shared_ptr<botscript::bot> bot,
-                                                 const std::string& error) {
-                             load_cb_.push(load_cb(bot, error, callback));
-                           });
+    v8::Persistent<v8::Function> callback = v8::Persistent<v8::Function>::New(
+                                                args[1].As<v8::Function>());
+    jsbot_ptr->bot()->init(
+        v8String2stdString(args[0]),
+        [&load_cb_, callback](std::shared_ptr<botscript::bot> bot,
+                             const std::string& error) {
+         load_cb_.push(load_cb(bot, error, callback));
+        });
 
     return scope.Close(v8::Undefined());
   }
@@ -469,14 +472,6 @@ class js_bot : public node::ObjectWrap {
     v8::HandleScope scope;
     js_bot* jsbot_ptr = node::ObjectWrap::Unwrap<js_bot>(args.This());
     return scope.Close(v8::String::New(jsbot_ptr->bot()->log_msgs().c_str()));
-  }
-
-  static std::string v8String2stdString(const v8::Local<v8::Value>& input) {
-    assert(input->IsString());
-    v8::Local<v8::String> v8_string = v8::Local<v8::String>::Cast(input);
-    std::string output(v8_string->Utf8Length(), 0);
-    v8_string->WriteUtf8(const_cast<char*>(output.c_str()));
-    return output;
   }
 
   botscript::bot* bot_ptr() {

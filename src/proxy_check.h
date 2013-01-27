@@ -58,7 +58,8 @@ class proxy_check : public std::enable_shared_from_this<proxy_check>,
                             )> callback;
 
   proxy_check(boost::asio::io_service* io_service, const proxy& proxy,
-              std::string request, std::function<bool(std::string)>* check_fun)
+              std::string request,
+              std::function<bool(std::string)>* check_fun = nullptr)
     : request_(std::move(request)),
       con_(std::make_shared<http::http_con>(io_service,
                                             proxy.host(), proxy.port(),
@@ -75,7 +76,7 @@ class proxy_check : public std::enable_shared_from_this<proxy_check>,
   void check_finish(std::shared_ptr<proxy_check> self, callback cb,
                     std::shared_ptr<http::http_con> con, std::string response,
                     boost::system::error_code ec) {
-    if (ec || (*check_fun_)(response)) {
+    if (ec || (check_fun_ != nullptr && (*check_fun_)(response))) {
       cb(self, ec);
     } else {
       cb(self, boost::system::error_code(-1, *this));
