@@ -68,7 +68,7 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
 
   // Build test request.
   using http::util::build_request;
-  std::string base_url = server_ + "/index.html";
+  std::string base_url = server_ + "/";
   std::string check_request = build_request(http::url(base_url),
                                             http::util::GET, "", headers_,
                                             true);
