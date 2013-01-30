@@ -56,18 +56,30 @@ void set_update_handler(jni_bot* b, JNIEnv* env, jobject obj, jobject handler) {
   b->get()->callback_ = [jvm, g_handler](std::string id,
                                          std::string k,
                                          std::string v) {
-    // Build update string.
-    std::string update = id + "|" + k + "|" + v;
+    // Get JNI environment and attach current thread if neccessary.
+    JNIEnv* env;
+    bool attached = false;
+    switch (jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6)) {
+      case JNI_OK:
+        break;
 
-    // Attach thread.
-    JNIEnv* env = nullptr;
-    jint res;
-    res = jvm->AttachCurrentThread((void**) &env, nullptr);
-    if(res < 0) {
-      return;
+      case JNI_EDETACHED:
+        if (jvm->AttachCurrentThread(reinterpret_cast<void**>(&env), nullptr) != 0) {
+          // Could not attach current thread.
+          assert(false && "Could not attach current thread");
+        } else {
+          attached = true;
+        }
+        break;
+
+      case JNI_EVERSION:
+        // Invalid java version.
+        assert(false && "Invalid java version");
+        break;
     }
 
     // Prepare function argument.
+    std::string update = id + "|" + k + "|" + v;
     jstring j_err = env->NewStringUTF(update.c_str());
 
     // Call function.
@@ -78,8 +90,16 @@ void set_update_handler(jni_bot* b, JNIEnv* env, jobject obj, jobject handler) {
     }
     env->CallVoidMethod(g_handler, mid, j_err);
 
-    // Detach thread.
-    jvm->DetachCurrentThread();
+    // Check whether an exception was thrown.
+    if (env->ExceptionCheck()) {
+      env->ExceptionDescribe();
+    }
+
+    // Detach if we attached the thread.
+    if (attached) {
+      // Detach thread.
+      jvm->DetachCurrentThread();
+    }
   };
 }
 
