@@ -287,10 +287,9 @@ bool lua_connection::get_status(const std::string& script,
   luaL_openlibs(state);
 
   // Execute script.
-
-  int ret = luaL_loadbuffer(state,
-                            script.c_str(), script.length(), var.c_str());
-  if (LUA_OK != ret) {
+  try {
+    do_buffer(state, script, var);
+  } catch (lua_exception) {
     lua_close(state);
     return false;
   }

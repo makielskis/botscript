@@ -1,7 +1,7 @@
 {
   "variables" : {
-    "boost_path": "/home/perry/boost_1_49_0/",
-    "build_path": "/home/perry/botscript/"
+    "boost_path": "/home/simon/development/boost_1_52_0/",
+    "build_path": "/home/simon/development/botscript/"
   },
   "targets": [
     {
@@ -45,6 +45,7 @@
         "src/bot_browser.cc",
         "src/module.cc",
         "src/bot.cc",
+        "src/package.cc",
         "src/node/nodejs_botscript.cc"
       ]
     }
