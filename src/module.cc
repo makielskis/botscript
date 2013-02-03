@@ -232,12 +232,10 @@ void module::execute(const std::string& command, const std::string& argument) {
     std::string full_key = module_name_ + "_" + var;
 
     // Apply status change if not already done.
-    if (bot_->status(full_key) != argument) {
-      std::stringstream msg;
-      msg << "setting " << var << " to " << argument;
-      bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
-      bot_->status(full_key, argument);
-    }
+    std::stringstream msg;
+    msg << "setting " << var << " to " << argument;
+    bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
+    bot_->status(full_key, argument);
   }
 }
 
