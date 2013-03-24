@@ -76,7 +76,7 @@ class proxy_check : public std::enable_shared_from_this<proxy_check>,
   void check_finish(std::shared_ptr<proxy_check> self, callback cb,
                     std::shared_ptr<http::http_con> con, std::string response,
                     boost::system::error_code ec) {
-    if (ec || (check_fun_ != nullptr && (*check_fun_)(response))) {
+    if (!ec && (check_fun_ == nullptr || (*check_fun_)(response))) {
       cb(self, ec);
     } else {
       cb(self, boost::system::error_code(-1, *this));
