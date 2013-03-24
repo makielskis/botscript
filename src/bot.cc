@@ -88,7 +88,13 @@ std::vector<std::string> bot::load_packages(const std::string& p) {
       stripped_path = path.substr(0, dot_pos);
     }
 
-    // Load modules (either from lib or from file)
+    // Strip until last slash.
+    std::size_t slash_pos = path.find_last_of("/");
+    if (slash_pos != std::string::npos) {
+      stripped_path = path.substr(slash_pos + 1);
+    }
+
+    // Load modules (either from lib or from file).
     std::map<std::string, std::string> modules;
     bool dir = boost::filesystem::is_directory(path);
     if (dir) {
