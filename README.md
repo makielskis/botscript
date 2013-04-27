@@ -35,7 +35,7 @@ You need either to be root or prepend `sudo` to use `apt-get` / `aptitude`.
   - `NO_BZIP2=1 ./b2 --layout=system --with-system --with-thread --with-regex --with-iostreams --with-filesystem cxxflags=-fPIC variant=release link=static threading=multi runtime-link=static`
 
 ### Lua 5.2
-  - Get readline: `apt-get install libreadline-dev`
+  - Get readline: `apt-get install libreadline-dev libncurses-dev`
   - Go to Lua folder: `cd external_lib/lua-5.2.0`
   - Make Lua: `make linux CC="g++ -fPIC"` (replace "linux" by your system)
   - Copy static library: `cp src/liblua.a ../../`
