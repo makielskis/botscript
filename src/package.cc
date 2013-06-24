@@ -160,8 +160,7 @@ std::map<std::string, std::string> package::from_lib(
   }
 
   // Load library.
-  std::wstring wpath(p.begin(), p.end());
-  HINSTANCE lib = LoadLibrary(wpath.c_str());
+  HINSTANCE lib = LoadLibrary(p.c_str());
   if (nullptr == lib) {
       return std::map<std::string, std::string>();
   }

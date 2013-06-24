@@ -12,6 +12,7 @@
 # cd ..
 # ./build/botscript
 
+
 cmake_minimum_required(VERSION 2.8.8)
 project(botscript)
 
@@ -27,47 +28,37 @@ add_subdirectory(external_lib/tidy)
 ################################
 # Boost
 ################################
-FIND_PACKAGE(Boost COMPONENTS
+if(MSVC)
+  SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "C:/boost_1_52_0")
+  SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/boost_1_52_0/stage/lib")
+endif()
+
+set(Boost_USE_STATIC_LIBS ON)
+find_package(Boost COMPONENTS
   system
   thread
   filesystem
   regex
   iostreams
 REQUIRED)
-
-IF (Boost_FOUND)
-	INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
-ELSE(Boost_FOUND)
-	MESSAGE("No Boost found.")
-ENDIF(Boost_FOUND)
-
-
-################################
-# Boost
-################################
-FIND_PACKAGE(Boost COMPONENTS
-  system
-  thread
-  filesystem
-  regex
-  iostreams
-REQUIRED)
-IF (Boost_FOUND)
-	INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
-ELSE(Boost_FOUND)
-	MESSAGE("No Boost found.")
-ENDIF(Boost_FOUND)
+if(Boost_FOUND)
+	include_directories(${Boost_INCLUDE_DIR})
+else(Boost_FOUND)
+	message("No Boost found.")
+endif(Boost_FOUND)
+link_directories(${CMAKE_LIBRARY_PATH})
 
 
 ################################
 # Compile flags
 ################################
 if(MSVC)
-	# VS2012 doesn't support correctly the tuples yet
-	add_definitions(/D _VARIADIC_MAX=10)
+  # VS2012 doesn't support correctly the tuples yet
+  add_definitions(/D _VARIADIC_MAX=10)
+  add_definitions(/D_WIN32_WINNT=0x0501)
 else()
-	# GCC -> use c++11 standard.
-	add_definitions("-std=c++11 -fPIC")
+  # GCC -> use c++11 standard.
+  add_definitions("-std=c++11 -fPIC")
 
   # Show all warnings.
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
@@ -103,6 +94,38 @@ add_library(botscript_obj_lib OBJECT
   src/bot.cc
 )
 
+
+################################
+# Libraries
+################################
+if(MSVC)
+  set(LIBS,
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_IOSTREAMS_LIBRARY}
+    tidy
+    pugixml
+    lua
+  )
+else()
+  set(LIBS,
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_IOSTREAMS_LIBRARY}
+    z
+    tidy
+    pugixml
+    lua
+    dl
+    -pthread
+  )
+endif()
+
+
 ################################
 # Main executable
 ################################
@@ -110,19 +133,7 @@ add_executable(botscript
   $<TARGET_OBJECTS:botscript_obj_lib>
   src/main.cc
 )
-target_link_libraries(botscript
-  ${Boost_SYSTEM_LIBRARY}
-  ${Boost_REGEX_LIBRARY}
-  ${Boost_THREAD_LIBRARY}
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_IOSTREAMS_LIBRARY}
-  z
-  tidy
-  pugixml
-  lua
-  dl
-  -pthread
-)
+target_link_libraries(botscript ${Boost_LIBRARIES} tidy pugixml lua)
 
 
 ################################
@@ -132,16 +143,4 @@ add_library(bs_lib SHARED
   $<TARGET_OBJECTS:botscript_obj_lib>
   src/java/net_makielski_botscript_Bot.cpp
 )
-target_link_libraries(bs_lib
-  ${Boost_SYSTEM_LIBRARY}
-  ${Boost_REGEX_LIBRARY}
-  ${Boost_THREAD_LIBRARY}
-  ${Boost_FILESYSTEM_LIBRARY}
-  ${Boost_IOSTREAMS_LIBRARY}
-  z
-  tidy
-  pugixml
-  lua
-  dl
-  -pthread
-)
+target_link_libraries(bs_lib ${LIBS})
