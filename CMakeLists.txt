@@ -43,6 +43,23 @@ ENDIF(Boost_FOUND)
 
 
 ################################
+# Boost
+################################
+FIND_PACKAGE(Boost COMPONENTS
+  system
+  thread
+  filesystem
+  regex
+  iostreams
+REQUIRED)
+IF (Boost_FOUND)
+	INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
+ELSE(Boost_FOUND)
+	MESSAGE("No Boost found.")
+ENDIF(Boost_FOUND)
+
+
+################################
 # Compile flags
 ################################
 if(MSVC)
