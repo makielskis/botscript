@@ -96,44 +96,17 @@ add_library(botscript_obj_lib OBJECT
 
 
 ################################
-# Libraries
-################################
-if(MSVC)
-  set(LIBS,
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_IOSTREAMS_LIBRARY}
-    tidy
-    pugixml
-    lua
-  )
-else()
-  set(LIBS,
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_IOSTREAMS_LIBRARY}
-    z
-    tidy
-    pugixml
-    lua
-    dl
-    -pthread
-  )
-endif()
-
-
-################################
 # Main executable
 ################################
 add_executable(botscript
   $<TARGET_OBJECTS:botscript_obj_lib>
   src/main.cc
 )
-target_link_libraries(botscript ${Boost_LIBRARIES} tidy pugixml lua)
+if(MSVC)
+  target_link_libraries(botscript ${Boost_LIBRARIES} tidy pugixml lua)
+else()
+  target_link_libraries(botscript ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+endif()
 
 
 ################################
@@ -144,3 +117,8 @@ add_library(bs_lib SHARED
   src/java/net_makielski_botscript_Bot.cpp
 )
 target_link_libraries(bs_lib ${LIBS})
+if(MSVC)
+  target_link_libraries(bs_lib ${Boost_LIBRARIES} tidy pugixml lua)
+else()
+  target_link_libraries(bs_lib ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+endif()
