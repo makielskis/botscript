@@ -55,7 +55,7 @@ link_directories(${CMAKE_LIBRARY_PATH})
 if(MSVC)
   # VS2012 doesn't support correctly the tuples yet
   add_definitions(/D _VARIADIC_MAX=10)
-  add_definitions(/D_WIN32_WINNT=0x0501)
+  add_definitions(/D _WIN32_WINNT=0x0501)
 else()
   # GCC -> use c++11 standard.
   add_definitions("-std=c++11 -fPIC")
