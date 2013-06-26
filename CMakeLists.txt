@@ -77,9 +77,9 @@ include_directories("/usr/lib/jvm/java-7-openjdk-amd64/include/")
 
 
 ################################
-# Object library
+# Static library
 ################################
-add_library(botscript_obj_lib OBJECT
+add_library(bs STATIC
   src/http/url.cc
   src/http/http_source.cc
   src/http/http_con.cc
@@ -98,41 +98,20 @@ add_library(botscript_obj_lib OBJECT
 ################################
 # Main executable
 ################################
-add_executable(botscript
-  $<TARGET_OBJECTS:botscript_obj_lib>
-  src/main.cc
-)
+add_executable(botscript src/main.cc)
 if(MSVC)
-  target_link_libraries(botscript ${Boost_LIBRARIES} tidy pugixml lua)
+  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
 else()
-  target_link_libraries(botscript ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
 endif()
-
-
-################################
-# Static Library
-################################
-add_library(botscript_static STATIC
-  $<TARGET_OBJECTS:botscript_obj_lib>
-)
-if(MSVC)
-  target_link_libraries(botscript_static ${Boost_LIBRARIES} tidy pugixml lua)
-else()
-  target_link_libraries(botscript_static ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
-endif()
-
 
 
 ################################
 # JNI Library
 ################################
-add_library(bs_lib SHARED
-  $<TARGET_OBJECTS:botscript_obj_lib>
-  src/java/net_makielski_botscript_Bot.cpp
-)
-target_link_libraries(bs_lib ${LIBS})
+add_library(bs_lib SHARED src/java/net_makielski_botscript_Bot.cpp)
 if(MSVC)
-  target_link_libraries(bs_lib ${Boost_LIBRARIES} tidy pugixml lua)
+  target_link_libraries(bs_lib bs ${Boost_LIBRARIES} tidy pugixml lua)
 else()
-  target_link_libraries(bs_lib ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+  target_link_libraries(bs_lib bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
 endif()
