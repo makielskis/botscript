@@ -110,6 +110,20 @@ endif()
 
 
 ################################
+# Static Library
+################################
+add_library(botscript_static STATIC
+  $<TARGET_OBJECTS:botscript_obj_lib>
+)
+if(MSVC)
+  target_link_libraries(botscript_static ${Boost_LIBRARIES} tidy pugixml lua)
+else()
+  target_link_libraries(botscript_static ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+endif()
+
+
+
+################################
 # JNI Library
 ################################
 add_library(bs_lib SHARED
