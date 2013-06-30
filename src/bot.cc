@@ -89,9 +89,9 @@ std::vector<std::string> bot::load_packages(const std::string& p) {
     }
 
     // Strip until last slash.
-    std::size_t slash_pos = path.find_last_of("/");
+    std::size_t slash_pos = stripped_path.find_last_of("/");
     if (slash_pos != std::string::npos) {
-      stripped_path = path.substr(slash_pos + 1);
+      stripped_path = stripped_path.substr(slash_pos + 1);
     }
 
     // Load modules (either from lib or from file).
