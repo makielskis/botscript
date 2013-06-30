@@ -93,7 +93,11 @@ add_library(bs STATIC
   src/package.cc
   src/bot.cc
 )
-target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+if(MSVC)
+  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua)
+else()
+  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+endif()
 
 
 ################################
