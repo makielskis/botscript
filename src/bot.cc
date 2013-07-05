@@ -267,7 +267,7 @@ void bot::init(const std::string& config, const error_cb& cb) {
   }
 }
 
-std::string bot::configuration(bool with_password) {
+std::string bot::configuration(bool with_password) const {
   // Lock for status r/w access.
   boost::lock_guard<boost::mutex> lock(status_mutex_);
 
@@ -306,7 +306,7 @@ std::string bot::configuration(bool with_password) {
 
   // Write pseudo module "base" containig the wait time factor and proxy.
   base_module.AddMember("wait_time_factor",
-                        status_["base_wait_time_factor"].c_str(), allocator);
+                        status_.at("base_wait_time_factor").c_str(), allocator);
 
   // Write proxy.
   std::map<std::string, std::string>::const_iterator i =

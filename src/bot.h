@@ -92,7 +92,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   ///
   /// \param with_password whether to include the password in the configuration
   /// \return the JSON configuration string
-  std::string configuration(bool with_password);
+  std::string configuration(bool with_password) const;
 
 
   /// Creates a unique identifier with the given information.
@@ -230,7 +230,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   std::map<std::string, std::string> status_;
 
   /// Mutex to synchronize status access.
-  boost::mutex status_mutex_;
+  mutable boost::mutex status_mutex_;
 
   /// Flag indicating whether the login_result_ variable is active.
   bool login_result_stored_;
