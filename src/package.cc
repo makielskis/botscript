@@ -105,8 +105,7 @@ package::package(const std::string& package_name,
   interface_ = buffer.GetString();
 }
 
-std::map<std::string, std::string> package::from_folder(
-    const std::string& p) {
+std::map<std::string, std::string> package::from_folder(const std::string& p) {
   std::map<std::string, std::string> modules;
 
   // Return if the specified path is not a directory.

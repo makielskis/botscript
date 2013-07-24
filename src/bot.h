@@ -20,9 +20,8 @@
 #include "./bot_browser.h"
 #include "./module.h"
 #include "./lua/state_wrapper.h"
-#include "./package.h"  
-
-#define CONTAINS(c, e) (std::find(c.begin(), c.end(), e) != c.end())
+#include "./package.h"
+#include "./config.h"
 
 namespace botscript {
 
@@ -164,11 +163,11 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// \param key the key of the value to return
   /// \return the value
-  std::string status(const std::string key);
+  std::string status(const std::string& key);
 
   /// \param key the key
   /// \param value the value to set
-  void status(const std::string key, const std::string value);
+  void status(const std::string& key, const std::string& value);
 
   /// Calls the callback function with the current value of the key.
   ///
@@ -196,12 +195,6 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \param init_commands the initialization commands
   void load_modules(const command_sequence& init_commands);
 
-  /// \param command   command to execute
-  /// \param argument  command argument
-  /// \param self      shared pointer to this bot
-  void internal_exec(const std::string& command, const std::string& argument,
-                     std::shared_ptr<bot> self);
-
   /// Login callback.
   std::function<void(std::string)> login_cb_;
 
@@ -211,8 +204,8 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Web browser agent.
   std::shared_ptr<bot_browser> browser_;
 
-  /// Basic bot information.
-  std::string username_, password_, package_, server_, identifier_;
+  /// Bot identifier.
+  std::string identifier_;
 
   /// Modules.
   std::vector<std::shared_ptr<module>> modules_;
@@ -223,14 +216,8 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// List of log messages.
   std::list<std::string> log_msgs_;
 
-  /// Lock to synchronize logging.
-  static boost::mutex log_mutex_;
-
-  /// Bot status.
-  std::map<std::string, std::string> status_;
-
-  /// Mutex to synchronize status access.
-  mutable boost::mutex status_mutex_;
+  /// Bot configuration.
+  config config_;
 
   /// Flag indicating whether the login_result_ variable is active.
   bool login_result_stored_;

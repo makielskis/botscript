@@ -4,7 +4,9 @@
 
 #include "./config.h"
 
+#include <iostream>
 #include <stdexcept>
+#include <algorithm>
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -14,6 +16,9 @@ namespace json = rapidjson;
 using namespace std;
 
 namespace botscript {
+
+config::config() {
+}
 
 config::config(const string& json_config) {
   // Read JSON.
@@ -103,9 +108,60 @@ config::config(const string& username,
     package_(package),
     server_(server),
     module_settings_(module_settings) {
+
+}
+config::command_sequence config::init_command_sequence() const {
+#ifdef BS_MULTI_THREADED
+  boost::lock_guard<boost::mutex> lock(mutex_);
+#endif
+
+  command_sequence commands;
+
+  // Base settings first.
+  auto wtf_init = make_pair("base_set_wait_time_factor",
+                             module_settings_.at("base").at("wait_time_factor"));
+  auto proxy_init = make_pair("base_set_proxy",
+                              module_settings_.at("base").at("proxy"));
+  commands.emplace_back(move(wtf_init));
+  commands.push_back(move(proxy_init));
+
+  // Iterate modules.
+  for (const auto& module : module_settings_) {
+    const string& module_name = module.first;
+
+    // Don't handle base twice.
+    if (module_name == "base") {
+      continue;
+    }
+
+    // Iterate module configuration values
+    for (const auto& module_config : module.second) {
+      // Module activation has to be done after the configuration.
+      if (module_config.first == "active") {
+        continue;
+      }
+
+      string command = module_name + "_set_" + module_config.first;
+      commands.emplace_back(make_pair(command, module_config.second));
+    }
+
+    // Last step: module activation.
+    const auto it = module.second.find("active");
+    if (it != module.second.end()) {
+      commands.emplace_back(make_pair(module_name + "_set_active", it->second));
+    } else {
+      commands.emplace_back(make_pair(module_name + "_set_active", "0"));
+    }
+  }
+
+  return commands;
 }
 
 string config::to_json(bool with_password) const {
+#ifdef BS_MULTI_THREADED
+  boost::lock_guard<boost::mutex> lock(mutex_);
+#endif
+
   // Write basic configuration values.
   rapidjson::Document document;
   document.SetObject();
@@ -144,6 +200,28 @@ string config::to_json(bool with_password) const {
   return buffer.GetString();
 }
 
+string config::value_of(const string& key) const {
+#ifdef BS_MULTI_THREADED
+  boost::lock_guard<boost::mutex> lock(mutex_);
+#endif
+
+  auto pos = key.find("_");
+  if (pos != string::npos) {
+    string module = key.substr(0, pos);
+    string setting = key.substr(pos + 1);
+
+    const auto it1 = module_settings_.find(module);
+    if (it1 != module_settings_.cend()) {
+      const auto it2 = it1->second.find(setting);
+      if (it2 != it1->second.end()) {
+        return it2->second;
+      }
+    }
+  }
+
+  return "";
+}
+
 const string& config::username() const {
   return username_;
 }
@@ -160,8 +238,34 @@ const string& config::server() const {
   return server_;
 }
 
-const map<string, config::string_map>& config::module_settings() const {
+map<string, config::string_map> config::module_settings() const {
+#ifdef BS_MULTI_THREADED
+  boost::lock_guard<boost::mutex> lock(mutex_);
+#endif
+
   return module_settings_;
+}
+
+
+void config::set(const string& module, const string& key, const string& value) {
+#ifdef BS_MULTI_THREADED
+  boost::lock_guard<boost::mutex> lock(mutex_);
+#endif
+
+  module_settings_[module][key] = value;
+}
+
+void config::set(const string& key, const string& value) {
+#ifdef BS_MULTI_THREADED
+  boost::lock_guard<boost::mutex> lock(mutex_);
+#endif
+
+  auto pos = key.find("_");
+  if (pos != string::npos) {
+    string module = key.substr(0, pos);
+    string setting = key.substr(pos + 1);
+    module_settings_[module][setting] = value;
+  }
 }
 
 }  // namespace botscript

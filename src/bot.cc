@@ -31,7 +31,6 @@ double round(double r) {
 namespace botscript {
 
 // Initialization of the static bot class attributes.
-boost::mutex bot::log_mutex_;
 std::map<std::string, std::shared_ptr<botscript::package>> bot::packages_;
 
 bot::bot(boost::asio::io_service* io_service)
@@ -60,11 +59,11 @@ void bot::shutdown() {
   log(BS_LOG_DBG, "base", msg.str());
 }
 
-std::string bot::username()    const { return username_; }
-std::string bot::password()    const { return password_; }
+std::string bot::username()    const { return config_.username(); }
+std::string bot::password()    const { return config_.password(); }
 std::string bot::identifier()  const { return identifier_; }
-std::string bot::package()     const { return package_; }
-std::string bot::server()      const { return server_; }
+std::string bot::package()     const { return config_.package(); }
+std::string bot::server()      const { return config_.server(); }
 double bot::wait_time_factor() const { return wait_time_factor_; }
 bot_browser* bot::browser()          { return browser_.get(); }
 
@@ -128,119 +127,30 @@ void bot::init(const std::string& config, const error_cb& cb) {
   // Get shared pointer to keep alive.
   std::shared_ptr<bot> self = shared_from_this();
 
-  // Read JSON.
-  rapidjson::Document document;
-  if (document.Parse<0>(config.c_str()).HasParseError()) {
-    return cb(self, "invalid JSON");
+  try {
+    config_ = botscript::config(config);
+  } catch (const std::runtime_error& e) {
+    return cb(self, e.what());
   }
 
-  // Check if all necessary configuration values are available.
-  if (!document.HasMember("modules") ||
-      !document["modules"].IsObject() ||
-      !document["modules"].HasMember("base") ||
-      !document["modules"]["base"].HasMember("wait_time_factor") ||
-      !document["modules"]["base"]["wait_time_factor"].IsString() ||
-      !document["modules"]["base"].HasMember("proxy") ||
-      !document["modules"]["base"]["proxy"].IsString() ||
-      !document.HasMember("username") ||
-      !document.HasMember("password") ||
-      !document.HasMember("package") ||
-      !document.HasMember("server") ||
-      !document["username"].IsString() ||
-      !document["password"].IsString() ||
-      !document["package"].IsString() ||
-      !document["server"].IsString()) {
-    return cb(self, "invalid configuration");
-  }
+  identifier_ = identifier(config_.username(),
+                           config_.package(),
+                           config_.server());
 
-  // Read basic configuration values.
-  username_ = document["username"].GetString();
-  password_ = document["password"].GetString();
-  package_ = document["package"].GetString();
-  server_ = document["server"].GetString();
-
-  // Do not load a bot with a non existent package.
-  if (packages_.find(package_) == packages_.end()) {
-    return cb(self, "package not found");
-  }
-
-  // Generate identifier.
-  identifier_ = identifier(username_, package_, server_);
-
-  // Do not create a bot that already exists.
+  // Check whether bot already exists.
   if (lua_connection::contains(identifier_)) {
     return cb(self, "bot already registered");
   }
+
+  // Add bot to lua connection.
   lua_connection::add(shared_from_this());
-
-  // Read and set wait time factor.
-  std::string wtf = document["modules"]["base"]["wait_time_factor"].GetString();
-  wtf = wtf.empty() ? "1.00" : wtf;
-  execute("base_set_wait_time_factor", wtf);
-
-  // Read proxy settings.
-  std::string proxy = document["modules"]["base"]["proxy"].GetString();
-
-  // Create execute command sequence from module configurations
-  // for later execution (after the login has been performed).
-  command_sequence commands;
-  if (document.HasMember("modules") && document["modules"].IsObject()) {
-    const rapidjson::Value& a = document["modules"];
-    for (rapidjson::Value::ConstMemberIterator i = a.MemberBegin();
-         i != a.MemberEnd(); ++i) {
-      const rapidjson::Value& m = i->value;
-
-      // Ignore modules that are no objects.
-      if (!m.IsObject()) {
-        continue;
-      }
-
-      // Extract module name.
-      std::string module = i->name.GetString();
-
-      // Base module had been handled previously.
-      if (module == "base") {
-        continue;
-      }
-
-      // Iterate module settings.
-      rapidjson::Value::ConstMemberIterator it = m.MemberBegin();
-      for (; it != m.MemberEnd(); ++it) {
-        // Read property name.
-        std::string name = it->name.GetString();
-
-        // Ignore "active" because the module should be startet
-        // after the complete state has been read.
-        // Ignore "name" because the module name is not relevant for the state.
-        if (name == "name" || name == "active") {
-          continue;
-        }
-
-        // Set module status variable.
-        std::string command = module + "_set_" + name;
-        std::string value = it->value.GetString();
-        commands.emplace_back(command, value);
-      }
-
-      // Read active status.
-      std::string active;
-      if (m.HasMember("active") && m["active"].IsString()) {
-        active = m["active"].GetString();
-      } else {
-        active = "0";
-      }
-
-      // Start module if active status is "1" (=active).
-      if (active == "1") {
-        commands.emplace_back(module + "_set_active", "1");
-      }
-    }
-  }
 
   // Instantiate browser.
   browser_ = std::make_shared<bot_browser>(io_service_, self);
 
   // Set proxy if available.
+  std::string proxy = config_.module_settings()["base"]["proxy"];
+  command_sequence commands = config_.init_command_sequence();
   if (!proxy.empty()) {
     browser_->set_proxy_list(proxy, [this, commands, cb, self](int success) {
       if (!success) {
@@ -252,7 +162,7 @@ void bot::init(const std::string& config, const error_cb& cb) {
                                 self, s, _1, cb, commands, true, 2);
         lua_connection::login(
             s->get(), self,
-            packages_[package_]->modules().find("base")->second,
+            packages_[config_.package()]->modules().find("base")->second,
             &login_cb_);
       }
     });
@@ -262,71 +172,13 @@ void bot::init(const std::string& config, const error_cb& cb) {
     login_cb_ = boost::bind(&bot::handle_login, this,
                             self, s, _1, cb, commands, true, 2);
     lua_connection::login(s->get(), self,
-                          packages_[package_]->modules().find("base")->second,
+                          packages_[config_.package()]->modules().find("base")->second,
                           &login_cb_);
   }
 }
 
 std::string bot::configuration(bool with_password) const {
-  // Lock for status r/w access.
-  boost::lock_guard<boost::mutex> lock(status_mutex_);
-
-  // Write basic configuration values.
-  rapidjson::Document document;
-  document.SetObject();
-  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
-  document.AddMember("username", username_.c_str(), allocator);
-  if (with_password) {
-    document.AddMember("password", password_.c_str(), allocator);
-  }
-  document.AddMember("package", package_.c_str(), allocator);
-  document.AddMember("server", server_.c_str(), allocator);
-
-  // Write module configuration values.
-  rapidjson::Value modules(rapidjson::kObjectType);
-  for(const auto& m : modules_) {
-    // Initialize module JSON object and add name property.
-    std::string module_name = m->name();
-    rapidjson::Value module(rapidjson::kObjectType);
-
-    // Add module settings.
-    for(const auto& j : status_) {
-      if (boost::algorithm::starts_with(j.first, module_name)) {
-        std::string key = j.first.substr(module_name.length() + 1);
-        rapidjson::Value key_attr(key.c_str(), allocator);
-        rapidjson::Value val_attr(j.second.c_str(), allocator);
-        module.AddMember(key_attr, val_attr, allocator);
-      }
-    }
-    rapidjson::Value name_attr(module_name.c_str(), allocator);
-    modules.AddMember(name_attr, module, allocator);
-  }
-
-  rapidjson::Value base_module(rapidjson::kObjectType);
-
-  // Write pseudo module "base" containig the wait time factor and proxy.
-  base_module.AddMember("wait_time_factor",
-                        status_.at("base_wait_time_factor").c_str(), allocator);
-
-  // Write proxy.
-  std::map<std::string, std::string>::const_iterator i =
-      status_.find("base_proxy");
-  std::string proxy = (i == status_.end()) ? "" : i->second;
-  rapidjson::Value proxy_value(proxy.c_str(), allocator);
-  base_module.AddMember("proxy", proxy_value, allocator);
-
-  // Add base module to modules.
-  modules.AddMember("base", base_module, allocator);
-
-  // Add modules to configuration.
-  document.AddMember("modules", modules, allocator);
-
-  // Convert to string.
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  document.Accept(writer);
-
-  return buffer.GetString();
+  return config_.to_json(with_password);
 }
 
 void bot::handle_login(std::shared_ptr<bot> self,
@@ -353,7 +205,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
       std::string t =  boost::lexical_cast<std::string>(4 - tries);
       log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
       lua_connection::login(next_state->get(), shared_from_this(),
-                            packages_[package_]->modules().find("base")->second,
+                            packages_[config_.package()]->modules().find("base")->second,
                             &login_cb_);
     }
   } else {
@@ -381,7 +233,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
         log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
         lua_connection::login(
             next_state->get(), shared_from_this(),
-            packages_[package_]->modules().find("base")->second,
+            packages_[config_.package()]->modules().find("base")->second,
             &login_cb_);
       } else /* if (login_result_) */ {
         if (load_mod) {
@@ -397,9 +249,9 @@ void bot::handle_login(std::shared_ptr<bot> self,
 
 void bot::load_modules(const command_sequence& init_commands) {
   // Load modules from package folder:
-  const std::string& base_script = packages_[package_]->modules().find("base")->second;
+  const std::string& base_script = packages_[config_.package()]->modules().find("base")->second;
   std::shared_ptr<bot> self = shared_from_this();
-  for (const auto& m : packages_[package_]->modules()) {
+  for (const auto& m : packages_[config_.package()]->modules()) {
     // base and servers ain't no modules.
     if (m.first == "base" || m.first == "servers") {
       continue;
@@ -451,8 +303,6 @@ int bot::random(int a, int b) {
 }
 
 void bot::log(int type, const std::string& source, const std::string& message) {
-  boost::lock_guard<boost::mutex> lock(log_mutex_);
-
   // Build date string.
   std::stringstream time;
   boost::posix_time::time_facet* p_time_output =
@@ -493,100 +343,79 @@ std::string bot::log_msgs() {
   return log.str();
 }
 
-std::string bot::status(const std::string key) {
-  // Lock because of status map r/w access.
-  boost::lock_guard<boost::mutex> lock(status_mutex_);
-  auto i = status_.find(key);
-  return (i == status_.end()) ? "" : i->second;
+std::string bot::status(const std::string& key) {
+  return config_.value_of(key);
 }
 
-void bot::status(const std::string key, const std::string value) {
-  {
-    boost::lock_guard<boost::mutex> lock(status_mutex_);
-    status_[key] = value;
-  }
+void bot::status(const std::string& key, const std::string& value) {
+  config_.set(key, value);
   callback_(identifier_, key, value);
 }
 
 void bot::refresh_status(const std::string& key) {
-  auto i = status_.find(key);
-  if (i != status_.end()) {
-    callback_(identifier_, i->first, i->second);
+  std::string value = config_.value_of(key);
+  if (!value.empty()) {
+    callback_(identifier_, key, value);
   }
 }
 
 std::map<std::string, std::string> bot::module_status(
     const std::string& module) {
-  // Lock for status r/w access.
-  boost::lock_guard<boost::mutex> lock(status_mutex_);
-
-  // Read module settings.
-  std::map<std::string, std::string> module_status;
-  for(const auto& j : status_) {
-    if (boost::algorithm::starts_with(j.first, module)) {
-      std::string key = j.first.substr(module.length() + 1);
-      module_status[key] = j.second;
-    }
-  }
-
-  return module_status;
+  return config_.module_settings()[module];
 }
 
 void bot::execute(const std::string& command, const std::string& argument) {
-  io_service_->post(boost::bind(&bot::internal_exec, this,
-                                command, argument, shared_from_this()));
-}
-
-void bot::internal_exec(const std::string& command, const std::string& argument,
-                        std::shared_ptr<bot> self) {
-  // Handle wait time factor command.
-  if (command == "base_set_wait_time_factor") {
-    std::string new_wait_time_factor = argument;
-    if (new_wait_time_factor.find(".") == std::string::npos) {
-      new_wait_time_factor += ".0";
-    }
-    wait_time_factor_ = atof(new_wait_time_factor.c_str());
-    char buf[5];
-    sprintf(buf, "%.2f", wait_time_factor_);
-    status("base_wait_time_factor", buf);
-    log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + buf);
-    return;
-  }
-
-  // Handle set proxy command.
-  if (command == "base_set_proxy") {
-    if (proxy_check_active_) {
-      log(BS_LOG_ERR, "base", "another proxy check is currently active");
+  auto self = shared_from_this();
+  io_service_->post([=]() {
+    // Handle wait time factor command.
+    if (command == "base_set_wait_time_factor") {
+      std::string new_wait_time_factor = argument;
+      if (new_wait_time_factor.find(".") == std::string::npos) {
+        new_wait_time_factor += ".0";
+      }
+      wait_time_factor_ = atof(new_wait_time_factor.c_str());
+      char buf[5];
+      sprintf(buf, "%.2f", wait_time_factor_);
+      status("base_wait_time_factor", buf);
+      log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + buf);
       return;
     }
 
-    proxy_check_active_ = true;
-    browser_->set_proxy_list(argument, [this, self](int success) {
-      if (!success) {
-        proxy_check_active_ = false;
-        log(BS_LOG_ERR, "base", "no new working proxy found");
-      } else {
-        log(BS_LOG_NFO, "base", "login: 1. try");
-        command_sequence commands;
-        auto cb = [this](std::shared_ptr<bot>, std::string err) {
-          if (!err.empty()) log(BS_LOG_ERR, "base", err);
-          proxy_check_active_ = false;
-        };
-        std::shared_ptr<state_wrapper> state = std::make_shared<state_wrapper>();
-        login_cb_ = boost::bind(&bot::handle_login, this,
-                                self, state, _1, cb, commands, false, 2);
-        lua_connection::login(
-            state->get(), self,
-            packages_[package_]->modules().find("base")->second,
-            &login_cb_);
+    // Handle set proxy command.
+    if (command == "base_set_proxy") {
+      if (proxy_check_active_) {
+        log(BS_LOG_ERR, "base", "another proxy check is currently active");
+        return;
       }
-    });
-  }
 
-  // Forward all other commands to modules.
-  for (auto module : modules_) {
-    module->execute(command, argument);
-  }
+      proxy_check_active_ = true;
+      browser_->set_proxy_list(argument, [this, self](int success) {
+        if (!success) {
+          proxy_check_active_ = false;
+          log(BS_LOG_ERR, "base", "no new working proxy found");
+        } else {
+          log(BS_LOG_NFO, "base", "login: 1. try");
+          command_sequence commands;
+          auto cb = [this](std::shared_ptr<bot>, std::string err) {
+            if (!err.empty()) log(BS_LOG_ERR, "base", err);
+            proxy_check_active_ = false;
+          };
+          auto state = std::make_shared<state_wrapper>();
+          login_cb_ = boost::bind(&bot::handle_login, this,
+                                  self, state, _1, cb, commands, false, 2);
+          lua_connection::login(
+              state->get(), self,
+              packages_[config_.package()]->modules().find("base")->second,
+              &login_cb_);
+        }
+      });
+    }
+
+    // Forward all other commands to modules.
+    for (auto module : modules_) {
+      module->execute(command, argument);
+    }
+  });
 }
 
 }  // namespace botscript
