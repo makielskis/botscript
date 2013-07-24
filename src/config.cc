@@ -11,14 +11,15 @@
 #include "rapidjson/stringbuffer.h"
 
 namespace json = rapidjson;
+using namespace std;
 
 namespace botscript {
 
-config::config(const std::string& json_config) {
+config::config(const string& json_config) {
   // Read JSON.
   json::Document document;
   if (document.Parse<0>(json_config.c_str()).HasParseError()) {
-    throw std::runtime_error("invalid JSON");
+    throw runtime_error("invalid JSON");
   }
 
   // Check if all necessary configuration values are available.
@@ -37,7 +38,7 @@ config::config(const std::string& json_config) {
       !document["password"].IsString() ||
       !document["package"].IsString() ||
       !document["server"].IsString()) {
-    throw std::runtime_error("invalid configuration");
+    throw runtime_error("invalid configuration");
   }
 
   // Read basic configuration values.
@@ -47,12 +48,12 @@ config::config(const std::string& json_config) {
   server_ = document["server"].GetString();
 
   // Read and set wait time factor.
-  std::string wtf = document["modules"]["base"]["wait_time_factor"].GetString();
+  string wtf = document["modules"]["base"]["wait_time_factor"].GetString();
   wtf = wtf.empty() ? "1.00" : wtf;
   module_settings_["base"]["wait_time_factor"] = wtf;
 
   // Read and set proxy.
-  std::string proxy = document["modules"]["base"]["proxy"].GetString();
+  string proxy = document["modules"]["base"]["proxy"].GetString();
   module_settings_["base"]["proxy"] = proxy;
 
   // Read module settings
@@ -63,11 +64,11 @@ config::config(const std::string& json_config) {
 
     // Ignore modules that are no objects.
     if (!m.IsObject()) {
-      throw std::runtime_error("module not an object");
+      throw runtime_error("module not an object");
     }
 
     // Extract module name.
-    std::string module_name = i->name.GetString();
+    string module_name = i->name.GetString();
 
     // Base module had been handled previously.
     if (module_name == "base") {
@@ -78,7 +79,7 @@ config::config(const std::string& json_config) {
     json::Value::ConstMemberIterator it = m.MemberBegin();
     for (; it != m.MemberEnd(); ++it) {
       // Read property name.
-      std::string key = it->name.GetString();
+      string key = it->name.GetString();
 
       // Ignore "name" because the module name is not relevant for the state.
       if (key == "name") {
@@ -86,17 +87,17 @@ config::config(const std::string& json_config) {
       }
 
       // Set module status variable.
-      std::string value = it->value.GetString();
+      string value = it->value.GetString();
       module_settings_[module_name][key] = value;
     }
   }
 }
 
-config::config(const std::string& username,
-               const std::string& password,
-               const std::string& package,
-               const std::string& server,
-               const std::map<std::string, string_map>& module_settings)
+config::config(const string& username,
+               const string& password,
+               const string& package,
+               const string& server,
+               const map<string, string_map>& module_settings)
   : username_(username),
     password_(password),
     package_(package),
@@ -104,7 +105,7 @@ config::config(const std::string& username,
     module_settings_(module_settings) {
 }
 
-std::string config::to_json(bool with_password) {
+string config::to_json(bool with_password) const {
   // Write basic configuration values.
   rapidjson::Document document;
   document.SetObject();
@@ -143,23 +144,23 @@ std::string config::to_json(bool with_password) {
   return buffer.GetString();
 }
 
-const std::string& config::username() {
+const string& config::username() const {
   return username_;
 }
 
-const std::string& config::password() {
+const string& config::password() const {
   return password_;
 }
 
-const std::string& config::package() {
+const string& config::package() const {
   return package_;
 }
 
-const std::string& config::server() {
+const string& config::server() const {
   return server_;
 }
 
-const std::map<std::string, config::string_map>& config::module_settings() {
+const map<string, config::string_map>& config::module_settings() const {
   return module_settings_;
 }
 

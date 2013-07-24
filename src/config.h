@@ -22,12 +22,12 @@ class config {
          const std::string& server,
          const std::map<std::string, string_map>& module_settings);
 
-  std::string to_json(bool with_password);
-  const std::string& username();
-  const std::string& password();
-  const std::string& package();
-  const std::string& server();
-  const std::map<std::string, string_map>& module_settings();
+  std::string to_json(bool with_password) const;
+  const std::string& username() const;
+  const std::string& password() const;
+  const std::string& package() const;
+  const std::string& server() const;
+  const std::map<std::string, string_map>& module_settings() const;
 
  private:
   std::string username_, password_, package_, server_;
