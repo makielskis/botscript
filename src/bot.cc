@@ -65,6 +65,7 @@ std::string bot::identifier()  const { return identifier_; }
 std::string bot::package()     const { return config_.package(); }
 std::string bot::server()      const { return config_.server(); }
 double bot::wait_time_factor() const { return wait_time_factor_; }
+const config& bot::configuration() const { return config_; }
 bot_browser* bot::browser()          { return browser_.get(); }
 
 std::vector<std::string> bot::load_packages(const std::string& p) {

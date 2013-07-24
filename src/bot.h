@@ -137,6 +137,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \return the wait time factor set.
   double wait_time_factor() const;
 
+  /// \return the underlying config object
+  const config& configuration() const;
+
   /// \return the webclient
   bot_browser* browser();
 
