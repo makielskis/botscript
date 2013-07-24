@@ -77,31 +77,28 @@ TEST(config_test, init_commands_test) {
 
   config::command_sequence init_commands = c.init_command_sequence();
 
-  ASSERT_EQ(8u, init_commands.size());
+  ASSERT_EQ(7u, init_commands.size());
 
   EXPECT_EQ("base_set_wait_time_factor", init_commands[0].first);
   EXPECT_EQ("2.00", init_commands[0].second);
 
-  EXPECT_EQ("base_set_proxy", init_commands[1].first);
-  EXPECT_EQ("127.0.0.1:9000", init_commands[1].second);
+  EXPECT_EQ("mod1_set_a", init_commands[1].first);
+  EXPECT_EQ("b", init_commands[1].second);
 
-  EXPECT_EQ("mod1_set_a", init_commands[2].first);
-  EXPECT_EQ("b", init_commands[2].second);
+  EXPECT_EQ("mod1_set_c", init_commands[2].first);
+  EXPECT_EQ("d", init_commands[2].second);
 
-  EXPECT_EQ("mod1_set_c", init_commands[3].first);
-  EXPECT_EQ("d", init_commands[3].second);
+  EXPECT_EQ("mod1_set_active", init_commands[3].first);
+  EXPECT_EQ("0", init_commands[3].second);
 
-  EXPECT_EQ("mod1_set_active", init_commands[4].first);
-  EXPECT_EQ("0", init_commands[4].second);
+  EXPECT_EQ("mod2_set_e", init_commands[4].first);
+  EXPECT_EQ("f", init_commands[4].second);
 
-  EXPECT_EQ("mod2_set_e", init_commands[5].first);
-  EXPECT_EQ("f", init_commands[5].second);
+  EXPECT_EQ("mod2_set_g", init_commands[5].first);
+  EXPECT_EQ("h", init_commands[5].second);
 
-  EXPECT_EQ("mod2_set_g", init_commands[6].first);
-  EXPECT_EQ("h", init_commands[6].second);
-
-  EXPECT_EQ("mod2_set_active", init_commands[7].first);
-  EXPECT_EQ("1", init_commands[7].second);
+  EXPECT_EQ("mod2_set_active", init_commands[6].first);
+  EXPECT_EQ("1", init_commands[6].second);
 }
 
 TEST(config_test, value_of_test) {

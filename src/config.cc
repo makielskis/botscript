@@ -118,12 +118,9 @@ config::command_sequence config::init_command_sequence() const {
   command_sequence commands;
 
   // Base settings first.
-  auto wtf_init = make_pair("base_set_wait_time_factor",
-                             module_settings_.at("base").at("wait_time_factor"));
-  auto proxy_init = make_pair("base_set_proxy",
-                              module_settings_.at("base").at("proxy"));
+  const string& wtf = module_settings_.at("base").at("wait_time_factor");
+  auto wtf_init = make_pair("base_set_wait_time_factor", wtf);
   commands.emplace_back(move(wtf_init));
-  commands.push_back(move(proxy_init));
 
   // Iterate modules.
   for (const auto& module : module_settings_) {
