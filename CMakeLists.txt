@@ -91,6 +91,7 @@ add_library(bs STATIC
   src/bot_browser.cc
   src/module.cc
   src/package.cc
+  src/config.cc
   src/bot.cc
 )
 if(MSVC)
@@ -120,3 +121,18 @@ if(MSVC)
 else()
   target_link_libraries(bs_lib bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
 endif()
+
+
+################################
+# Unit Tests
+################################
+add_subdirectory(test/gtest-1.6.0)
+enable_testing()
+include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+
+add_executable(botscript-tests
+  test/config_test.cpp
+)
+
+target_link_libraries(botscript-tests gtest gtest_main bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+add_test(botscript-tests botscript-tests)
