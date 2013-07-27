@@ -82,7 +82,7 @@ std::vector<std::string> bot::load_packages(const std::string& p) {
 
     // Discover package name.
     std::string stripped_path = path;
-    std::size_t dot_pos = path.find_last_of(".");
+    std::size_t dot_pos = path.rfind(".package");
     if (dot_pos != std::string::npos && dot_pos != 0) {
       stripped_path = path.substr(0, dot_pos);
     }
