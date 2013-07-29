@@ -16,7 +16,8 @@
 
 #include "./lua/lua_connection.h"
 
-#if defined _WIN32 || defined _WIN64
+// using Visual Studio 2012 or older
+#if (defined _MSC_VER && _MSC_VER <= 1700)
 namespace std {
 
 // round() is missing in until C++11 standard.
