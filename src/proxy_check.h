@@ -87,7 +87,7 @@ class proxy_check : public std::enable_shared_from_this<proxy_check>,
     return proxy_;
   }
 
-  const char* name() const { return "proxy"; }
+  const char* name() const noexcept { return "proxy"; }
   std::string message(int ev) const {
     return "check failed";
   }

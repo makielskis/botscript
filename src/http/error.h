@@ -22,7 +22,7 @@ enum {
 
 class http_category : public boost::system::error_category {
  public:
-  const char* name() const { return "http"; }
+  const char* name() const noexcept { return "http"; }
   std::string message(int ev) const {
     switch (ev) {
       case INVALID_XPATH:      return "invalid element specified";
