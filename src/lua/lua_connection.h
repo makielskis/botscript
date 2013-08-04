@@ -24,7 +24,7 @@
 #include "boost/thread.hpp"
 #include "boost/filesystem.hpp"
 
-#include "rapidjson/document.h"
+#include "../rapidjson_with_exception.h"
 
 #include "../bot.h"
 #include "../module.h"
