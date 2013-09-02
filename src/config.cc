@@ -52,6 +52,14 @@ config::config(const string& json_config) {
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
 
+  // Read inactive flag.
+  if (document.HasMember("inactive")) {
+    if (!document["inactive"].IsBool()) {
+      throw runtime_error("invalid configuration: inactive flag must be bool");
+    }
+    inactive_ = document["inactive"].GetBool();
+  }
+
   // Read and set wait time factor.
   string wtf = document["modules"]["base"]["wait_time_factor"].GetString();
   wtf = wtf.empty() ? "1.00" : wtf;
@@ -103,13 +111,22 @@ config::config(const string& username,
                const string& package,
                const string& server,
                const map<string, string_map>& module_settings)
-  : username_(username),
+  : inactive_(false),
+    username_(username),
     password_(password),
     package_(package),
     server_(server),
     module_settings_(module_settings) {
-
 }
+
+bool config::inactive() const {
+  return inactive_;
+}
+
+void config::inactive(bool flag) {
+  inactive_ = flag;
+}
+
 config::command_sequence config::init_command_sequence() const {
 #ifdef BS_MULTI_THREADED
   boost::lock_guard<boost::mutex> lock(mutex_);
@@ -169,6 +186,7 @@ string config::to_json(bool with_password) const {
   }
   document.AddMember("package", package_.c_str(), allocator);
   document.AddMember("server", server_.c_str(), allocator);
+  document.AddMember("inactive", inactive_, allocator);
 
   // Write module configuration values.
   rapidjson::Value modules(rapidjson::kObjectType);

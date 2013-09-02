@@ -35,6 +35,9 @@ class config {
   std::string to_json(bool with_password) const;
   std::string value_of(const std::string& key) const;
 
+  void inactive(bool flag);
+  bool inactive() const;
+
   const std::string& username() const;
   const std::string& password() const;
   const std::string& package() const;
@@ -48,6 +51,7 @@ class config {
            const std::string& value);
 
  private:
+  bool inactive_;
   std::string username_, password_, package_, server_;
   std::map<std::string, string_map> module_settings_;
 
