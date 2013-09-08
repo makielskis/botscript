@@ -58,6 +58,8 @@ config::config(const string& json_config) {
       throw runtime_error("invalid configuration: inactive flag must be bool");
     }
     inactive_ = document["inactive"].GetBool();
+  } else {
+    inactive_ = false;
   }
 
   // Read and set wait time factor.
