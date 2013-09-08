@@ -43,9 +43,6 @@ bot::bot(boost::asio::io_service* io_service)
 }
 
 bot::~bot() {
-  std::stringstream msg;
-  msg << "bot::~bot() " << identifier_;
-  log(BS_LOG_ERR, "base", msg.str());
 }
 
 void bot::shutdown() {
@@ -58,6 +55,8 @@ void bot::shutdown() {
   std::stringstream msg;
   msg << "login_callback " << (nullptr == login_cb_ ? "not " : "") << "set";
   log(BS_LOG_DBG, "base", msg.str());
+
+  callback_ = nullptr;
 }
 
 std::string bot::username()    const { return config_.username(); }
@@ -334,7 +333,11 @@ void bot::log(int type, const std::string& source, const std::string& message) {
     log_msgs_.pop_front();
   }
   log_msgs_.push_back(msg.str());
-  callback_(identifier_, "log", msg.str());
+  if (callback_ != nullptr) {
+    callback_(identifier_, "log", msg.str());
+  } else {
+    std::cout << "callback_ = nullptr, can't propagate \"" << msg.str() << "\"\n";
+  }
 }
 
 std::string bot::log_msgs() {
@@ -358,6 +361,8 @@ void bot::refresh_status(const std::string& key) {
   std::string value = config_.value_of(key);
   if (!value.empty()) {
     callback_(identifier_, key, value);
+    std::cout << "callback_ = nullptr, can't propagate "
+              << key << " -> " << value << "\"\n";
   }
 }
 
