@@ -372,7 +372,6 @@ void lua_connection::add(std::shared_ptr<bot> bot) {
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
 
   // Add bot if not it is not already stored.
-  std::cout << "adding bot " << bot->identifier() << "\n";
   if (bots_.find(bot->identifier()) == bots_.end()) {
     bots_[bot->identifier()] = bot;
   }
@@ -381,7 +380,6 @@ void lua_connection::add(std::shared_ptr<bot> bot) {
 void lua_connection::remove(const std::string& identifier) {
   // Lock because of bots map r/w access.
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
-  std::cout << "removing " << identifier << "\n";
 
   // Search for identifier and delete entry.
   auto i = bots_.find(identifier);
