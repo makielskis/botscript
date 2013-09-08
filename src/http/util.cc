@@ -229,7 +229,7 @@ parameters extract_parameters(const pugi::xml_node& node,
       if (name != "") {
         for (pugi::xml_node::iterator opt = iter->begin();
              opt != iter->end(); ++opt) {
-          if (opt->attribute("selected").as_bool()) {
+          if (opt->attribute("selected") != nullptr) {
             p.push_back(std::make_pair(name, opt->attribute("value").value()));
           }
         }
