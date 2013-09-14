@@ -225,12 +225,11 @@ void bot::handle_login(std::shared_ptr<bot> self,
         return;
       } else if (!login_result_ && tries > 0) {
         browser_->change_proxy();
-        std::shared_ptr<state_wrapper> next_state
-            = std::make_shared<state_wrapper>();
+        auto next_state = std::make_shared<state_wrapper>();
         login_cb_ = boost::bind(&bot::handle_login, this,
                                 self, next_state, _1, cb, init_commands,
                                 load_mod, tries - 1);
-        std::string t =  boost::lexical_cast<std::string>(4 - tries);
+        std::string t = boost::lexical_cast<std::string>(4 - tries);
         log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
         lua_connection::login(
             next_state->get(), shared_from_this(),
@@ -402,12 +401,14 @@ void bot::execute(const std::string& command, const std::string& argument) {
         if (!success) {
           proxy_check_active_ = false;
           log(BS_LOG_ERR, "base", "no new working proxy found");
+          refresh_status("base_proxy");
         } else {
           log(BS_LOG_NFO, "base", "login: 1. try");
           command_sequence commands;
           auto cb = [this](std::shared_ptr<bot>, std::string err) {
             if (!err.empty()) log(BS_LOG_ERR, "base", err);
             proxy_check_active_ = false;
+            refresh_status("base_proxy");
           };
           auto state = std::make_shared<state_wrapper>();
           login_cb_ = boost::bind(&bot::handle_login, this,
