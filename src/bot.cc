@@ -336,7 +336,8 @@ void bot::log(int type, const std::string& source, const std::string& message) {
   if (callback_ != nullptr) {
     callback_(identifier_, "log", msg.str());
   } else {
-    std::cout << "callback_ = nullptr, can't propagate \"" << msg.str() << "\"\n";
+    std::cout << "callback_ = nullptr, can't propagate "
+              << "\"" << msg.str() << "\"\n";
   }
 }
 
@@ -359,10 +360,10 @@ void bot::status(const std::string& key, const std::string& value) {
 
 void bot::refresh_status(const std::string& key) {
   std::string value = config_.value_of(key);
-  if (!value.empty()) {
+  if (callback_ != nullptr) {
     callback_(identifier_, key, value);
     std::cout << "callback_ = nullptr, can't propagate "
-              << key << " -> " << value << "\"\n";
+              << key << " -> " << value << "\n";
   }
 }
 
