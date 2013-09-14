@@ -362,6 +362,7 @@ void bot::refresh_status(const std::string& key) {
   std::string value = config_.value_of(key);
   if (callback_ != nullptr) {
     callback_(identifier_, key, value);
+  } else {
     std::cout << "callback_ = nullptr, can't propagate "
               << key << " -> " << value << "\n";
   }
