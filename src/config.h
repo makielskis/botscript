@@ -10,10 +10,6 @@
 #include <map>
 #include <utility>
 
-#ifdef BS_MULTI_THREADED
-#include <boost/mutex.hpp>
-#endif
-
 namespace botscript {
 
 class config {
@@ -54,10 +50,6 @@ class config {
   bool inactive_;
   std::string username_, password_, package_, server_;
   std::map<std::string, string_map> module_settings_;
-
-#ifdef BS_MULTI_THREADED
-  mutable boost::mutex mutex_;
-#endif
 };
 
 }  // namespace botscript

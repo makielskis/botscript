@@ -130,10 +130,6 @@ void config::inactive(bool flag) {
 }
 
 config::command_sequence config::init_command_sequence() const {
-#ifdef BS_MULTI_THREADED
-  boost::lock_guard<boost::mutex> lock(mutex_);
-#endif
-
   command_sequence commands;
 
   // Base settings first.
@@ -174,10 +170,6 @@ config::command_sequence config::init_command_sequence() const {
 }
 
 string config::to_json(bool with_password) const {
-#ifdef BS_MULTI_THREADED
-  boost::lock_guard<boost::mutex> lock(mutex_);
-#endif
-
   // Write basic configuration values.
   rapidjson::Document document;
   document.SetObject();
@@ -218,10 +210,6 @@ string config::to_json(bool with_password) const {
 }
 
 string config::value_of(const string& key) const {
-#ifdef BS_MULTI_THREADED
-  boost::lock_guard<boost::mutex> lock(mutex_);
-#endif
-
   auto pos = key.find("_");
   if (pos != string::npos) {
     string module = key.substr(0, pos);
@@ -256,27 +244,15 @@ const string& config::server() const {
 }
 
 map<string, config::string_map> config::module_settings() const {
-#ifdef BS_MULTI_THREADED
-  boost::lock_guard<boost::mutex> lock(mutex_);
-#endif
-
   return module_settings_;
 }
 
 
 void config::set(const string& module, const string& key, const string& value) {
-#ifdef BS_MULTI_THREADED
-  boost::lock_guard<boost::mutex> lock(mutex_);
-#endif
-
   module_settings_[module][key] = value;
 }
 
 void config::set(const string& key, const string& value) {
-#ifdef BS_MULTI_THREADED
-  boost::lock_guard<boost::mutex> lock(mutex_);
-#endif
-
   auto pos = key.find("_");
   if (pos != string::npos) {
     string module = key.substr(0, pos);
