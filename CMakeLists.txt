@@ -58,7 +58,7 @@ if(MSVC)
   add_definitions(/D _WIN32_WINNT=0x0501)
 elseif(MINGW)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-  add_definitions("-DBOOST_THREAD_USE_LIB")
+  add_definitions(-DBOOST_THREAD_USE_LIB -D_WIN32_WINNT=0x0501)
 else()
   # GCC -> use c++11 standard.
   add_definitions("-std=c++11 -fPIC")
