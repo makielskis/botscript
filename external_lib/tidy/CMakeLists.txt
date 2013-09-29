@@ -4,6 +4,7 @@ project(tidy)
 if(MSVC)
 elseif(MINGW)
 	set_source_files_properties(src/mappedio.c PROPERTIES COMPILE_FLAGS -D_MSC_VER=1700)
+	add_definitions(-D_WIN32_WINNT=0x0501 -DWINVER=0x0501 -D_WIN32_IE=0x0501)
 else()
 	# Enable building a shared library.
 	add_definitions("-fPIC")
