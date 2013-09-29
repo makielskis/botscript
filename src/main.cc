@@ -35,7 +35,7 @@ void print_log(const std::string& msg) {
 #endif
 }
 
-void cb(std::shared_ptr<bot>, std::string error) {
+void init_cb(std::shared_ptr<bot>, std::string error) {
   if (!error.empty()) {
     std::cout << "ERROR: " << error << "\n";
   }
@@ -45,32 +45,40 @@ int main() {
   bot::load_packages("packages");
 
   asio::io_service io_service;
-
   asio::io_service::work work(io_service);
 
-  std::map<std::string, std::string> configs;
+  std::map<std::string, std::shared_ptr<config>> configs;
 
   using boost::filesystem::directory_iterator;
   for (directory_iterator i = directory_iterator("configs");
-      i != directory_iterator(); ++i) {
+       i != directory_iterator(); ++i) {
     std::string path = i->path().relative_path().generic_string();
 
     std::ifstream file;
     file.open(path.c_str(), std::ios::in);
     std::stringstream content;
     boost::iostreams::copy(file, content);
-    file.close();
 
-    configs[path] = content.str();
+    try {
+      auto c = std::make_shared<config>(content.str());
+      std::string identifier = bot::identifier(c->username(),
+                                               c->package(),
+                                               c->server());
+      configs[path] = c;
+    } catch (const std::runtime_error& e) {
+      std::cout << "invalid configuation:\n" << content.str() << "\n";
+    }
   }
+
+  bot::upd_cb update_cb = [](std::string, std::string k, std::string v) {
+    if (k == "log") { print_log(v); }
+  };
 
   std::vector<std::shared_ptr<bot>> bots;
   for(const auto& c : configs) {
-    std::shared_ptr<bot> b = std::make_shared<bot>(&io_service);
-    b->callback_ = [](std::string, std::string k, std::string v) {
-      if (k == "log") { print_log(v); }
-    };
-    b->init(c.second, cb);
+    auto b = std::make_shared<bot>(&io_service);
+    b->update_callback_ = update_cb;
+    b->init(c.second, init_cb);
     bots.push_back(b);
   }
 

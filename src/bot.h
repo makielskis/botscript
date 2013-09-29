@@ -48,7 +48,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Creates a new bot. The bot needs to be initialized
   /// by a seperate call to bot::init() to be ready for usage.
   ///
-  /// \param io_service the boost asio io_service object
+  /// \param io_service          the boost asio io_service object
   explicit bot(boost::asio::io_service* io_service);
 
   /// Destructor (just for debug output).
@@ -66,33 +66,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Calls the specified callback function with an empty string on success
   /// or with an error string if an error occured.
   ///
-  /// A minimalistic configuration can look like this
-  /// \code
-  /// { "username":".", "password":".", "package":".", "server":"." }
-  /// \endcode
-  ///
-  /// Further configuration values are: proxy, wait_time_factor and modules
-  /// \code
-  /// {
-  ///   ...
-  ///   "modules":{
-  ///     "a": {
-  ///        "active":"1",
-  ///        "do":"nothing"
-  ///      }
-  /// }
-  /// \endcode
-  ///
   /// \param config the configuration to load
   /// \param cb the callback to call when the operation has finished
-  void init(const std::string& config, const error_cb& cb);
-
-  /// Creates a configuration string.
-  ///
-  /// \param with_password whether to include the password in the configuration
-  /// \return the JSON configuration string
-  std::string configuration(bool with_password) const;
-
+  void init(std::shared_ptr<config> configuration, const error_cb& cb);
 
   /// Creates a unique identifier with the given information.
   ///
@@ -119,31 +95,11 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
                     const command_sequence& init_commands, bool load_mod,
                     int tries);
 
-  /// \return the username
-  std::string username() const;
-
-  /// \return the password
-  std::string password() const;
-
-  /// \return the package
-  std::string package() const;
-
-  /// \return the server
-  std::string server() const;
-
-  /// \return the identifier
-  std::string identifier() const;
-
-  /// \return the wait time factor set.
-  double wait_time_factor() const;
-
   /// \return the underlying config object
   const config& configuration() const;
 
   /// \return the webclient
   bot_browser* browser();
-
-  boost::asio::io_service* io_service() { return io_service_; }
 
   /// Loads the packages and returns them JSON encoded string.
   ///
@@ -164,31 +120,23 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \param message the message to log
   void log(int type, const std::string& source, const std::string& message);
 
-  /// \param key the key of the value to return
-  /// \return the value
-  std::string status(const std::string& key);
-
-  /// \param key the key
-  /// \param value the value to set
-  void status(const std::string& key, const std::string& value);
-
   /// Calls the callback function with the current value of the key.
   ///
   /// \param key the key to refresh
   void refresh_status(const std::string& key);
 
-  /// Extracts the status of a single module from the bot state.
+  /// Updates the bot status in the configuration and triggers the update cb.
   ///
-  /// \param module name of the module to get the status from
-  /// \return the status of a module
-  std::map<std::string, std::string> module_status(const std::string& module);
-
-  /// This is the update/status change callback.
-  upd_cb callback_;
+  /// \param key    the key of the value that changed
+  /// \param value  the new value
+  void status(const std::string& key, const std::string& value);
 
   /// \param command   command to execute
   /// \param argument  command argument
   void execute(const std::string& command, const std::string& argument);
+
+  /// This is the update/status change callback.
+  upd_cb update_callback_;
 
  private:
   /// Loads the lua modules located at package_. This includes only files that
@@ -203,6 +151,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// Boost Asio I/O service object.
   boost::asio::io_service* io_service_;
+
+  /// Bot configuration.
+  std::shared_ptr<config> configuration_;
 
   /// Web browser agent.
   std::shared_ptr<bot_browser> browser_;
@@ -219,9 +170,6 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// List of log messages.
   std::list<std::string> log_msgs_;
 
-  /// Bot configuration.
-  config config_;
-
   /// Flag indicating whether the login_result_ variable is active.
   bool login_result_stored_;
 
@@ -231,8 +179,11 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Flag indicating whether a proxy check is currently active.
   bool proxy_check_active_;
 
+  /// The bots package.
+  std::shared_ptr<package> package_;
+
   /// Packages.
-  static std::map<std::string, std::shared_ptr<botscript::package>> packages_;
+  static std::map<std::string, std::shared_ptr<package>> packages_;
 };
 
 }  // namespace botscript

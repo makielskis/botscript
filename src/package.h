@@ -14,33 +14,25 @@ namespace botscript {
 /// Abstract parent class for bot package provider classes.
 class package {
  public:
-  /// \param servers    map from server URL to the short tag
-  /// \param modules    map from module name to lua executable code
-  /// \param interface  package interface description
+  /// \param package_name        the name of the package
+  /// \param modules             a mapping from module name (base, server, etc.)
+  ///                            to a (possibly gzipped) lua executable
+  /// \param zipped              flag indicating whether the modules are gzipped
+  /// \throws runtime_exception  if base or server are missing or empty
   package(const std::string& package_name,
-          std::map<std::string, std::string> modules, bool zipped);
+          std::map<std::string, std::string> modules,
+          bool zipped);
 
   /// \param url the URL to get the short tag for
   /// \return the short tag for the specified URL
   ///         (or the URL itself if not found)
-  const std::string& tag(const std::string& url) const {
-    auto i = servers_.find(url);
-    if (i == servers_.end()) {
-      return url;
-    } else {
-      return i->second;
-    }
-  }
+  const std::string& tag(const std::string& url) const;
 
   /// \return the modules
-  const std::map<std::string, std::string>& modules() const {
-    return modules_;
-  }
+  const std::map<std::string, std::string>& modules() const;
 
   /// \return the interface description
-  const std::string& interface() const {
-    return interface_;
-  }
+  const std::string& interface() const;
 
   /// Loads all module files ("*.lua") from the specified folder.
   /// Excludes hidden files (starting with a ".").

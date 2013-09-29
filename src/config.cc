@@ -8,9 +8,11 @@
 #include <stdexcept>
 #include <algorithm>
 
-#include "rapidjson/document.h"
+#include "./rapidjson_with_exception.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
+
+#include "./bot.h"
 
 namespace json = rapidjson;
 using namespace std;
@@ -51,6 +53,7 @@ config::config(const string& json_config) {
   password_ = document["password"].GetString();
   package_ = document["package"].GetString();
   server_ = document["server"].GetString();
+  identifier_ = bot::identifier(username_, package_, server_);
 
   // Read inactive flag.
   if (document.HasMember("inactive")) {
@@ -108,25 +111,19 @@ config::config(const string& json_config) {
   }
 }
 
-config::config(const string& username,
+config::config(const string& identifier,
+               const string& username,
                const string& password,
                const string& package,
                const string& server,
                const map<string, string_map>& module_settings)
   : inactive_(false),
+    identifier_(identifier),
     username_(username),
     password_(password),
     package_(package),
     server_(server),
     module_settings_(module_settings) {
-}
-
-bool config::inactive() const {
-  return inactive_;
-}
-
-void config::inactive(bool flag) {
-  inactive_ = flag;
 }
 
 config::command_sequence config::init_command_sequence() const {
@@ -225,6 +222,18 @@ string config::value_of(const string& key) const {
   }
 
   return "";
+}
+
+bool config::inactive() const {
+  return inactive_;
+}
+
+void config::inactive(bool flag) {
+  inactive_ = flag;
+}
+
+const string& config::identifier() const {
+  return identifier_;
 }
 
 const string& config::username() const {

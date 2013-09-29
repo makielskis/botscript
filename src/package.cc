@@ -13,6 +13,7 @@
 
 #include <sstream>
 #include <fstream>
+#include <stdexcept>
 
 #include "boost/filesystem.hpp"
 #include "boost/iostreams/copy.hpp"
@@ -34,6 +35,16 @@ typedef std::map<std::string, std::string> mod_map;
 package::package(const std::string& package_name,
                  std::map<std::string, std::string> modules, bool zipped)
     : modules_(modules) {
+  // Check all required modules: base and server.
+  const auto base_module_it = modules.find("base");
+  if (base_module_it == modules.end() || base_module_it->second.empty()) {
+    throw std::runtime_error("missing base module");
+  }
+  const auto servers_module_it = modules.find("servers");
+  if (servers_module_it == modules.end() || servers_module_it->second.empty()) {
+    throw std::runtime_error("missing servers module");
+  }
+
   // Unzip.
   if (zipped) {
     for (auto& module : modules_) {
@@ -103,6 +114,23 @@ package::package(const std::string& package_name,
   a.Accept(writer);
 
   interface_ = buffer.GetString();
+}
+
+const std::string& package::tag(const std::string& url) const {
+  auto i = servers_.find(url);
+  if (i == servers_.end()) {
+    return url;
+  } else {
+    return i->second;
+  }
+}
+
+const std::map<std::string, std::string>& package::modules() const {
+  return modules_;
+}
+
+const std::string& package::interface() const {
+  return interface_;
 }
 
 std::map<std::string, std::string> package::from_folder(const std::string& p) {

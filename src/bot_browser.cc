@@ -12,7 +12,7 @@ bot_browser::bot_browser(boost::asio::io_service* io_service,
     : http::webclient(io_service),
       bot_(b),
       current_proxy_(-1),
-      server_(b->server()) {
+      server_(b->configuration().server()) {
   check_fun_ = std::bind(&bot_browser::check_proxy_response, this,
                          std::placeholders::_1);
 }

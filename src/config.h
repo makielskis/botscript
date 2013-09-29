@@ -21,7 +21,8 @@ class config {
 
   config(const std::string& json_config);
 
-  config(const std::string& username,
+  config(const std::string& identifier,
+         const std::string& username,
          const std::string& password,
          const std::string& package,
          const std::string& server,
@@ -34,6 +35,7 @@ class config {
   void inactive(bool flag);
   bool inactive() const;
 
+  const std::string& identifier() const;
   const std::string& username() const;
   const std::string& password() const;
   const std::string& package() const;
@@ -48,7 +50,7 @@ class config {
 
  private:
   bool inactive_;
-  std::string username_, password_, package_, server_;
+  std::string identifier_, username_, password_, package_, server_;
   std::map<std::string, string_map> module_settings_;
 };
 

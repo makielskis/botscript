@@ -5,6 +5,7 @@
 #include "./bot.h"
 
 #include <sstream>
+#include <stdexcept>
 
 #include "boost/date_time/posix_time/posix_time.hpp"
 #include "boost/algorithm/string.hpp"
@@ -56,17 +57,12 @@ void bot::shutdown() {
   msg << "login_callback " << (nullptr == login_cb_ ? "not " : "") << "set";
   log(BS_LOG_DBG, "base", msg.str());
 
-  callback_ = nullptr;
+  update_callback_ = nullptr;
 }
 
-std::string bot::username()    const { return config_.username(); }
-std::string bot::password()    const { return config_.password(); }
-std::string bot::identifier()  const { return identifier_; }
-std::string bot::package()     const { return config_.package(); }
-std::string bot::server()      const { return config_.server(); }
-double bot::wait_time_factor() const { return wait_time_factor_; }
-const config& bot::configuration() const { return config_; }
-bot_browser* bot::browser()          { return browser_.get(); }
+const config& bot::configuration() const { return *configuration_.get(); }
+
+bot_browser* bot::browser() { return browser_.get(); }
 
 std::vector<std::string> bot::load_packages(const std::string& p) {
   // Iterate specified directory.
@@ -124,19 +120,24 @@ std::vector<std::string> bot::load_packages(const std::string& p) {
   return interface;
 }
 
-void bot::init(const std::string& config, const error_cb& cb) {
+void bot::init(std::shared_ptr<config> configuration, const error_cb& cb) {
   // Get shared pointer to keep alive.
   std::shared_ptr<bot> self = shared_from_this();
 
-  try {
-    config_ = botscript::config(config);
-  } catch (const std::runtime_error& e) {
-    return cb(self, e.what());
-  }
+  // Set configuration.
+  configuration_ = configuration;
 
-  identifier_ = identifier(config_.username(),
-                           config_.package(),
-                           config_.server());
+  // Check package information.
+  const auto package_it = packages_.find(configuration_->package());
+  if (package_it == packages_.end()) {
+    throw std::runtime_error("package not found");
+  }
+  package_ = package_it->second;
+
+  // Set identifier.
+  identifier_ = identifier(configuration_->username(),
+                           configuration_->package(),
+                           configuration_->server());
 
   // Check whether bot already exists.
   if (lua_connection::contains(identifier_)) {
@@ -150,8 +151,8 @@ void bot::init(const std::string& config, const error_cb& cb) {
   browser_ = std::make_shared<bot_browser>(io_service_, self);
 
   // Set proxy if available.
-  std::string proxy = config_.module_settings()["base"]["proxy"];
-  command_sequence commands = config_.init_command_sequence();
+  std::string proxy = configuration_->module_settings()["base"]["proxy"];
+  command_sequence commands = configuration_->init_command_sequence();
   if (!proxy.empty()) {
     browser_->set_proxy_list(proxy, [this, commands, cb, self](int success) {
       if (!success) {
@@ -163,7 +164,7 @@ void bot::init(const std::string& config, const error_cb& cb) {
                                 self, s, _1, cb, commands, true, 2);
         lua_connection::login(
             s->get(), self,
-            packages_[config_.package()]->modules().find("base")->second,
+            package_->modules().find("base")->second,
             &login_cb_);
       }
     });
@@ -173,13 +174,9 @@ void bot::init(const std::string& config, const error_cb& cb) {
     login_cb_ = boost::bind(&bot::handle_login, this,
                             self, s, _1, cb, commands, true, 2);
     lua_connection::login(s->get(), self,
-                          packages_[config_.package()]->modules().find("base")->second,
+                          package_->modules().find("base")->second,
                           &login_cb_);
   }
-}
-
-std::string bot::configuration(bool with_password) const {
-  return config_.to_json(with_password);
 }
 
 void bot::handle_login(std::shared_ptr<bot> self,
@@ -206,7 +203,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
       std::string t =  boost::lexical_cast<std::string>(4 - tries);
       log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
       lua_connection::login(next_state->get(), shared_from_this(),
-                            packages_[config_.package()]->modules().find("base")->second,
+                            package_->modules().find("base")->second,
                             &login_cb_);
     }
   } else {
@@ -233,7 +230,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
         log(BS_LOG_NFO, "base", std::string("login: ") + t + ". try");
         lua_connection::login(
             next_state->get(), shared_from_this(),
-            packages_[config_.package()]->modules().find("base")->second,
+            package_->modules().find("base")->second,
             &login_cb_);
       } else /* if (login_result_) */ {
         if (load_mod) {
@@ -249,9 +246,9 @@ void bot::handle_login(std::shared_ptr<bot> self,
 
 void bot::load_modules(const command_sequence& init_commands) {
   // Load modules from package folder:
-  const std::string& base_script = packages_[config_.package()]->modules().find("base")->second;
+  const std::string& base_script = package_->modules().find("base")->second;
   std::shared_ptr<bot> self = shared_from_this();
-  for (const auto& m : packages_[config_.package()]->modules()) {
+  for (const auto& m : package_->modules()) {
     // base and servers ain't no modules.
     if (m.first == "base" || m.first == "servers") {
       continue;
@@ -284,8 +281,15 @@ std::string bot::identifier(const std::string& username,
   if (slash_pos != std::string::npos) {
     print_package = print_package.substr(slash_pos + 1);
   }
+
+  const auto package_it = packages_.find(package);
+  if (package_it == packages_.end()) {
+    std::string error = std::string("package ") + package + " not available";
+    throw std::runtime_error(std::move(error));
+  }
+
   std::string identifier = print_package + "_";
-  identifier += packages_[package]->tag(server);
+  identifier += package_it->second->tag(server);
   identifier += "_";
   identifier += username;
   return identifier;
@@ -332,11 +336,8 @@ void bot::log(int type, const std::string& source, const std::string& message) {
     log_msgs_.pop_front();
   }
   log_msgs_.push_back(msg.str());
-  if (callback_ != nullptr) {
-    callback_(identifier_, "log", msg.str());
-  } else {
-    std::cout << "callback_ = nullptr, can't propagate "
-              << "\"" << msg.str() << "\"\n";
+  if (update_callback_ != nullptr) {
+    update_callback_(identifier_, "log", msg.str());
   }
 }
 
@@ -348,28 +349,18 @@ std::string bot::log_msgs() {
   return log.str();
 }
 
-std::string bot::status(const std::string& key) {
-  return config_.value_of(key);
-}
-
-void bot::status(const std::string& key, const std::string& value) {
-  config_.set(key, value);
-  callback_(identifier_, key, value);
-}
-
 void bot::refresh_status(const std::string& key) {
-  std::string value = config_.value_of(key);
-  if (callback_ != nullptr) {
-    callback_(identifier_, key, value);
-  } else {
-    std::cout << "callback_ = nullptr, can't propagate "
-              << key << " -> " << value << "\n";
+  std::string value = configuration_->value_of(key);
+  if (update_callback_ != nullptr) {
+    update_callback_(identifier_, key, value);
   }
 }
 
-std::map<std::string, std::string> bot::module_status(
-    const std::string& module) {
-  return config_.module_settings()[module];
+void bot::status(const std::string& key, const std::string& value) {
+  configuration_->set(key, value);
+  if (update_callback_ != nullptr) {
+    update_callback_(identifier_, key, value);
+  }
 }
 
 void bot::execute(const std::string& command, const std::string& argument) {
@@ -415,7 +406,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
                                   self, state, _1, cb, commands, false, 2);
           lua_connection::login(
               state->get(), self,
-              packages_[config_.package()]->modules().find("base")->second,
+              package_->modules().find("base")->second,
               &login_cb_);
         }
       });

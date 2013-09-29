@@ -108,11 +108,12 @@ int lua_http::get(lua_State* state, bool path) {
   int line = ar.currentline;
   std::string src = ar.short_src;
   std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line << " [" << b->identifier() << "]";
+  dbg_stream << src << ": " << line << " ["
+             << b->configuration().identifier() << "]";
   std::string dbg = dbg_stream.str();
 
   // Do asynchronous call.
-  url = path ? b->server() + url : url;
+  url = path ? b->configuration().server() + url : url;
   b->browser()->request(http::url(url), http::util::GET, "",
                         boost::bind(on_req_finish, state, _1, _2, dbg),
                         boost::posix_time::seconds(15), 3);
@@ -155,11 +156,12 @@ int lua_http::post(lua_State* state, bool path) {
   int line = ar.currentline;
   std::string src = ar.short_src;
   std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line << " [" << b->identifier() << "]";
+  dbg_stream << src << ": " << line
+             << " [" << b->configuration().identifier() << "]";
   std::string dbg = dbg_stream.str();
 
   // Do asynchronous call.
-  url = path ? b->server() + url : url;
+  url = path ? b->configuration().server() + url : url;
   b->browser()->request(http::url(url), http::util::POST, content,
                         boost::bind(on_req_finish, state, _1, _2, dbg),
                         boost::posix_time::seconds(15), 3);
@@ -230,7 +232,8 @@ int lua_http::submit_form(lua_State* state) {
   int line = ar.currentline;
   std::string src = ar.short_src;
   std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line << " [" << b->identifier() << "]";
+  dbg_stream << src << ": " << line
+             << " [" << b->configuration().identifier() << "]";
   std::string dbg = dbg_stream.str();
 
   // Do asynchronous call.
