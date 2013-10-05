@@ -165,7 +165,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   std::vector<std::shared_ptr<module>> modules_;
 
   /// Wait time factor.
-  double wait_time_factor_;
+  float wait_time_factor_;
 
   /// List of log messages.
   std::list<std::string> log_msgs_;
