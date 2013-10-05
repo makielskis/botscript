@@ -372,12 +372,18 @@ void bot::execute(const std::string& command, const std::string& argument) {
       if (new_wait_time_factor.find(".") == std::string::npos) {
         new_wait_time_factor += ".0";
       }
-      wait_time_factor_ = atof(new_wait_time_factor.c_str());
-      char buf[5];
-      sprintf(buf, "%.2f", wait_time_factor_);
-      status("base_wait_time_factor", buf);
-      log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + buf);
-      return;
+
+      try {
+        wait_time_factor_ = stof(new_wait_time_factor);
+        std::stringstream ss;
+        ss << std::setprecision(3) << new_wait_time_factor;
+        std::string wtf = ss.str();
+        status("base_wait_time_factor", ss.str());
+        log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + wtf);
+        return;
+      } catch(const std::invalid_argument& e) {
+        log(BS_LOG_ERR, "base", std::string("could not read wait time factor"));
+      }
     }
 
     // Handle set proxy command.
