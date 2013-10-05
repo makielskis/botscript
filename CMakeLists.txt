@@ -72,7 +72,7 @@ endif()
 ################################
 # Include Paths
 ################################
-include_directories("external_lib/rapidjson-r64/include")
+include_directories("external_lib/rapidjson/include")
 include_directories("external_lib/lua-5.2.0/src")
 include_directories("external_lib/tidy/include")
 include_directories("external_lib/pugixml-1.0/src")
