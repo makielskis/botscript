@@ -28,11 +28,10 @@ add_subdirectory(external_lib/tidy)
 ################################
 # Boost
 ################################
-if(MSVC)
-  set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "C:/boost_1_52_0")
-  set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/boost_1_52_0/stage/lib")
-endif()
 
+# Windows:
+# set ${CMAKE_INCLUDE_PATH} to BOOST_ROOT
+# and ${CMAKE_LIBRARY_PATH} to BOOST_ROOT/stage/lib
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost COMPONENTS
   system
@@ -42,9 +41,9 @@ find_package(Boost COMPONENTS
   iostreams
 REQUIRED)
 if(Boost_FOUND)
-	include_directories(${Boost_INCLUDE_DIR})
+  include_directories(${Boost_INCLUDE_DIR})
 else(Boost_FOUND)
-	message("No Boost found.")
+  message("No Boost found.")
 endif(Boost_FOUND)
 link_directories(${CMAKE_LIBRARY_PATH})
 
@@ -76,13 +75,12 @@ include_directories("external_lib/rapidjson/include")
 include_directories("external_lib/lua-5.2.0/src")
 include_directories("external_lib/tidy/include")
 include_directories("external_lib/pugixml-1.0/src")
-include_directories("/usr/lib/jvm/java-7-openjdk-amd64/include/")
 
 
 ################################
 # Static library
 ################################
-add_library(bs STATIC
+add_library(bs STATIC EXCLUDE_FROM_ALL
   src/http/url.cc
   src/http/http_source.cc
   src/http/http_con.cc
@@ -109,7 +107,7 @@ endif()
 ################################
 # Main executable
 ################################
-add_executable(botscript src/main.cc)
+add_executable(botscript EXCLUDE_FROM_ALL src/main.cc)
 if(MSVC)
   target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
 elseif(MINGW)
@@ -120,24 +118,13 @@ endif()
 
 
 ################################
-# JNI Library
-################################
-add_library(bs_lib SHARED src/java/net_makielski_botscript_Bot.cpp)
-if(MSVC)
-  target_link_libraries(bs_lib bs ${Boost_LIBRARIES} tidy pugixml lua)
-else()
-  target_link_libraries(bs_lib bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
-endif()
-
-
-################################
 # Unit Tests
 ################################
-add_subdirectory(test/gtest-1.6.0)
+add_subdirectory(test/gtest-1.6.0 EXCLUDE_FROM_ALL)
 enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
-add_executable(botscript-tests
+add_executable(botscript-tests EXCLUDE_FROM_ALL
   test/config_test.cpp
 )
 
