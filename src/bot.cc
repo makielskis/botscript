@@ -18,7 +18,7 @@
 #include "./lua/lua_connection.h"
 
 // using Visual Studio 2012 or older
-#if (defined _MSC_VER && _MSC_VER <= 1700)
+#if (defined _MSC_VER && _MSC_VER <= 1700) || ANDROID
 namespace std {
 
 // round() is missing in until C++11 standard.
@@ -374,7 +374,7 @@ void bot::execute(const std::string& command, const std::string& argument) {
       }
 
       try {
-        wait_time_factor_ = stof(new_wait_time_factor);
+        wait_time_factor_ = boost::lexical_cast<float>(new_wait_time_factor);
         std::stringstream ss;
         ss << std::setprecision(3) << new_wait_time_factor;
         std::string wtf = ss.str();

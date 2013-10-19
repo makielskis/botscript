@@ -10,6 +10,10 @@ else()
 	add_definitions("-fPIC")
 endif()
 
+if(ANDROID)
+  add_definitions(-DANDROID)
+endif()
+
 include_directories("include")
 set(SOURCES
   src/access.c
