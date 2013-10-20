@@ -20,9 +20,9 @@ project(botscript)
 ################################
 # Dependencies
 ################################
-add_subdirectory(external_lib/lua-5.2.0)
-add_subdirectory(external_lib/pugixml-1.0/scripts)
-add_subdirectory(external_lib/tidy)
+add_subdirectory(external_lib/lua-5.2.0 EXCLUDE_FROM_ALL)
+add_subdirectory(external_lib/pugixml-1.0/scripts EXCLUDE_FROM_ALL)
+add_subdirectory(external_lib/tidy EXCLUDE_FROM_ALL)
 
 
 ################################
@@ -110,7 +110,7 @@ endif()
 ################################
 # Main executable
 ################################
-add_executable(botscript EXCLUDE_FROM_ALL src/main.cc)
+add_executable(botscript src/main.cc)
 if(MSVC)
   target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
 elseif(MINGW)
