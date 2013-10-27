@@ -2,7 +2,7 @@
 // Licensed under the MIT license
 // https://raw.github.com/makielski/botscript/master/COPYING
 
-#include "./config.h"
+#include "./mem_config.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -19,10 +19,10 @@ using namespace std;
 
 namespace botscript {
 
-config::config() {
+mem_config::mem_config() {
 }
 
-config::config(const string& json_config) {
+mem_config::mem_config(const string& json_config) {
   // Read JSON.
   json::Document document;
   if (document.Parse<0>(json_config.c_str()).HasParseError()) {
@@ -111,12 +111,12 @@ config::config(const string& json_config) {
   }
 }
 
-config::config(const string& identifier,
-               const string& username,
-               const string& password,
-               const string& package,
-               const string& server,
-               const map<string, string_map>& module_settings)
+mem_config::mem_config(const string& identifier,
+                       const string& username,
+                       const string& password,
+                       const string& package,
+                       const string& server,
+                       const map<string, string_map>& module_settings)
   : inactive_(false),
     identifier_(identifier),
     username_(username),
@@ -126,7 +126,7 @@ config::config(const string& identifier,
     module_settings_(module_settings) {
 }
 
-config::command_sequence config::init_command_sequence() const {
+command_sequence mem_config::init_command_sequence() const {
   command_sequence commands;
 
   // Base settings first.
@@ -166,7 +166,7 @@ config::command_sequence config::init_command_sequence() const {
   return commands;
 }
 
-string config::to_json(bool with_password) const {
+string mem_config::to_json(bool with_password) const {
   // Write basic configuration values.
   rapidjson::Document document;
   document.SetObject();
@@ -206,7 +206,7 @@ string config::to_json(bool with_password) const {
   return buffer.GetString();
 }
 
-string config::value_of(const string& key) const {
+string mem_config::value_of(const string& key) const {
   auto pos = key.find("_");
   if (pos != string::npos) {
     string module = key.substr(0, pos);
@@ -224,44 +224,44 @@ string config::value_of(const string& key) const {
   return "";
 }
 
-bool config::inactive() const {
+bool mem_config::inactive() const {
   return inactive_;
 }
 
-void config::inactive(bool flag) {
+void mem_config::inactive(bool flag) {
   inactive_ = flag;
 }
 
-const string& config::identifier() const {
+string mem_config::identifier() const {
   return identifier_;
 }
 
-const string& config::username() const {
+string mem_config::username() const {
   return username_;
 }
 
-const string& config::password() const {
+string mem_config::password() const {
   return password_;
 }
 
-const string& config::package() const {
+string mem_config::package() const {
   return package_;
 }
 
-const string& config::server() const {
+string mem_config::server() const {
   return server_;
 }
 
-map<string, config::string_map> config::module_settings() const {
+map<string, string_map> mem_config::module_settings() const {
   return module_settings_;
 }
 
 
-void config::set(const string& module, const string& key, const string& value) {
+void mem_config::set(const string& module, const string& key, const string& value) {
   module_settings_[module][key] = value;
 }
 
-void config::set(const string& key, const string& value) {
+void mem_config::set(const string& key, const string& value) {
   auto pos = key.find("_");
   if (pos != string::npos) {
     string module = key.substr(0, pos);

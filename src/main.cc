@@ -9,6 +9,7 @@
 #include "boost/filesystem.hpp"
 
 #include "./bot.h"
+#include "./mem_config.h"
 
 using namespace botscript;
 namespace asio = boost::asio;
@@ -60,7 +61,7 @@ int main() {
     boost::iostreams::copy(file, content);
 
     try {
-      auto c = std::make_shared<config>(content.str());
+      auto c = std::make_shared<mem_config>(content.str());
       std::string identifier = bot::identifier(c->username(),
                                                c->package(),
                                                c->server());

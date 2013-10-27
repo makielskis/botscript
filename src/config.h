@@ -12,46 +12,33 @@
 
 namespace botscript {
 
+typedef std::map<std::string, std::string> string_map;
+typedef std::vector<std::pair<std::string, std::string>> command_sequence;
+
 class config {
  public:
-  typedef std::map<std::string, std::string> string_map;
-  typedef std::vector<std::pair<std::string, std::string>> command_sequence;
+  virtual ~config() {
+  }
 
-  config();
+  virtual command_sequence init_command_sequence() const = 0;
+  virtual std::string to_json(bool with_password) const = 0;
+  virtual std::string value_of(const std::string& key) const = 0;
 
-  config(const std::string& json_config);
+  virtual void inactive(bool flag) = 0;
+  virtual bool inactive() const = 0;
 
-  config(const std::string& identifier,
-         const std::string& username,
-         const std::string& password,
-         const std::string& package,
-         const std::string& server,
-         const std::map<std::string, string_map>& module_settings);
+  virtual std::string identifier() const = 0;
+  virtual std::string username() const = 0;
+  virtual std::string password() const = 0;
+  virtual std::string package() const = 0;
+  virtual std::string server() const = 0;
+  virtual std::map<std::string, string_map> module_settings() const = 0;
 
-  command_sequence init_command_sequence() const;
-  std::string to_json(bool with_password) const;
-  std::string value_of(const std::string& key) const;
-
-  void inactive(bool flag);
-  bool inactive() const;
-
-  const std::string& identifier() const;
-  const std::string& username() const;
-  const std::string& password() const;
-  const std::string& package() const;
-  const std::string& server() const;
-  std::map<std::string, string_map> module_settings() const;
-
-  void set(const std::string& module,
-           const std::string& key,
-           const std::string& value);
-  void set(const std::string& key,
-           const std::string& value);
-
- private:
-  bool inactive_;
-  std::string identifier_, username_, password_, package_, server_;
-  std::map<std::string, string_map> module_settings_;
+  virtual void set(const std::string& module,
+                   const std::string& key,
+                   const std::string& value) = 0;
+  virtual void set(const std::string& key,
+                   const std::string& value) = 0;
 };
 
 }  // namespace botscript

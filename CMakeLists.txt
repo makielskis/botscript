@@ -1,18 +1,3 @@
-# Compile and run release version:
-# mkdir build
-# cd build
-# cmake -DCMAKE_BUILD_TYPE=Release ..
-# cd ..
-# ./build/botscript
-
-# Compile and run debug version
-# mkdir build
-# cd build
-# cmake -DCMAKE_BUILD_TYPE=Debug ..
-# cd ..
-# ./build/botscript
-
-
 cmake_minimum_required(VERSION 2.6)
 project(botscript)
 
@@ -28,10 +13,6 @@ add_subdirectory(external_lib/tidy EXCLUDE_FROM_ALL)
 ################################
 # Boost
 ################################
-
-# Windows:
-# set ${CMAKE_INCLUDE_PATH} to BOOST_ROOT
-# and ${CMAKE_LIBRARY_PATH} to BOOST_ROOT/stage/lib
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost COMPONENTS
   system
@@ -51,23 +32,14 @@ link_directories(${CMAKE_LIBRARY_PATH})
 ################################
 # Compile flags
 ################################
-if(MSVC)
-  # VS2012 doesn't support correctly the tuples yet
-  add_definitions(/D _VARIADIC_MAX=10)
-  add_definitions(/D _WIN32_WINNT=0x0501)
-elseif(MINGW)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+if(MINGW)
   add_definitions(-DBOOST_THREAD_USE_LIB -D_WIN32_WINNT=0x0501)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 elseif(ANDROID)
   add_definitions(-DANDROID)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -std=c++11")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 else()
-  # GCC -> use c++11 standard.
-  add_definitions("-std=c++11 -fPIC")
-
-  # Show all warnings.
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
-  set(CMAKE_CSS_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -fPIC")
 endif()
 
 
@@ -83,24 +55,11 @@ include_directories("external_lib/pugixml-1.0/src")
 ################################
 # Static library
 ################################
-add_library(bs STATIC EXCLUDE_FROM_ALL
-  src/http/url.cc
-  src/http/http_source.cc
-  src/http/http_con.cc
-  src/http/util.cc
-  src/http/webclient.cc
-  src/lua/lua_connection.cc
-  src/lua/lua_util.cc
-  src/lua/lua_http.cc
-  src/bot_browser.cc
-  src/module.cc
-  src/package.cc
-  src/config.cc
-  src/bot.cc
-)
-if(MSVC)
-  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua)
-elseif(MINGW)
+file(GLOB exe_files "src/main.cc")
+file(GLOB_RECURSE bs_files "src/*.cc")
+list(REMOVE_ITEM  bs_files ${exe_files})
+add_library(bs STATIC EXCLUDE_FROM_ALL ${bs_files})
+if(MINGW)
   target_link_libraries(bs -Wl,-Bstatic ${Boost_LIBRARIES} tidy pugixml lua z ws2_32 mswsock)
 else()
   target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
@@ -110,10 +69,8 @@ endif()
 ################################
 # Main executable
 ################################
-add_executable(botscript src/main.cc)
-if(MSVC)
-  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
-elseif(MINGW)
+add_executable(botscript ${exe_files})
+if(MINGW)
   target_link_libraries(botscript -Wl,-Bstatic ${Boost_LIBRARIES} tidy pugixml lua z ws2_32 mswsock)
 else()
   target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
