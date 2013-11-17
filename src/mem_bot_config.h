@@ -10,20 +10,20 @@
 #include <map>
 #include <utility>
 
-#include "./config.h"
+#include "./bot_config.h"
 
 namespace botscript {
 
-class mem_config : public config {
+class mem_bot_config : public bot_config {
  public:
-  mem_config();
-  mem_config(const std::string& json_config);
-  mem_config(const std::string& identifier,
-             const std::string& username,
-             const std::string& password,
-             const std::string& package,
-             const std::string& server,
-             const std::map<std::string, string_map>& module_settings);
+  mem_bot_config();
+  mem_bot_config(const std::string& json_config);
+  mem_bot_config(const std::string& identifier,
+                 const std::string& username,
+                 const std::string& password,
+                 const std::string& package,
+                 const std::string& server,
+                 const std::map<std::string, string_map>& module_settings);
 
   virtual command_sequence init_command_sequence() const override;
   virtual std::string to_json(bool with_password) const override;

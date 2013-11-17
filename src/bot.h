@@ -21,7 +21,7 @@
 #include "./module.h"
 #include "./lua/state_wrapper.h"
 #include "./package.h"
-#include "./config.h"
+#include "./bot_config.h"
 
 namespace botscript {
 
@@ -68,7 +68,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   ///
   /// \param config the configuration to load
   /// \param cb the callback to call when the operation has finished
-  void init(std::shared_ptr<config> configuration, const error_cb& cb);
+  void init(std::shared_ptr<bot_config> configuration, const error_cb& cb);
 
   /// Creates a unique identifier with the given information.
   ///
@@ -96,7 +96,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
                     int tries);
 
   /// \return the underlying config object
-  const config& configuration() const;
+  const bot_config& configuration() const;
 
   /// \return the webclient
   bot_browser* browser();
@@ -153,7 +153,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   boost::asio::io_service* io_service_;
 
   /// Bot configuration.
-  std::shared_ptr<config> configuration_;
+  std::shared_ptr<bot_config> configuration_;
 
   /// Web browser agent.
   std::shared_ptr<bot_browser> browser_;

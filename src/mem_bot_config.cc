@@ -2,7 +2,7 @@
 // Licensed under the MIT license
 // https://raw.github.com/makielski/botscript/master/COPYING
 
-#include "./mem_config.h"
+#include "./mem_bot_config.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -19,10 +19,10 @@ using namespace std;
 
 namespace botscript {
 
-mem_config::mem_config() {
+mem_bot_config::mem_bot_config() {
 }
 
-mem_config::mem_config(const string& json_config) {
+mem_bot_config::mem_bot_config(const string& json_config) {
   // Read JSON.
   json::Document document;
   if (document.Parse<0>(json_config.c_str()).HasParseError()) {
@@ -111,12 +111,12 @@ mem_config::mem_config(const string& json_config) {
   }
 }
 
-mem_config::mem_config(const string& identifier,
-                       const string& username,
-                       const string& password,
-                       const string& package,
-                       const string& server,
-                       const map<string, string_map>& module_settings)
+mem_bot_config::mem_bot_config(const string& identifier,
+                               const string& username,
+                               const string& password,
+                               const string& package,
+                               const string& server,
+                               const map<string, string_map>& module_settings)
   : inactive_(false),
     identifier_(identifier),
     username_(username),
@@ -126,7 +126,7 @@ mem_config::mem_config(const string& identifier,
     module_settings_(module_settings) {
 }
 
-command_sequence mem_config::init_command_sequence() const {
+command_sequence mem_bot_config::init_command_sequence() const {
   command_sequence commands;
 
   // Base settings first.
@@ -166,7 +166,7 @@ command_sequence mem_config::init_command_sequence() const {
   return commands;
 }
 
-string mem_config::to_json(bool with_password) const {
+string mem_bot_config::to_json(bool with_password) const {
   // Write basic configuration values.
   rapidjson::Document document;
   document.SetObject();
@@ -206,7 +206,7 @@ string mem_config::to_json(bool with_password) const {
   return buffer.GetString();
 }
 
-string mem_config::value_of(const string& key) const {
+string mem_bot_config::value_of(const string& key) const {
   auto pos = key.find("_");
   if (pos != string::npos) {
     string module = key.substr(0, pos);
@@ -224,44 +224,44 @@ string mem_config::value_of(const string& key) const {
   return "";
 }
 
-bool mem_config::inactive() const {
+bool mem_bot_config::inactive() const {
   return inactive_;
 }
 
-void mem_config::inactive(bool flag) {
+void mem_bot_config::inactive(bool flag) {
   inactive_ = flag;
 }
 
-string mem_config::identifier() const {
+string mem_bot_config::identifier() const {
   return identifier_;
 }
 
-string mem_config::username() const {
+string mem_bot_config::username() const {
   return username_;
 }
 
-string mem_config::password() const {
+string mem_bot_config::password() const {
   return password_;
 }
 
-string mem_config::package() const {
+string mem_bot_config::package() const {
   return package_;
 }
 
-string mem_config::server() const {
+string mem_bot_config::server() const {
   return server_;
 }
 
-map<string, string_map> mem_config::module_settings() const {
+map<string, string_map> mem_bot_config::module_settings() const {
   return module_settings_;
 }
 
 
-void mem_config::set(const string& module, const string& key, const string& value) {
+void mem_bot_config::set(const string& module, const string& key, const string& value) {
   module_settings_[module][key] = value;
 }
 
-void mem_config::set(const string& key, const string& value) {
+void mem_bot_config::set(const string& key, const string& value) {
   auto pos = key.find("_");
   if (pos != string::npos) {
     string module = key.substr(0, pos);

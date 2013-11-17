@@ -1,4 +1,4 @@
-// Copyright (c) 2012, makielski.net
+// Copyright (c) 2013, makielski.net
 // Licensed under the MIT license
 // https://raw.github.com/makielski/botscript/master/COPYING
 
@@ -15,10 +15,12 @@ namespace botscript {
 typedef std::map<std::string, std::string> string_map;
 typedef std::vector<std::pair<std::string, std::string>> command_sequence;
 
-class config {
+class bot_config {
  public:
-  virtual ~config() {
+  virtual ~bot_config() {
   }
+
+  bool valid();
 
   virtual command_sequence init_command_sequence() const = 0;
   virtual std::string to_json(bool with_password) const = 0;

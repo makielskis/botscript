@@ -9,7 +9,7 @@
 #include "boost/filesystem.hpp"
 
 #include "./bot.h"
-#include "./mem_config.h"
+#include "./mem_bot_config.h"
 
 using namespace botscript;
 namespace asio = boost::asio;
@@ -48,7 +48,7 @@ int main() {
   asio::io_service io_service;
   asio::io_service::work work(io_service);
 
-  std::map<std::string, std::shared_ptr<config>> configs;
+  std::map<std::string, std::shared_ptr<bot_config>> configs;
 
   using boost::filesystem::directory_iterator;
   for (directory_iterator i = directory_iterator("configs");
@@ -61,7 +61,7 @@ int main() {
     boost::iostreams::copy(file, content);
 
     try {
-      auto c = std::make_shared<mem_config>(content.str());
+      auto c = std::make_shared<mem_bot_config>(content.str());
       std::string identifier = bot::identifier(c->username(),
                                                c->package(),
                                                c->server());

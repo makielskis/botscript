@@ -60,7 +60,7 @@ void bot::shutdown() {
   update_callback_ = nullptr;
 }
 
-const config& bot::configuration() const { return *configuration_.get(); }
+const bot_config& bot::configuration() const { return *configuration_.get(); }
 
 bot_browser* bot::browser() { return browser_.get(); }
 
@@ -120,7 +120,7 @@ std::vector<std::string> bot::load_packages(const std::string& p) {
   return interface;
 }
 
-void bot::init(std::shared_ptr<config> configuration, const error_cb& cb) {
+void bot::init(std::shared_ptr<bot_config> configuration, const error_cb& cb) {
   // Get shared pointer to keep alive.
   std::shared_ptr<bot> self = shared_from_this();
 
