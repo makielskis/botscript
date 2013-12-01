@@ -3,11 +3,25 @@ project(botscript)
 
 
 ################################
+# Compile flags
+################################
+if(MINGW)
+  add_definitions(-DBOOST_THREAD_USE_LIB -D_WIN32_WINNT=0x0501)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
+elseif(ANDROID)
+  add_definitions(-DANDROID)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -fPIC")
+endif()
+
+
+################################
 # Dependencies
 ################################
-add_subdirectory(external_lib/lua-5.2.0 EXCLUDE_FROM_ALL)
-add_subdirectory(external_lib/pugixml-1.0/scripts EXCLUDE_FROM_ALL)
-add_subdirectory(external_lib/tidy EXCLUDE_FROM_ALL)
+add_subdirectory(external_lib/lua-5.2.0)
+add_subdirectory(external_lib/pugixml-1.0/scripts)
+add_subdirectory(external_lib/tidy)
 
 
 ################################
@@ -27,20 +41,6 @@ else(Boost_FOUND)
   message("No Boost found.")
 endif(Boost_FOUND)
 link_directories(${CMAKE_LIBRARY_PATH})
-
-
-################################
-# Compile flags
-################################
-if(MINGW)
-  add_definitions(-DBOOST_THREAD_USE_LIB -D_WIN32_WINNT=0x0501)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
-elseif(ANDROID)
-  add_definitions(-DANDROID)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
-else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -fPIC")
-endif()
 
 
 ################################
@@ -80,7 +80,7 @@ endif()
 ################################
 # Unit Tests
 ################################
-add_subdirectory(test/gtest-1.6.0 EXCLUDE_FROM_ALL)
+add_subdirectory(test/gtest-1.7.0 EXCLUDE_FROM_ALL)
 enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
