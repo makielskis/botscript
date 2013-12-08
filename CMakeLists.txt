@@ -80,7 +80,7 @@ endif()
 ################################
 # Unit Tests
 ################################
-add_subdirectory(test/gtest-1.7.0 EXCLUDE_FROM_ALL)
+add_subdirectory(test/gtest-1.7.0)
 enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
