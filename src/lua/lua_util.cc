@@ -8,6 +8,10 @@
 #include <string>
 #include <sstream>
 
+#include "lua.h"
+#include "lualib.h"
+#include "lauxlib.h"
+
 #include "pugixml.hpp"
 
 namespace botscript {

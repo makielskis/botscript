@@ -11,6 +11,10 @@
 #include "boost/lambda/lambda.hpp"
 #include "boost/bind.hpp"
 
+#include "lua.h"
+#include "lualib.h"
+#include "lauxlib.h"
+
 #include "../http/util.h"
 #include "../http/url.h"
 #include "../bot_browser.h"

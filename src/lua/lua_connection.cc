@@ -7,6 +7,10 @@
 #include <cstring>
 #include <sstream>
 
+#include "lua.h"
+#include "lualib.h"
+#include "lauxlib.h"
+
 #include "./lua_http.h"
 #include "./lua_util.h"
 

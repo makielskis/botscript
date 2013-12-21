@@ -9,6 +9,8 @@
 
 #include "./lua_connection.h"
 
+struct lua_State;
+
 namespace botscript {
 
 class lua_util {

@@ -11,10 +11,6 @@
 #define BOT_LOGIN_CB  ("__BOT_ON_LOGIN")
 #define BOT_FINISH    ("__BOT_FINISH")
 
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-
 #include <exception>
 #include <memory>
 #include <functional>
@@ -28,6 +24,8 @@
 
 #include "../bot.h"
 #include "../module.h"
+
+struct lua_State;
 
 namespace botscript {
 
