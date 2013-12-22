@@ -22,7 +22,7 @@ endif()
 # Dependencies
 ################################
 add_subdirectory(external_lib/lua-5.2.0)
-add_subdirectory(external_lib/pugixml-1.0/scripts)
+add_subdirectory(external_lib/pugixml-1.2/scripts)
 add_subdirectory(external_lib/tidy)
 
 
@@ -51,7 +51,7 @@ link_directories(${CMAKE_LIBRARY_PATH})
 include_directories("external_lib/rapidjson/include")
 include_directories("external_lib/lua-5.2.0/src")
 include_directories("external_lib/tidy/include")
-include_directories("external_lib/pugixml-1.0/src")
+include_directories("external_lib/pugixml-1.2/src")
 
 
 ################################
@@ -62,7 +62,7 @@ file(GLOB_RECURSE bs_files "src/*.cc")
 list(REMOVE_ITEM  bs_files ${exe_files})
 add_library(bs STATIC EXCLUDE_FROM_ALL ${bs_files})
 if(MINGW)
-  target_link_libraries(bs -Wl,-Bstatic ${Boost_LIBRARIES} tidy pugixml lua z ws2_32 mswsock)
+  target_link_libraries(bs -Wl,-Bstatic z ${Boost_LIBRARIES} tidy pugixml lua ws2_32 mswsock)
 else()
   target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
 endif()
