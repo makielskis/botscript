@@ -96,7 +96,11 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
                     int tries);
 
   /// \return the underlying config object
+  bot_config& configuration();
+
   const bot_config& configuration() const;
+
+  std::shared_ptr<bot_config> config();
 
   /// \return the webclient
   bot_browser* browser();

@@ -57,10 +57,10 @@ mem_bot_config::mem_bot_config(const string& json_config) {
 
   // Read inactive flag.
   if (document.HasMember("inactive")) {
-    if (!document["inactive"].IsBool()) {
-      throw runtime_error("invalid configuration: inactive flag must be bool");
+    if (!document["inactive"].IsString()) {
+      throw runtime_error("invalid configuration: inactive flag must be str");
     }
-    inactive_ = document["inactive"].GetBool();
+    inactive_ = std::string(document["inactive"].GetString()) == "1";
   } else {
     inactive_ = false;
   }
@@ -177,7 +177,7 @@ string mem_bot_config::to_json(bool with_password) const {
   }
   document.AddMember("package", package_.c_str(), allocator);
   document.AddMember("server", server_.c_str(), allocator);
-  document.AddMember("inactive", inactive_, allocator);
+  document.AddMember("inactive", inactive_  ? "1" : "0", allocator);
 
   // Write module configuration values.
   rapidjson::Value modules(rapidjson::kObjectType);

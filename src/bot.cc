@@ -16,6 +16,7 @@
 #include "rapidjson/stringbuffer.h"
 
 #include "./lua/lua_connection.h"
+#include "./mem_bot_config.h"
 
 // using Visual Studio 2012 or older
 #if (defined _MSC_VER && _MSC_VER <= 1700) || ANDROID
@@ -47,6 +48,8 @@ bot::~bot() {
 }
 
 void bot::shutdown() {
+  configuration_ = std::make_shared<mem_bot_config>(configuration_->to_json(true));
+
   lua_connection::remove(identifier_);
   for (const auto m : modules_) {
     m->execute("global_set_active", "0");
@@ -60,7 +63,9 @@ void bot::shutdown() {
   update_callback_ = nullptr;
 }
 
+bot_config& bot::configuration() { return *configuration_.get(); }
 const bot_config& bot::configuration() const { return *configuration_.get(); }
+std::shared_ptr<bot_config> bot::config() { return configuration_; }
 
 bot_browser* bot::browser() { return browser_.get(); }
 
