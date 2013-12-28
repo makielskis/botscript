@@ -5,16 +5,25 @@ project(botscript)
 ################################
 # Compile flags
 ################################
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -std=c++11")
-if(MINGW)
-  add_definitions(
-    -DBOOST_THREAD_USE_LIB
-    -D_WIN32_WINNT=0x0501
-  )
-elseif(ANDROID)
-  add_definitions(-DANDROID)
+if(MSVC)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D _VARIADIC_MAX=10 /D _WIN32_WINNT=0x0501")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -std=c++11")
+  if(MINGW)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
+    add_definitions(
+      -DBOOST_THREAD_USE_LIB
+      -D_WIN32_WINNT=0x0501
+      -DWINVER=0x0501
+      -D_WIN32_IE=0x0501
+    )
+  elseif(ANDROID)
+    add_definitions(-DANDROID)
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    add_definitions(-DOS_MACOSX)
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+  endif()
 endif()
 
 
@@ -61,7 +70,9 @@ file(GLOB exe_files "src/main.cc")
 file(GLOB_RECURSE bs_files "src/*.cc")
 list(REMOVE_ITEM  bs_files ${exe_files})
 add_library(bs STATIC EXCLUDE_FROM_ALL ${bs_files})
-if(MINGW)
+if(MSVC)
+  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua)
+elseif(MINGW)
   target_link_libraries(bs -Wl,-Bstatic z ${Boost_LIBRARIES} tidy pugixml lua ws2_32 mswsock)
 else()
   target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
@@ -72,7 +83,9 @@ endif()
 # Main executable
 ################################
 add_executable(botscript ${exe_files})
-if(MINGW)
+if(MSVC)
+  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
+elseif(MINGW)
   target_link_libraries(botscript -Wl,-Bstatic ${Boost_LIBRARIES} tidy pugixml lua z ws2_32 mswsock)
 else()
   target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)

@@ -9,6 +9,8 @@
 
 #include "boost/system/error_code.hpp"
 
+#include "./noexcept.h"
+
 namespace http {
 namespace error {
 
@@ -22,7 +24,7 @@ enum {
 
 class http_category : public boost::system::error_category {
  public:
-  const char* name() const noexcept { return "http"; }
+  const char* name() const HTTP_NOEXCEPT { return "http"; }
   std::string message(int ev) const {
     switch (ev) {
       case INVALID_XPATH:      return "invalid element specified";
