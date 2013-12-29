@@ -1,8 +1,11 @@
 #include "gtest/gtest.h"
 
 #include <string>
+#include <map>
+#include <vector>
 
-#include "../src/config.h"
+#include "../src/mem_bot_config.h"
+#include "../src/bot.h"
 
 using namespace std;
 using namespace botscript;
@@ -11,7 +14,7 @@ using namespace botscript;
   "{"\
   "	\"username\": \"test_user\","\
   "	\"password\": \"test_password\","\
-  "	\"package\": \"test_package\","\
+  "	\"package\": \"te\","\
   "	\"server\": \"http://test.example.com\","\
   "	\"modules\": {"\
   "		\"mod1\": {"\
@@ -32,12 +35,13 @@ using namespace botscript;
   "}"
 
 TEST(config_test, from_json_test) {
-  config c(TEST_CONFIG);
+  bot::load_packages("./test/packages");
+  mem_bot_config c(TEST_CONFIG);
 
-  std::map<std::string, config::string_map> modules = c.module_settings();
+  std::map<std::string, string_map> modules = c.module_settings();
   EXPECT_EQ("test_user", c.username());
   EXPECT_EQ("test_password", c.password());
-  EXPECT_EQ("test_package", c.package());
+  EXPECT_EQ("te", c.package());
   EXPECT_EQ("http://test.example.com", c.server());
   EXPECT_EQ("2.00", modules["base"]["wait_time_factor"]);
   EXPECT_EQ("b", modules["mod1"]["a"]);
@@ -49,13 +53,13 @@ TEST(config_test, from_json_test) {
 }
 
 TEST(config_test, to_json_with_password_test) {
-  config c0(TEST_CONFIG);
-  config c(c0.to_json(true));
+  mem_bot_config c0(TEST_CONFIG);
+  mem_bot_config c(c0.to_json(true));
 
-  std::map<std::string, config::string_map> modules = c.module_settings();
+  std::map<std::string, string_map> modules = c.module_settings();
   EXPECT_EQ("test_user", c.username());
   EXPECT_EQ("test_password", c.password());
-  EXPECT_EQ("test_package", c.package());
+  EXPECT_EQ("te", c.package());
   EXPECT_EQ("http://test.example.com", c.server());
   EXPECT_EQ("2.00", modules["base"]["wait_time_factor"]);
   EXPECT_EQ("b", modules["mod1"]["a"]);
@@ -67,15 +71,15 @@ TEST(config_test, to_json_with_password_test) {
 }
 
 TEST(config_test, to_json_without_password_test) {
-  config c0(TEST_CONFIG);
+  mem_bot_config c0(TEST_CONFIG);
 
   EXPECT_EQ(c0.to_json(false).find("test_password"), std::string::npos);
 }
 
 TEST(config_test, init_commands_test) {
-  config c(TEST_CONFIG);
+  mem_bot_config c(TEST_CONFIG);
 
-  config::command_sequence init_commands = c.init_command_sequence();
+  command_sequence init_commands = c.init_command_sequence();
 
   ASSERT_EQ(7u, init_commands.size());
 
@@ -102,7 +106,7 @@ TEST(config_test, init_commands_test) {
 }
 
 TEST(config_test, value_of_test) {
-  config c(TEST_CONFIG);
+  mem_bot_config c(TEST_CONFIG);
 
   EXPECT_EQ("2.00", c.value_of("base_wait_time_factor"));
   EXPECT_EQ("127.0.0.1:9000", c.value_of("base_proxy"));
@@ -115,7 +119,7 @@ TEST(config_test, value_of_test) {
 }
 
 TEST(config_test, set_test) {
-  config c;
+  mem_bot_config c;
 
   c.set("base_test", "123");
 
