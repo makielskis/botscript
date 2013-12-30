@@ -28,7 +28,7 @@ class lua_http {
 
  private:
   static void on_req_finish(lua_State* state, std::string response,
-                            boost::system::error_code ec, std::string dbg);
+                            boost::system::error_code ec);
 };
 
 static const luaL_Reg httplib[] = {

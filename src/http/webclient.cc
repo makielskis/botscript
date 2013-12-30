@@ -25,6 +25,9 @@ webclient::webclient(boost::asio::io_service* io_service)
       io_service_(io_service) {
 }
 
+webclient::~webclient() {
+}
+
 void webclient::set_proxy(std::string host, std::string port) {
   boost::lock_guard<boost::mutex> lock(proxy_mutex_);
   proxy_host_ = std::move(host);

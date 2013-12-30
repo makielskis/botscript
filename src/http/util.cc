@@ -116,8 +116,8 @@ std::string tidy(std::string page) {
   }
 
   // Tidy html!
-  TidyBuffer output = {0};
-  TidyBuffer errbuf = {0};
+  TidyBuffer output = {0, 0, 0, 0, 0};
+  TidyBuffer errbuf = {0, 0, 0, 0, 0};
   int rc = -1;
   Bool ok;
 

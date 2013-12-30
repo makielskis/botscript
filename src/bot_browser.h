@@ -39,6 +39,8 @@ class bot_browser : public std::enable_shared_from_this<bot_browser>,
   bot_browser(boost::asio::io_service* io_service,
               const std::shared_ptr<bot>& b);
 
+  virtual ~bot_browser();
+
   bool change_proxy();
 
   void set_proxy_list(const std::string& proxy_list,
@@ -46,13 +48,13 @@ class bot_browser : public std::enable_shared_from_this<bot_browser>,
   void set_proxy_list(std::vector<std::string> proxy_list,
                       std::function<void(int)> callback);
 
-  void submit(const std::string& xpath, const std::string& page,
+  void submit_with_retry(const std::string& xpath, const std::string& page,
               std::map<std::string, std::string> input_params,
               const std::string& action, callback cb,
               boost::posix_time::time_duration timeout, int tries,
               boost::system::error_code& ec);
 
-  void request(const http::url& u, int method, std::string body, callback cb,
+  void request_with_retry(const http::url& u, int method, std::string body, callback cb,
                boost::posix_time::time_duration timeout, int tries);
 
  private:

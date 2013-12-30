@@ -35,12 +35,14 @@ class webclient {
   /// \param io_service points to the Asio io_service object to use for requests
   webclient(boost::asio::io_service* io_service);
 
+  virtual ~webclient();
+
   // Proxy settings
   void set_proxy(std::string host, std::string port);
   std::string proxy_host() const { return proxy_host_; }
   std::string proxy_port() const { return proxy_port_; }
 
-  /// Submits the form that is specified by the given XPath. 
+  /// Submits the form that is specified by the given XPath.
   ///
   /// \param xpath         can either point to the form itself or to
   ///                      an submit input contained in the form (preferred).

@@ -17,6 +17,9 @@ bot_browser::bot_browser(boost::asio::io_service* io_service,
                          std::placeholders::_1);
 }
 
+bot_browser::~bot_browser() {
+}
+
 bool bot_browser::change_proxy() {
   if (good_.empty()) {
     return false;
@@ -99,12 +102,13 @@ void bot_browser::set_proxy_list(std::vector<std::string> proxy_list,
   log(bot::BS_LOG_NFO, std::string("checking ") + size_str + " proxies");
 }
 
-void bot_browser::submit(const std::string& xpath, const std::string& page,
-                         std::map<std::string, std::string> input_params,
-                         const std::string& action, callback cb,
-                         boost::posix_time::time_duration timeout, int tries,
-                         boost::system::error_code& ec) {
-  std::function<void(int)> retry = boost::bind(&bot_browser::submit, this,
+void bot_browser::submit_with_retry(
+    const std::string& xpath, const std::string& page,
+    std::map<std::string, std::string> input_params,
+    const std::string& action, callback cb,
+    boost::posix_time::time_duration timeout, int tries,
+    boost::system::error_code& ec) {
+  std::function<void(int)> retry = boost::bind(&bot_browser::submit_with_retry, this,
                                                xpath, page,
                                                input_params, action,
                                                cb, timeout * 2, _1,
@@ -115,10 +119,12 @@ void bot_browser::submit(const std::string& xpath, const std::string& page,
                            req_cb, timeout, ec);
 }
 
-void bot_browser::request(const http::url& u, int method, std::string body,
-                          callback cb,
-                          boost::posix_time::time_duration timeout, int tries) {
-  std::function<void(int)> retry = boost::bind(&bot_browser::request, this,
+void bot_browser::request_with_retry(
+    const http::url& u, int method, std::string body,
+    callback cb,
+    boost::posix_time::time_duration timeout, int tries) {
+  std::function<void(int)> retry = boost::bind(&bot_browser::request_with_retry,
+                                               this,
                                                u, method, body,
                                                cb, timeout * 2, _1);
   callback req_cb = boost::bind(&bot_browser::request_cb, this,
@@ -127,7 +133,7 @@ void bot_browser::request(const http::url& u, int method, std::string body,
 }
 
 
-void bot_browser::request_cb(std::shared_ptr<bot_browser> self, int tries,
+void bot_browser::request_cb(std::shared_ptr<bot_browser> /* self */, int tries,
                              std::function<void(int)> retry_fun, callback cb,
                              std::string response,
                              boost::system::error_code ec) {
@@ -206,14 +212,14 @@ void bot_browser::proxy_check_callback(std::function<void(int)> callback,
   }
 }
 
-bool bot_browser::check_proxy_response(const std::string& page) {
+bool bot_browser::check_proxy_response(const std::string& /* page */) {
   return true;
 }
 
 void bot_browser::log(int level, const std::string& message) {
   std::shared_ptr<bot> bot_lock = bot_.lock();
   if (bot_lock != std::shared_ptr<bot>()) {
-    bot_lock->log(bot::BS_LOG_DBG, "browser", message);
+    bot_lock->log(level, "browser", message);
   }
 }
 

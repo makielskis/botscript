@@ -30,7 +30,7 @@ void lua_http::open(lua_State* state) {
 }
 
 void lua_http::on_req_finish(lua_State* state, std::string response,
-                             boost::system::error_code ec, std::string dbg) {
+                             boost::system::error_code ec) {
   // Check failure.
   if (ec) {
     return lua_connection::on_error(state, ec.message());
@@ -106,21 +106,12 @@ int lua_http::get(lua_State* state, bool path) {
     return luaL_error(state, "no bot for state");
   }
 
-  lua_Debug ar;
-  lua_getstack(state, 1, &ar);
-  lua_getinfo(state, "nSl", &ar);
-  int line = ar.currentline;
-  std::string src = ar.short_src;
-  std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line << " ["
-             << b->configuration().identifier() << "]";
-  std::string dbg = dbg_stream.str();
-
   // Do asynchronous call.
   url = path ? b->configuration().server() + url : url;
-  b->browser()->request(http::url(url), http::util::GET, "",
-                        boost::bind(on_req_finish, state, _1, _2, dbg),
-                        boost::posix_time::seconds(15), 3);
+  b->browser()->request_with_retry(
+      http::url(url), http::util::GET, "",
+      boost::bind(on_req_finish, state, _1, _2),
+      boost::posix_time::seconds(15), 3);
 
   return 0;
 }
@@ -154,21 +145,12 @@ int lua_http::post(lua_State* state, bool path) {
     return luaL_error(state, "no bot for state");
   }
 
-  lua_Debug ar;
-  lua_getstack(state, 1, &ar);
-  lua_getinfo(state, "nSl", &ar);
-  int line = ar.currentline;
-  std::string src = ar.short_src;
-  std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line
-             << " [" << b->configuration().identifier() << "]";
-  std::string dbg = dbg_stream.str();
-
   // Do asynchronous call.
   url = path ? b->configuration().server() + url : url;
-  b->browser()->request(http::url(url), http::util::POST, content,
-                        boost::bind(on_req_finish, state, _1, _2, dbg),
-                        boost::posix_time::seconds(15), 3);
+  b->browser()->request_with_retry(
+      http::url(url), http::util::POST, content,
+      boost::bind(on_req_finish, state, _1, _2),
+      boost::posix_time::seconds(15), 3);
 
   return 0;
 }
@@ -230,23 +212,13 @@ int lua_http::submit_form(lua_State* state) {
     return luaL_error(state, "no bot for state");
   }
 
-  lua_Debug ar;
-  lua_getstack(state, 1, &ar);
-  lua_getinfo(state, "nSl", &ar);
-  int line = ar.currentline;
-  std::string src = ar.short_src;
-  std::stringstream dbg_stream;
-  dbg_stream << src << ": " << line
-             << " [" << b->configuration().identifier() << "]";
-  std::string dbg = dbg_stream.str();
-
   // Do asynchronous call.
   auto cb = std::bind(on_req_finish, state,
-                      std::placeholders::_1, std::placeholders::_2, dbg);
+                      std::placeholders::_1, std::placeholders::_2);
 
   boost::system::error_code ec;
-  b->browser()->submit(xpath, content, parameters, action, cb,
-                       boost::posix_time::seconds(15), 3, ec);
+  b->browser()->submit_with_retry(xpath, content, parameters, action, cb,
+                                  boost::posix_time::seconds(15), 3, ec);
   if (ec) {
     return luaL_error(state, ec.message().c_str());
   }

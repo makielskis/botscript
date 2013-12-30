@@ -77,7 +77,7 @@ void http_con::connect(std::shared_ptr<http_con> self,
 void http_con::on_connect(std::shared_ptr<http_con> self,
                           std::string request_str, callback cb,
                           boost::system::error_code ec,
-                          asio::ip::tcp::resolver::iterator iterator) {
+                          asio::ip::tcp::resolver::iterator /* iterator */) {
   if (!ec) {
     connected_ = true;
     return src_->operator()(std::move(request_str),
@@ -89,7 +89,7 @@ void http_con::on_connect(std::shared_ptr<http_con> self,
   }
 }
 
-void http_con::timer_callback(std::shared_ptr<http_con> self,
+void http_con::timer_callback(std::shared_ptr<http_con> /* self */,
                               const boost::system::error_code& ec) {
   if (boost::asio::error::operation_aborted != ec) {
     connected_ = false;
@@ -120,7 +120,7 @@ void http_con::request_finish(std::shared_ptr<http_con> self, callback cb,
         filter.push(boost::iostreams::gzip_decompressor());
         filter.push(s);
         boost::iostreams::copy(filter, response);
-      } catch (boost::iostreams::gzip_error) {
+      } catch (const boost::iostreams::gzip_error& e) {
         return cb(self, "", boost::system::error_code(error::GZIP_FAILURE,
                                                       webclient::cat_));
       }

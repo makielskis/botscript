@@ -17,6 +17,10 @@ class rapidjson_exception : public std::runtime_error {
 
 }  // namespace botscript_server
 
+#ifdef RAPIDJSON_ASSERT
+#undef RAPIDJSON_ASSERT
+#endif
+
 #define RAPIDJSON_ASSERT(x) {\
   if(x) { \
   } else { throw botscript_server::rapidjson_exception(); } \
