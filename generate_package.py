@@ -71,6 +71,7 @@ cmake = open(sys.argv[2] + "/CMakeLists.txt", "w")
 cmake.write("\
 cmake_minimum_required (VERSION 2.6)\n\
 project(" + package_name + ")\n\
+set(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -s\")\n\
 add_library(" + package_name + " SHARED " + output_file_abs_path + ")\n\
 set(CMAKE_SHARED_LIBRARY_SUFFIX "")\n\
 set(CMAKE_SHARED_LIBRARY_PREFIX "")\n\
