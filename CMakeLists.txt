@@ -5,7 +5,9 @@ project(botscript)
 ################################
 # Dependencies
 ################################
-add_subdirectory(external_lib/lua-5.2.0)
+if (NOT TARGET lua)
+  add_subdirectory(external_lib/lua-5.2)
+endif()
 add_subdirectory(external_lib/pugixml-1.2/scripts)
 add_subdirectory(external_lib/tidy)
 
@@ -32,8 +34,8 @@ link_directories(${CMAKE_LIBRARY_PATH})
 ################################
 # Include Paths
 ################################
+include_directories("external_lib/lua-5.2/src")
 include_directories("external_lib/rapidjson/include")
-include_directories("external_lib/lua-5.2.0/src")
 include_directories("external_lib/tidy/include")
 include_directories("external_lib/pugixml-1.2/src")
 include_directories("./src")

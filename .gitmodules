@@ -4,3 +4,6 @@
 [submodule "packages/kv"]
 	path = packages/kv
 	url = https://bitbucket.org/makielski/kv_botscript.git
+[submodule "external_lib/lua-5.2"]
+	path = external_lib/lua-5.2
+	url = git@bitbucket.org:makielski/lua.git
