@@ -92,6 +92,25 @@ endif()
 
 
 ################################
+# Package compilation
+################################
+message("LUAC: \"${luac_location}\"")
+add_custom_target(compile_packages
+  rm -rf pg && rm -rf kv &&
+  python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GC ${luac_location} &&
+  python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GC ${luac_location} &&
+  cd kv &&
+  cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
+  make &&
+  cd .. &&
+  cd pg &&
+  cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
+  make
+)
+add_dependencies(compile_packages luac)
+
+
+################################
 # Unit Tests
 ################################
 add_subdirectory(test/gtest-1.7.0)

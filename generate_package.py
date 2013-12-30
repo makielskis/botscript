@@ -60,7 +60,9 @@ else:
   extension = '.cc'
 package_name = os.path.basename(os.path.splitext(sys.argv[2])[0])
 folder = sys.argv[1] + "/"
-output = open(sys.argv[2] + "/" + package_name + extension, "w")
+output_file_path = sys.argv[2] + "/" + package_name + extension
+output_file_abs_path = os.path.abspath(output_file_path)
+output = open(output_file_path, "w")
 
 ####################
 # WRITE CMAKE FILE #
@@ -69,7 +71,7 @@ cmake = open(sys.argv[2] + "/CMakeLists.txt", "w")
 cmake.write("\
 cmake_minimum_required (VERSION 2.6)\n\
 project(" + package_name + ")\n\
-add_library(" + package_name + " SHARED " + sys.argv[2] + extension + ")\n\
+add_library(" + package_name + " SHARED " + output_file_abs_path + ")\n\
 set(CMAKE_SHARED_LIBRARY_SUFFIX "")\n\
 set(CMAKE_SHARED_LIBRARY_PREFIX "")\n\
 set_target_properties(" + package_name + " PROPERTIES OUTPUT_NAME \"" + package_name + ".package\")")

@@ -84,8 +84,9 @@ void bot::load_packages(const std::string& p) {
     try {
       auto module = std::make_shared<package>(module_path);
       packages_[module->name()] = module;
-    } catch (const std::exception&) {
-      std::cout << "Unable to load module at " << module_path << std::endl;
+    } catch (const std::runtime_error& e) {
+      std::cout << "Unable to load module at " << module_path
+                << ", error: " << e.what() << std::endl;
     }
   }
 }

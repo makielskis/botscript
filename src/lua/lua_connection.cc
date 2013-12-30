@@ -35,9 +35,10 @@ throw(lua_exception) {
   // Execute script.
   try {
     do_buffer(state, script, name);
-  } catch (lua_exception) {
+  } catch (const lua_exception& e) {
     lua_close(state);
-    throw;
+    throw std::runtime_error(std::string("Could not execute servers script ")
+                             + e.what());
   }
 
   // Push lua variable to stack.
@@ -63,9 +64,10 @@ std::map<std::string, std::string> lua_connection::server_list(const std::string
   // Execute script.
   try {
     do_buffer(state, script, "servers");
-  } catch (const lua_exception&) {
+  } catch (const lua_exception& e) {
     lua_close(state);
-    throw std::runtime_error("Could not execute servers script");
+    throw std::runtime_error(std::string("Could not execute servers script ")
+                             + e.what());
   }
 
   // Read servers list.
