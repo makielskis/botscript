@@ -96,7 +96,6 @@ endif()
 ################################
 # Package compilation
 ################################
-message("LUAC: \"${luac_location}\"")
 add_custom_target(compile_packages
   rm -rf pg && rm -rf kv &&
   python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GC ${luac_location} &&
