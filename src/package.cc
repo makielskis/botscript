@@ -14,7 +14,6 @@
 #include <sstream>
 #include <fstream>
 #include <stdexcept>
-
 #include "boost/filesystem.hpp"
 #include "boost/iostreams/copy.hpp"
 #include "boost/iostreams/filtering_stream.hpp"
@@ -32,28 +31,88 @@ namespace botscript {
 
 typedef std::map<std::string, std::string> mod_map;
 
-package::package(const std::string& package_name,
-                 std::map<std::string, std::string> modules, bool zipped)
-    : modules_(modules) {
-  // Check all required modules: base and server.
-  const auto base_module_it = modules.find("base");
-  if (base_module_it == modules.end() || base_module_it->second.empty()) {
-    throw std::runtime_error("missing base module");
+package::package(const std::string& path)
+    : name_(name_from_path(path)),
+      modules_(unzip_if_no_directory(read_modules(path), path)),
+      servers_(lua_connection::server_list(modules_["servers"])),
+      interface_(json_description(modules_, servers_, name_)) {
+}
+
+const std::string& package::name() const {
+  return name_;
+}
+
+const std::string& package::tag(const std::string& url) const {
+  auto i = servers_.find(url);
+  if (i == servers_.end()) {
+    return url;
+  } else {
+    return i->second;
   }
-  const auto servers_module_it = modules.find("servers");
-  if (servers_module_it == modules.end() || servers_module_it->second.empty()) {
-    throw std::runtime_error("missing servers module");
+}
+
+const std::map<std::string, std::string>& package::modules() const {
+  return modules_;
+}
+
+const std::string& package::interface() const {
+  return interface_;
+}
+
+std::string package::name_from_path(const std::string& path) {
+  // Discover package name.
+  std::string stripped_path = path;
+  std::size_t dot_pos = path.rfind(".package");
+  if (dot_pos != std::string::npos && dot_pos != 0) {
+    stripped_path = path.substr(0, dot_pos);
   }
 
-  // Unzip.
-  if (zipped) {
-    for (auto& module : modules_) {
+  // Strip until last slash.
+  std::size_t slash_pos = stripped_path.find_last_of("/");
+  if (slash_pos != std::string::npos) {
+    stripped_path = stripped_path.substr(slash_pos + 1);
+  }
+
+  return stripped_path;
+}
+
+std::map<std::string, std::string> package::read_modules(const std::string& path) {
+  // Load modules (either from lib or from file).
+  std::map<std::string, std::string> modules;
+  bool dir = boost::filesystem::is_directory(path);
+  if (dir) {
+    modules = package::from_folder(path);
+  } else {
+    modules = package::from_lib(path);
+  }
+
+  // Check whether base and servers "modules" are contained.
+  bool no_base = modules.find("base") == modules.end();
+  bool no_servers = modules.find("servers") == modules.end();
+  if (no_base || no_servers) {
+    throw std::runtime_error(path + "  doesn't contain base/servers");
+  }
+
+  return modules;
+}
+
+std::map<std::string, std::string> package::unzip_if_no_directory(
+    std::map<std::string, std::string> modules,
+    const std::string& path) {
+  if (!boost::filesystem::is_directory(path)) {
+    for (auto& module : modules) {
       std::vector<char> zip(module.second.begin(), module.second.end());
       std::vector<char> unzipped = unzip(zip);
       module.second = std::string(unzipped.begin(), unzipped.end());
     }
   }
+  return modules;
+}
 
+std::string package::json_description(
+    const std::map<std::string, std::string>& modules,
+    const std::map<std::string, std::string>& servers,
+    const std::string& package_name) {
   // Initialize JSON document object.
   rapidjson::Document a;
   rapidjson::Document::AllocatorType& alloc = a.GetAllocator();
@@ -66,8 +125,7 @@ package::package(const std::string& package_name,
   // Write servers from package:
   // Lua table -> map -> JSON array
   rapidjson::Value l(rapidjson::kArrayType);
-  bool success = lua_connection::server_list(modules_["servers"], &servers_);
-  for(const auto& server : servers_) {
+  for (const auto& server : servers) {
     rapidjson::Value server_name(server.first.c_str(), alloc);
     l.PushBack(server_name, alloc);
   }
@@ -96,13 +154,12 @@ package::package(const std::string& package_name,
   a.AddMember("base", base, alloc);
 
   // Write interface descriptions from all modules.
-  for (const auto& module : modules_) {
+  for (const auto& module : modules) {
     // Write interface description for real modules
     // (not server listing or base module containing the login function).
     if (module.first != "servers" && module.first != "base") {
       // Write value to package information.
-      jsonval_ptr iface = lua_connection::iface(module.second,
-                                                module.first, &alloc);
+      auto iface = lua_connection::iface(module.second, module.first, &alloc);
       rapidjson::Value module_name(module.first.c_str(), alloc);
       a.AddMember(module_name, *iface.get(), alloc);
     }
@@ -113,24 +170,7 @@ package::package(const std::string& package_name,
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
   a.Accept(writer);
 
-  interface_ = buffer.GetString();
-}
-
-const std::string& package::tag(const std::string& url) const {
-  auto i = servers_.find(url);
-  if (i == servers_.end()) {
-    return url;
-  } else {
-    return i->second;
-  }
-}
-
-const std::map<std::string, std::string>& package::modules() const {
-  return modules_;
-}
-
-const std::string& package::interface() const {
-  return interface_;
+  return buffer.GetString();
 }
 
 std::map<std::string, std::string> package::from_folder(const std::string& p) {
@@ -189,14 +229,14 @@ std::map<std::string, std::string> package::from_lib(
   // Load library.
   HINSTANCE lib = LoadLibrary(p.c_str());
   if (nullptr == lib) {
-      return std::map<std::string, std::string>();
+    return std::map<std::string, std::string>();
   }
 
   // Get address to load function.
   std::string fun_name = (std::string("load_") + name);
-  get_modules lib_fun = (get_modules) GetProcAddress(lib, fun_name.c_str()); 
+  get_modules lib_fun = (get_modules) GetProcAddress(lib, fun_name.c_str());
   if (nullptr == lib_fun) {
-    FreeLibrary(lib); 
+    FreeLibrary(lib);
     return std::map<std::string, std::string>();
   }
 
@@ -208,8 +248,7 @@ std::map<std::string, std::string> package::from_lib(
   return *m;
 }
 #else  // defined _WIN32 || defined _WIN64
-std::map<std::string, std::string> package::from_lib(
-    const std::string& p) {
+  std::map<std::string, std::string> package::from_lib(const std::string& p) {
   // Discover package name.
   using boost::filesystem::path;
   std::string name = path(p).filename().generic_string();
@@ -226,7 +265,7 @@ std::map<std::string, std::string> package::from_lib(
 
   // Get pointer to the load function.
   void* (*lib_fun)(void);
-  *(void **)(&lib_fun) = dlsym(lib, (std::string("load_") + name).c_str());
+  *(void **) (&lib_fun) = dlsym(lib, (std::string("load_") + name).c_str());
   if (nullptr == lib_fun) {
     return std::map<std::string, std::string>();
   }
@@ -236,7 +275,7 @@ std::map<std::string, std::string> package::from_lib(
   std::unique_ptr<mod_map> ptr(static_cast<mod_map*>(m));
 
   // Close shared library.
-  dlclose(lib);
+  dlclose (lib);
 
   return *m;
 }

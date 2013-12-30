@@ -69,60 +69,25 @@ std::shared_ptr<bot_config> bot::config() { return configuration_; }
 
 bot_browser* bot::browser() { return browser_.get(); }
 
-std::vector<std::string> bot::load_packages(const std::string& p) {
+void bot::load_packages(const std::string& p) {
   // Iterate specified directory.
+  packages_.clear();
   using boost::filesystem::directory_iterator;
   for (auto i = directory_iterator(p); i != directory_iterator(); ++i) {
-    // Get file path and filename.
-    std::string path = i->path().relative_path().generic_string();
-    std::string name = i->path().filename().string();
-
-    // Don't read hidden files.
-    if (boost::starts_with(name, ".")) {
-      continue;
-    }
-
-    // Discover package name.
-    std::string stripped_path = path;
-    std::size_t dot_pos = path.rfind(".package");
-    if (dot_pos != std::string::npos && dot_pos != 0) {
-      stripped_path = path.substr(0, dot_pos);
-    }
-
-    // Strip until last slash.
-    std::size_t slash_pos = stripped_path.find_last_of("/");
-    if (slash_pos != std::string::npos) {
-      stripped_path = stripped_path.substr(slash_pos + 1);
-    }
-
-    // Load modules (either from lib or from file).
-    std::map<std::string, std::string> modules;
-    bool dir = boost::filesystem::is_directory(path);
-    if (dir) {
-      modules = package::from_folder(path);
-    } else {
-      modules = package::from_lib(path);
-    }
-
-    // Check whether base and servers "modules" are contained.
-    if (modules.find("base") == modules.end() ||
-        modules.find("servers") == modules.end()) {
-      std::cerr << "fatal: " << path << " doesn't contain base/servers\n";
+    // Don't load hidden files.
+    if (boost::starts_with(i->path().filename().string(), ".")) {
       continue;
     }
 
     // Store.
-    packages_[stripped_path] =
-        std::make_shared<botscript::package>(stripped_path, modules, !dir);
+    std::string module_path = i->path().relative_path().generic_string();
+    try {
+      auto module = std::make_shared<package>(module_path);
+      packages_[module->name()] = module;
+    } catch (const std::exception&) {
+      std::cout << "Unable to load module at " << module_path << std::endl;
+    }
   }
-
-  // Generate interface description vector.
-  std::vector<std::string> interface;
-  for (const auto& p : packages_) {
-    interface.emplace_back(p.second->interface());
-  }
-
-  return interface;
 }
 
 void bot::init(std::shared_ptr<bot_config> configuration, const error_cb& cb) {

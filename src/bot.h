@@ -105,11 +105,12 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \return the webclient
   bot_browser* browser();
 
-  /// Loads the packages and returns them JSON encoded string.
+  /// Loads the packages located at the given path into packages_ after clearing
+  /// the packages_ map. Since packages are stored wrapped by shared_ptrs,
+  /// the bots using old packages won't suffer from this.
   ///
   /// \param path the path to load the packages from
-  /// \return the packages as vector of JSON encoded package information
-  static std::vector<std::string> load_packages(const std::string& path);
+  static void load_packages(const std::string& path);
 
   /// \return a random wait time between min and max (multiplied with the wtf).
   int random(int a, int b);
@@ -141,6 +142,9 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// This is the update/status change callback.
   upd_cb update_callback_;
+
+  /// Packages.
+  static std::map<std::string, std::shared_ptr<package>> packages_;
 
  private:
   /// Loads the lua modules located at package_. This includes only files that
@@ -185,9 +189,6 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// The bots package.
   std::shared_ptr<package> package_;
-
-  /// Packages.
-  static std::map<std::string, std::shared_ptr<package>> packages_;
 };
 
 }  // namespace botscript

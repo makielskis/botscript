@@ -52,31 +52,31 @@ throw(lua_exception) {
   return interface;
 }
 
-bool lua_connection::server_list(const std::string& script,
-    std::map<std::string, std::string>* servers) {
+std::map<std::string, std::string> lua_connection::server_list(const std::string& script) {
   // Initialize lua_State.
   lua_State* state = luaL_newstate();
   if (nullptr == state) {
-    return false;
+    throw std::runtime_error("Could not open state to read server list");
   }
   luaL_openlibs(state);
 
   // Execute script.
   try {
     do_buffer(state, script, "servers");
-  } catch(lua_exception) {
+  } catch (const lua_exception&) {
     lua_close(state);
-    return false;
+    throw std::runtime_error("Could not execute servers script");
   }
 
   // Read servers list.
+  std::map<std::string, std::string> servers;
   lua_getglobal(state, "servers");
-  lua_str_table_to_map(state, 1, servers);
+  lua_str_table_to_map(state, 1, &servers);
 
   // Free resources.
   lua_close(state);
 
-  return true;
+  return servers;
 }
 
 void lua_connection::on_error(lua_State* state, const std::string& error_msg) {

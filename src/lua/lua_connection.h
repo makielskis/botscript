@@ -105,8 +105,7 @@ class lua_connection {
   /// \param script the script containing the servers table
   /// \param servers the servers std::map to write to
   /// \return true when the servers could be read successfully
-  static bool server_list(const std::string& script,
-                          std::map<std::string, std::string>* servers);
+  static std::map<std::string, std::string> server_list(const std::string& script);
 
   /// This function should be called when an error occures in an asynchronous
   /// function call (like http.xy). It calls the callback function registered
