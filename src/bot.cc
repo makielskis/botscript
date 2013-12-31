@@ -48,7 +48,7 @@ bot::~bot() {
 }
 
 void bot::shutdown() {
-  configuration_ = std::make_shared<mem_bot_config>(configuration_->to_json(true));
+  configuration_ = std::make_shared<mem_bot_config>();
 
   lua_connection::remove(identifier_);
   for (const auto m : modules_) {
