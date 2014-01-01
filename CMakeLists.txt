@@ -103,10 +103,12 @@ add_custom_target(compile_packages
   cd kv &&
   cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
   make &&
+  ~/mxe/usr/bin/i686-pc-mingw32-strip kv.package &&
   cd .. &&
   cd pg &&
   cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
-  make
+  make &&
+  ~/mxe/usr/bin/i686-pc-mingw32-strip pg.package
 )
 add_dependencies(compile_packages luac)
 
