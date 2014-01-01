@@ -345,15 +345,24 @@ void bot::execute(const std::string& command, const std::string& argument) {
       }
 
       try {
-        wait_time_factor_ = boost::lexical_cast<float>(new_wait_time_factor);
+        float new_wtf = boost::lexical_cast<float>(new_wait_time_factor);
+        if (wait_time_factor_ <= 0) {
+          log(BS_LOG_ERR, "base",
+              std::string("invalid value for wait time factor"));
+          return;
+        }
+        wait_time_factor_ = new_wtf;
         std::stringstream ss;
         ss << std::setprecision(3) << new_wait_time_factor;
         std::string wtf = ss.str();
         status("base_wait_time_factor", ss.str());
         log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + wtf);
         return;
-      } catch(const std::invalid_argument& e) {
+      } catch(const boost::bad_lexical_cast& e) {
         log(BS_LOG_ERR, "base", std::string("could not read wait time factor"));
+        status("base_wait_time_factor",
+            boost::lexical_cast<std::string>(wait_time_factor_));
+        return;
       }
     }
 
