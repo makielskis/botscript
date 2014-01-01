@@ -23,11 +23,17 @@ generate_header = False
 use_gzip        = False
 use_luac        = False
 
+##################
+# ABSOLUTE PATHS #
+##################
+sys.argv[1] = os.path.abspath(sys.argv[1])
+sys.argv[2] = os.path.abspath(sys.argv[2])
+
 #########################
 # READ LUAC PATH IF SET #
 #########################
 if len(sys.argv) == 5:
-  luac_path = sys.argv[4]
+  luac_path = os.path.abspath(sys.argv[4])
 else:
   luac_path = "luac"
 
@@ -116,10 +122,7 @@ for name in os.listdir(folder):
   extension = os.path.splitext(name)[1]
   name = folder + name
 
-  print(module, extension, name)
-
   if extension == ".lua" and not name.startswith("."):
-    print("found: " + name)
     filename = name
 
     output.write("  const char " + module + "[] = {\n")
@@ -127,6 +130,8 @@ for name in os.listdir(folder):
     # APPLY LUAC
     if use_luac:
       filename = module + ".lua.bin"
+      os.chdir(os.path.dirname(name))
+      name = os.path.relpath(name)
       print(luac_path + " -o " + filename + " " + name)
       os.system(luac_path + " -o " + filename + " " + name)
 
