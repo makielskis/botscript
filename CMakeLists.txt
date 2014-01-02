@@ -96,20 +96,35 @@ endif()
 ################################
 # Package compilation
 ################################
-add_custom_target(compile_packages
-  rm -rf pg && rm -rf kv &&
-  python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GC ${luac_location} &&
-  python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GC ${luac_location} &&
-  cd kv &&
-  cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
-  make &&
-  ~/mxe/usr/bin/i686-pc-mingw32-strip kv.package &&
-  cd .. &&
-  cd pg &&
-  cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
-  make &&
-  ~/mxe/usr/bin/i686-pc-mingw32-strip pg.package
-)
+if (MINGW)
+  add_custom_target(compile_packages
+    rm -rf pg && rm -rf kv &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GC ${luac_location} &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GC ${luac_location} &&
+    cd kv &&
+    cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
+    make &&
+    ~/mxe/usr/bin/i686-pc-mingw32-strip kv.package &&
+    cd .. &&
+    cd pg &&
+    cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
+    make &&
+    ~/mxe/usr/bin/i686-pc-mingw32-strip pg.package
+  )
+else()
+  add_custom_target(compile_packages
+    rm -rf pg && rm -rf kv &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GC ${luac_location} &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GC ${luac_location} &&
+    cd kv &&
+    cmake -DCMAKE_BUILD_TYPE=MinSizeRel . &&
+    make &&
+    cd .. &&
+    cd pg &&
+    cmake -DCMAKE_BUILD_TYPE=MinSizeRel . &&
+    make
+  )
+endif()
 add_dependencies(compile_packages luac)
 
 
