@@ -80,7 +80,7 @@ void bot::load_packages(const std::string& p) {
     }
 
     // Store.
-    std::string module_path = i->path().relative_path().generic_string();
+    std::string module_path = i->path().generic_string();
     try {
       auto module = std::make_shared<package>(module_path);
       packages_[module->name()] = module;
