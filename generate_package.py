@@ -55,7 +55,7 @@ if len(sys.argv) >= 4:
 #################
 # CREATE FOLDER #
 #################
-if not os.path.exists(sys.argv[2]): os.makedirs(sys.argv[2])
+if not generate_header and not os.path.exists(sys.argv[2]): os.makedirs(sys.argv[2])
 
 ###################
 # BASIC VARIABLES #
@@ -66,23 +66,27 @@ else:
   extension = '.cc'
 package_name = os.path.basename(os.path.splitext(sys.argv[2])[0])
 folder = sys.argv[1] + "/"
-output_file_path = sys.argv[2] + "/" + package_name + extension
+if generate_header:
+    output_file_path = sys.argv[2]
+else:
+    output_file_path = sys.argv[2] + "/" + package_name + extension
 output_file_abs_path = os.path.abspath(output_file_path)
 output = open(output_file_path, "w")
 
 ####################
 # WRITE CMAKE FILE #
 ####################
-cmake = open(sys.argv[2] + "/CMakeLists.txt", "w")
-cmake.write("\
-cmake_minimum_required (VERSION 2.6)\n\
-project(" + package_name + ")\n\
-set(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -s\")\n\
-add_library(" + package_name + " SHARED " + output_file_abs_path + ")\n\
-set(CMAKE_SHARED_LIBRARY_SUFFIX "")\n\
-set(CMAKE_SHARED_LIBRARY_PREFIX "")\n\
-set_target_properties(" + package_name + " PROPERTIES OUTPUT_NAME \"" + package_name + ".package\")")
-cmake.close()
+if not generate_header:
+    cmake = open(sys.argv[2] + "/CMakeLists.txt", "w")
+    cmake.write("\
+    cmake_minimum_required (VERSION 2.6)\n\
+    project(" + package_name + ")\n\
+    set(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -s\")\n\
+    add_library(" + package_name + " SHARED " + output_file_abs_path + ")\n\
+    set(CMAKE_SHARED_LIBRARY_SUFFIX "")\n\
+    set(CMAKE_SHARED_LIBRARY_PREFIX "")\n\
+    set_target_properties(" + package_name + " PROPERTIES OUTPUT_NAME \"" + package_name + ".package\")")
+    cmake.close()
 
 ######################
 # WRITE LIBRARY CODE #

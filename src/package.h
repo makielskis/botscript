@@ -14,12 +14,16 @@ namespace botscript {
 /// Abstract parent class for bot package provider classes.
 class package {
  public:
+  /// \param name     the package name
+  /// \param modules  the modules
+  package(std::string name, std::map<std::string, std::string> modules);
+
   /// \param package_name        the name of the package
   /// \param modules             a mapping from module name (base, server, etc.)
   ///                            to a (possibly gzipped) lua executable
   /// \param zipped              flag indicating whether the modules are gzipped
   /// \throws runtime_exception  if base or server are missing or empty
-  package(const std::string& path);
+  explicit package(const std::string& path);
 
   /// \return the package name
   const std::string& name() const;
@@ -66,6 +70,15 @@ class package {
       std::map<std::string, std::string> modules,
       const std::string& path);
 
+  /// \param modules  the modules to unzipp
+  static std::map<std::string, std::string> unzip(
+      std::map<std::string, std::string> modules);
+
+  /// Generates a JSON description of the package.
+  ///
+  /// \param modules       the packages's modules
+  /// \param servers       the packages's servers
+  /// \param package_name  the package name (e.g. 'kv' or 'pg')
   std::string json_description(
       const std::map<std::string, std::string>& modules,
       const std::map<std::string, std::string>& servers,

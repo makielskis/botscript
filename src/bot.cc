@@ -18,6 +18,11 @@
 #include "./lua/lua_connection.h"
 #include "./mem_bot_config.h"
 
+#ifdef ANDROID
+#include "./pg.h"
+#include "./kv.h"
+#endif
+
 // using Visual Studio 2012 or older
 #if (defined _MSC_VER && _MSC_VER <= 1700) || ANDROID
 namespace std {
@@ -68,6 +73,13 @@ std::shared_ptr<bot_config> bot::config() { return configuration_; }
 bot_browser* bot::browser() { return browser_.get(); }
 
 void bot::load_packages(const std::string& p) {
+#ifdef ANDROID
+  typedef std::map<std::string, std::string> mod_map;
+  std::unique_ptr<mod_map> pg(static_cast<mod_map*>(load_pg()));
+  std::unique_ptr<mod_map> kv(static_cast<mod_map*>(load_kv()));
+  packages_["kv"] = std::make_shared<package>("kv", *kv.get());
+  packages_["pg"] = std::make_shared<package>("pg", *pg.get());
+#else
   // Iterate specified directory.
   packages_.clear();
   using boost::filesystem::directory_iterator;
@@ -87,6 +99,7 @@ void bot::load_packages(const std::string& p) {
                 << ", error: " << e.what() << std::endl;
     }
   }
+#endif
 }
 
 void bot::init(std::shared_ptr<bot_config> configuration, const error_cb& cb) {

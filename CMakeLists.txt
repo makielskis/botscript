@@ -42,61 +42,16 @@ include_directories("./src")
 
 
 ################################
-# Static library
-################################
-file(GLOB exe_files "src/main.cc")
-file(GLOB_RECURSE bs_files "src/*.cc")
-list(REMOVE_ITEM  bs_files ${exe_files})
-add_library(bs STATIC EXCLUDE_FROM_ALL ${bs_files})
-if(MSVC)
-  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua)
-  set(_def
-    _VARIADIC_MAX=10
-    _WIN32_WINNT=0x0501
-  )
-  set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
-elseif(MINGW)
-  target_link_libraries(bs -Wl,-Bstatic z ${Boost_LIBRARIES} tidy pugixml lua ws2_32 mswsock)
-  set_target_properties(bs PROPERTIES COMPILE_FLAGS "-std=c++11 -s")
-  set(_def
-    BOOST_THREAD_USE_LIB
-    WINVER=0x0501
-    _WIN32_WINNT=0x0501
-    _WIN32_IE=0x0501
-  )
-  set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
-elseif(ANDROID)
-  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
-  set_target_properties(bs PROPERTIES COMPILE_FLAGS "-std=c++11 -fPIC")
-  set(_def ANDROID)
-  set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
-else()
-  set_target_properties(bs PROPERTIES COMPILE_FLAGS "-Wall -Wextra -std=c++11")
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z)
-  else()
-    target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
-  endif()
-endif()
-
-
-################################
-# Main executable (currently not supported)
-################################
-#add_executable(botscript ${exe_files})
-#if(MSVC)
-#  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
-#elseif(MINGW)
-#  target_link_libraries(botscript -Wl,-Bstatic ${Boost_LIBRARIES} tidy pugixml lua z ws2_32 mswsock)
-#else()
-#  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
-#endif()
-
-
-################################
 # Package compilation
 ################################
-if (MINGW)
+if (ANDROID)
+  add_custom_target(compile_packages
+    rm -rf ${CMAKE_CURRENT_LIST_DIR}/src/pg.h &&
+    rm -rf ${CMAKE_CURRENT_LIST_DIR}/src/kv.h &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv ${CMAKE_CURRENT_LIST_DIR}/src/kv.h HGC ${luac_location} &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg ${CMAKE_CURRENT_LIST_DIR}/src/pg.h HGC ${luac_location}
+  )
+elseif (MINGW)
   add_custom_target(compile_packages
     rm -rf pg && rm -rf kv &&
     python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GC ${luac_location} &&
@@ -126,6 +81,59 @@ else()
   )
 endif()
 add_dependencies(compile_packages luac)
+
+
+################################
+# Static library
+################################
+file(GLOB exe_files "src/main.cc")
+file(GLOB_RECURSE bs_files "src/*.cc")
+list(REMOVE_ITEM  bs_files ${exe_files})
+add_library(bs STATIC EXCLUDE_FROM_ALL ${bs_files})
+if(MSVC)
+  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua)
+  set(_def
+    _VARIADIC_MAX=10
+    _WIN32_WINNT=0x0501
+  )
+  set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
+elseif(MINGW)
+  target_link_libraries(bs -Wl,-Bstatic z ${Boost_LIBRARIES} tidy pugixml lua ws2_32 mswsock)
+  set_target_properties(bs PROPERTIES COMPILE_FLAGS "-std=c++11 -s")
+  set(_def
+    BOOST_THREAD_USE_LIB
+    WINVER=0x0501
+    _WIN32_WINNT=0x0501
+    _WIN32_IE=0x0501
+  )
+  set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
+elseif(ANDROID)
+  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+  set_target_properties(bs PROPERTIES COMPILE_FLAGS "-std=c++11 -fPIC")
+  set(_def ANDROID)
+  set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
+  add_dependencies(bs compile_packages)
+else()
+  set_target_properties(bs PROPERTIES COMPILE_FLAGS "-Wall -Wextra -std=c++11")
+  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z)
+  else()
+    target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+  endif()
+endif()
+
+
+################################
+# Main executable (currently not supported)
+################################
+#add_executable(botscript ${exe_files})
+#if(MSVC)
+#  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
+#elseif(MINGW)
+#  target_link_libraries(botscript -Wl,-Bstatic ${Boost_LIBRARIES} tidy pugixml lua z ws2_32 mswsock)
+#else()
+#  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+#endif()
 
 
 ################################

@@ -31,6 +31,13 @@ namespace botscript {
 
 typedef std::map<std::string, std::string> mod_map;
 
+package::package(std::string name, std::map<std::string, std::string> modules)
+    : name_(std::move(name)),
+      modules_(std::move(modules)),
+      servers_(lua_connection::server_list(modules_["servers"])),
+      interface_(json_description(modules_, servers_, name_)) {
+}
+
 package::package(const std::string& path)
     : name_(name_from_path(path)),
       modules_(unzip_if_no_directory(read_modules(path), path)),
@@ -100,11 +107,17 @@ std::map<std::string, std::string> package::unzip_if_no_directory(
     std::map<std::string, std::string> modules,
     const std::string& path) {
   if (!boost::filesystem::is_directory(path)) {
-    for (auto& module : modules) {
-      std::vector<char> zip(module.second.begin(), module.second.end());
-      std::vector<char> unzipped = unzip(zip);
-      module.second = std::string(unzipped.begin(), unzipped.end());
-    }
+    return unzip(modules);
+  }
+  return modules;
+}
+
+std::map<std::string, std::string> package::unzip(
+    std::map<std::string, std::string> modules) {
+  for (auto& module : modules) {
+    std::vector<char> zip(module.second.begin(), module.second.end());
+    std::vector<char> unzipped = unzip(zip);
+    module.second = std::string(unzipped.begin(), unzipped.end());
   }
   return modules;
 }
