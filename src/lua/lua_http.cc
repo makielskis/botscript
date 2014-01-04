@@ -107,7 +107,7 @@ int lua_http::get(lua_State* state, bool path) {
   }
 
   // Do asynchronous call.
-  url = path ? b->configuration().server() + url : url;
+  url = path ? b->config()->server() + url : url;
   b->browser()->request_with_retry(
       http::url(url), http::util::GET, "",
       boost::bind(on_req_finish, state, _1, _2),
@@ -146,7 +146,7 @@ int lua_http::post(lua_State* state, bool path) {
   }
 
   // Do asynchronous call.
-  url = path ? b->configuration().server() + url : url;
+  url = path ? b->config()->server() + url : url;
   b->browser()->request_with_retry(
       http::url(url), http::util::POST, content,
       boost::bind(on_req_finish, state, _1, _2),

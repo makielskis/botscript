@@ -214,13 +214,14 @@ void lua_connection::login(lua_State* state,
                            const std::string& script,
                            on_finish_cb* cb) {
   // Gather login information.
-  std::string username = bot->configuration().username();
-  std::string password = bot->configuration().password();
-  std::string package = bot->configuration().package();
+  const auto config = bot->config();
+  std::string username = config->username();
+  std::string password = config->password();
+  std::string package = config->package();
 
   try {
     // Execute login function.
-    run(state, cb, bot->configuration().identifier(), "base", script,
+    run(state, cb, config->identifier(), "base", script,
         "login", 2, 0, 0,
         [&username, &password](lua_State* state) {
           // Push login function arguments.
@@ -243,7 +244,8 @@ void lua_connection::module_run(const std::string module_name,
 
   try {
     // Execute login function.
-    run(state, cb, bot->configuration().identifier(), module_name, script, run_fun, 0, 0, 0,
+    run(state, cb, bot->config()->identifier(), module_name, script, run_fun,
+        0, 0, 0,
         [module_ptr, base_script](lua_State* state) {
           do_buffer(state, base_script, "base");
           module_ptr->set_lua_status(state);
@@ -380,8 +382,8 @@ void lua_connection::add(std::shared_ptr<bot> bot) {
   boost::lock_guard<boost::mutex> lock(bots_mutex_);
 
   // Add bot if not it is not already stored.
-  if (bots_.find(bot->configuration().identifier()) == bots_.end()) {
-    bots_[bot->configuration().identifier()] = bot;
+  if (bots_.find(bot->config()->identifier()) == bots_.end()) {
+    bots_[bot->config()->identifier()] = bot;
   }
 }
 

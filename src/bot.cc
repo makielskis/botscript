@@ -63,8 +63,6 @@ void bot::shutdown() {
   update_callback_ = nullptr;
 }
 
-bot_config& bot::configuration() { return *configuration_.get(); }
-const bot_config& bot::configuration() const { return *configuration_.get(); }
 std::shared_ptr<bot_config> bot::config() { return configuration_; }
 
 bot_browser* bot::browser() { return browser_.get(); }
@@ -167,7 +165,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
       return;
     } else {
       browser_->change_proxy();
-      std::shared_ptr<state_wrapper> next_state = std::make_shared<state_wrapper>();
+      auto next_state = std::make_shared<state_wrapper>();
       login_cb_ = boost::bind(&bot::handle_login, this,
                               self, next_state, _1, cb, init_commands,
                               load_mod, tries - 1);
@@ -205,7 +203,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
             &login_cb_);
       } else /* if (login_result_) */ {
         if (load_mod) {
-          load_modules(init_commands);
+          load_modules(init_commands, self);
         }
         cb(self, "");
         login_cb_ = nullptr;
@@ -215,10 +213,10 @@ void bot::handle_login(std::shared_ptr<bot> self,
   }
 }
 
-void bot::load_modules(const command_sequence& init_commands) {
+void bot::load_modules(const command_sequence& init_commands,
+                       std::shared_ptr<bot> self) {
   // Load modules from package folder:
   const std::string& base_script = package_->modules().find("base")->second;
-  std::shared_ptr<bot> self = shared_from_this();
   for (const auto& m : package_->modules()) {
     // base and servers ain't no modules.
     if (m.first == "base" || m.first == "servers") {

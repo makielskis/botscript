@@ -241,7 +241,7 @@ void module::execute(const std::string& command, const std::string& argument) {
 
 void module::set_lua_status(lua_State* lua_state) {
   // Get current module staus from the bot.
-  auto module_settings = bot_->configuration().module_settings();
+  auto module_settings = bot_->config()->module_settings();
   std::map<std::string, std::string> status = module_settings[module_name_];
 
   // Write the status to the lua script state.

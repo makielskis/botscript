@@ -95,11 +95,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
                     const command_sequence& init_commands, bool load_mod,
                     int tries);
 
-  /// \return the underlying config object
-  bot_config& configuration();
-
-  const bot_config& configuration() const;
-
+  /// \return the bot configuration
   std::shared_ptr<bot_config> config();
 
   /// \return the webclient
@@ -152,7 +148,8 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// 'base.lua'. Executes the given command sequence to initialize the modules.
   ///
   /// \param init_commands the initialization commands
-  void load_modules(const command_sequence& init_commands);
+  void load_modules(const command_sequence& init_commands,
+                    std::shared_ptr<bot> self);
 
   /// Login callback.
   std::function<void(std::string)> login_cb_;
