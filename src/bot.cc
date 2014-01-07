@@ -136,8 +136,10 @@ void bot::init(std::shared_ptr<bot_config> configuration, const error_cb& cb) {
   std::string proxy = configuration_->module_settings()["base"]["proxy"];
   command_sequence commands = configuration_->init_command_sequence();
   if (!proxy.empty()) {
-    browser_->set_proxy_list(proxy, [this, commands, cb, self](int success) {
+    browser_->set_proxy_list(proxy,
+                             [this, commands, cb, self, proxy](int success) {
       if (!success) {
+        configuration_->set("base", "proxy", proxy);
         return cb(self, "no working proxy found");
       } else {
         log(BS_LOG_NFO, "base", "login: 1. try");
