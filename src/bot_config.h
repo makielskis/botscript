@@ -17,6 +17,11 @@ typedef std::vector<std::pair<std::string, std::string>> command_sequence;
 
 class bot_config {
  public:
+  bot_config() {
+  }
+  bot_config(const bot_config&) = delete;
+  bot_config& operator=(const bot_config&) = delete;
+
   virtual ~bot_config() {
   }
 

@@ -237,15 +237,19 @@ void bot::load_modules(const command_sequence& init_commands,
     }
 
     // Create module.
-    auto new_module = std::make_shared<module>(m.first,
-                                               base_script, m.second,
-                                               self, io_service_);
+    try {
+      auto new_module = std::make_shared<module>(m.first,
+                                                 base_script, m.second,
+                                                 self, io_service_);
 
-    // Check load success.
-    if (new_module->load_success()) {
-      modules_.push_back(new_module);
-    } else {
-      log(BS_LOG_ERR, "base", m.first + " could not be loaded");
+      // Check load success.
+      if (new_module->load_success()) {
+        modules_.push_back(new_module);
+      } else {
+        log(BS_LOG_ERR, "base", m.first + " could not be loaded");
+      }
+    } catch (...) {
+      log(BS_LOG_ERR, "base", m.first + " could not be loaded!");
     }
   }
 
