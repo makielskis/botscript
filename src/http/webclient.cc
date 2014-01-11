@@ -57,6 +57,10 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
   std::string host = use_proxy ? proxy_host_ : u.host();
   std::string port = use_proxy ? proxy_port_ : u.port();
 
+  if (port == "http") {
+    port = "80";
+  }
+
   // Start request.
   typedef std::shared_ptr<http_con> http_ptr;
   http_ptr c = std::make_shared<http_con>(io_service_, host, port, timeout);
