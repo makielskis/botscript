@@ -18,7 +18,7 @@
 #include "./lua/lua_connection.h"
 #include "./mem_bot_config.h"
 
-#ifdef ANDROID
+#if defined(ANDROID) || defined(STATIC_PACKAGES)
 #include "./pg.h"
 #include "./kv.h"
 #endif
@@ -73,7 +73,7 @@ std::shared_ptr<bot_config> bot::config() { return configuration_; }
 bot_browser* bot::browser() { return browser_.get(); }
 
 void bot::load_packages(const std::string& p) {
-#ifdef ANDROID
+#if defined(ANDROID) || defined(STATIC_PACKAGES)
   typedef std::map<std::string, std::string> mod_map;
   std::unique_ptr<mod_map> pg(static_cast<mod_map*>(load_pg()));
   std::unique_ptr<mod_map> kv(static_cast<mod_map*>(load_kv()));

@@ -33,7 +33,7 @@ typedef std::map<std::string, std::string> mod_map;
 
 package::package(std::string name, std::map<std::string, std::string> modules)
     : name_(std::move(name)),
-      modules_(std::move(modules)),
+      modules_(unzip(std::move(modules))),
       servers_(lua_connection::server_list(modules_["servers"])),
       interface_(json_description(modules_, servers_, name_)) {
 }

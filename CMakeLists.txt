@@ -41,9 +41,17 @@ include_directories("./src")
 
 
 ################################
+# Static packages
+################################
+if (STATIC_PACKAGES)
+  add_definitions(-DSTATIC_PACKAGES)
+endif()
+
+
+################################
 # Package compilation
 ################################
-if (ANDROID)
+if (ANDROID OR STATIC_PACKAGES)
   add_custom_target(compile_packages
     rm -rf ${CMAKE_CURRENT_LIST_DIR}/src/pg.h &&
     rm -rf ${CMAKE_CURRENT_LIST_DIR}/src/kv.h &&
