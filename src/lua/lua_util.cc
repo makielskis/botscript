@@ -36,7 +36,7 @@ int lua_util::get_by_xpath(lua_State* state) {
     doc.load(str.c_str());
     pugi::xpath_query query(xpath.c_str());
     value = query.evaluate_string(doc);
-  } catch(pugi::xpath_exception) {
+  } catch(const pugi::xpath_exception&) {
     std::string error = xpath;
     error += " is not a valid xpath";
     return luaL_error(state, "%s", error.c_str());
@@ -81,7 +81,7 @@ int lua_util::get_all_by_xpath(lua_State* state) {
       // Insert match to the result table.
       lua_rawset(state, -3);
     }
-  } catch(pugi::xpath_exception) {
+  } catch(const pugi::xpath_exception&) {
     std::string error = xpath;
     error += " is not a valid xpath";
     return luaL_error(state, "%s", error.c_str());
@@ -105,7 +105,7 @@ int lua_util::get_by_regex(lua_State* state) {
     boost::match_results<std::string::const_iterator> what;
     boost::regex_search(str, what, r);
     match = what.size() > 1 ? what[1].str().c_str() : "";
-  } catch(boost::regex_error) {
+  } catch(const boost::regex_error&) {
     std::string error = regex;
     error += " is not a valid regex";
     return luaL_error(state, "%s", error.c_str());
@@ -161,7 +161,7 @@ int lua_util::get_all_by_regex(lua_State* state) {
     }
 
     return 1;
-  } catch(boost::regex_error) {
+  } catch(const boost::regex_error&) {
     std::string error = regex;
     error += " is not a valid regex";
     return luaL_error(state, "%s", error.c_str());
