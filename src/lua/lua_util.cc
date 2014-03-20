@@ -227,4 +227,48 @@ void lua_util::log(lua_State* state, int log_level) {
   b->log(log_level, module, message);
 }
 
+int lua_util::set_global(lua_State* state) {
+  // Get key and value.
+  std::string key = luaL_checkstring(state, -2);
+  std::string value = luaL_checkstring(state, -1);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
+
+  // Get the calling bot.
+  std::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (std::shared_ptr<bot>() == b) {
+    return luaL_error(state, "no bot for state");
+  }
+
+  // Execute set command.
+  b->execute("base_set_" + key, value);
+  return 0;
+}
+
+int lua_util::get_global(lua_State* state) {
+  // Get key.
+  std::string key = luaL_checkstring(state, -1);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 1);
+
+  // Get the calling bot.
+  std::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (std::shared_ptr<bot>() == b) {
+    return luaL_error(state, "no bot for state");
+  }
+
+  // Read bot status and push result.
+  auto& base_module = b->config()->module_settings()["base"];
+  auto it = base_module.find(key);
+  if (it != base_module.end()) {
+    lua_pushstring(state, it->second.c_str());
+  } else {
+    lua_pushstring(state, "");
+  }
+
+  return 1;
+}
+
 }  // namespace botscript
