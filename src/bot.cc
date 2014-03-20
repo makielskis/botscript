@@ -80,6 +80,12 @@ void bot::load_packages(const std::string& p) {
   packages_["kv"] = std::make_shared<package>("kv", *kv.get());
   packages_["pg"] = std::make_shared<package>("pg", *pg.get());
 #else
+  // Check that the specified path is a directory.
+  if (!boost::filesystem::is_directory(p)) {
+    std::cout << p << " isn't a directory\n";
+    return;
+  }
+
   // Iterate specified directory.
   packages_.clear();
   using boost::filesystem::directory_iterator;
