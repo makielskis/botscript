@@ -348,12 +348,65 @@ void bot::refresh_status(const std::string& key) {
   if (update_callback_ != nullptr) {
     update_callback_(identifier_, key, value);
   }
+  check_and_update_shared_if_needed(key, value);
 }
 
-void bot::status(const std::string& key, const std::string& value) {
+void bot::status(std::string const& key, std::string const& value) {
   configuration_->set(key, value);
-  if (update_callback_ != nullptr) {
-    update_callback_(identifier_, key, value);
+  if (update_callback_ == nullptr) {
+    return;
+  }
+  update_callback_(identifier_, key, value);
+  check_and_update_shared_if_needed(key, value);
+}
+
+void bot::check_and_update_shared_if_needed(std::string const& key,
+                                            std::string const& value) {
+  auto pos = key.find("_");
+  if (pos == std::string::npos) {
+    return;
+  }
+
+  std::string module_name = key.substr(0, pos);
+  if (module_name != "shared") {
+    return;
+  }
+
+  update_shared(key.substr(pos + 1), value);
+}
+
+void bot::update_shared(std::string const& key, std::string const& value) {
+  if (update_callback_ == nullptr) {
+    return;
+  }
+
+  std::string search = std::string("$") + key;
+  auto module_states = configuration_->module_settings();
+  for (const auto& module : module_states) {
+    for (const auto& setting : module.second) {
+      if (setting.second != search) {
+        continue;
+      }
+
+      std::string setting_name = module.first + "_" + setting.first;
+      update_callback_(identifier_, setting_name, value);
+    }
+  }
+}
+
+void bot::update_all_shared() {
+  if (update_callback_ == nullptr) {
+    return;
+  }
+
+  auto module_settings = configuration_->module_settings();
+  auto shared_module_it = module_settings.find("shared");
+  if (shared_module_it == module_settings.end()) {
+    return;
+  }
+
+  for (auto& shared_var : shared_module_it->second) {
+    update_shared(shared_var.first, shared_var.second);
   }
 }
 
@@ -419,6 +472,15 @@ void bot::execute(const std::string& command, const std::string& argument) {
               &login_cb_);
         }
       });
+    }
+
+    std::string shared_set = "shared_set_";
+    if (boost::starts_with(command, shared_set)) {
+      std::string key = command.substr(shared_set.length());
+      log(BS_LOG_DBG, "shared", "updating shared variable " + key);
+      configuration_->set("shared", key, argument);
+      update_shared(key, argument);
+      return;
     }
 
     // Forward all other commands to modules.

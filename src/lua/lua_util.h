@@ -27,8 +27,8 @@ class lua_util {
   static int log(lua_State* state);
   static int log_error(lua_State* state);
   static int set_status(lua_State* state);
-  static int set_global(lua_State* state);
-  static int get_global(lua_State* state);
+  static int set_shared(lua_State* state);
+  static int get_shared(lua_State* state);
 };
 
 static const luaL_Reg utillib[] = {
@@ -40,8 +40,8 @@ static const luaL_Reg utillib[] = {
   {"log",              lua_util::log},
   {"log_error",        lua_util::log_error},
   {"set_status",       lua_util::set_status},
-  {"set_global",       lua_util::set_global},
-  {"get_global",       lua_util::get_global},
+  {"set_shared",       lua_util::set_shared},
+  {"get_shared",       lua_util::get_shared},
   {NULL, NULL}
 };
 

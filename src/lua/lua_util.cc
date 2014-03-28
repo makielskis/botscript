@@ -227,7 +227,7 @@ void lua_util::log(lua_State* state, int log_level) {
   b->log(log_level, module, message);
 }
 
-int lua_util::set_global(lua_State* state) {
+int lua_util::set_shared(lua_State* state) {
   // Get key and value.
   std::string key = luaL_checkstring(state, -2);
   std::string value = luaL_checkstring(state, -1);
@@ -242,11 +242,11 @@ int lua_util::set_global(lua_State* state) {
   }
 
   // Execute set command.
-  b->execute("base_set_" + key, value);
+  b->execute("shared_set_" + key, value);
   return 0;
 }
 
-int lua_util::get_global(lua_State* state) {
+int lua_util::get_shared(lua_State* state) {
   // Get key.
   std::string key = luaL_checkstring(state, -1);
 
@@ -260,7 +260,7 @@ int lua_util::get_global(lua_State* state) {
   }
 
   // Read bot status and push result.
-  auto& base_module = b->config()->module_settings()["base"];
+  auto& base_module = b->config()->module_settings()["shared"];
   auto it = base_module.find(key);
   if (it != base_module.end()) {
     lua_pushstring(state, it->second.c_str());
