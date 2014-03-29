@@ -132,6 +132,14 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// \param value  the new value
   void status(const std::string& key, const std::string& value);
 
+  /// Gathers all variable updates for a shared variable: shared_${key}.
+  ///
+  /// \param key    the key of the shared variable
+  /// \param value  the value of the shared variable
+  /// \return a list of dependent variables
+  std::vector<std::string> get_dependent_variables(
+      std::string const& key) const;
+
   /// Updates a shared variable:
   /// A shared variable is a base variable that starts with "shared".
   ///
@@ -149,7 +157,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
   /// Updates all variables that depend on a shared variables:
   /// Loops over the shared variables, searches for dependent variables and
   /// triggers the update_callback_ for each.
-  void update_all_shared();
+  std::map<std::string, std::string> update_all_shared() const;
 
   /// Checks if the mentioned key is a shared variable and updates all dependent
   /// variables if needbe.

@@ -363,16 +363,28 @@ void bot::status(std::string const& key, std::string const& value) {
 void bot::check_and_update_shared_if_needed(std::string const& key,
                                             std::string const& value) {
   auto pos = key.find("_");
-  if (pos == std::string::npos) {
-    return;
+  if (pos == std::string::npos && key.substr(0, pos) == "shared") {
+    update_shared(key.substr(pos + 1), value);
+  }
+}
+
+std::vector<std::string> bot::get_dependent_variables(
+    std::string const& key) const {
+  std::vector<std::string> updates;
+
+  std::string search = std::string("$") + key;
+  auto module_states = configuration_->module_settings();
+  for (auto const& module : module_states) {
+    for (const auto& setting : module.second) {
+      if (setting.second != search) {
+        continue;
+      }
+
+      updates.emplace_back(module.first + "_" + setting.first);
+    }
   }
 
-  std::string module_name = key.substr(0, pos);
-  if (module_name != "shared") {
-    return;
-  }
-
-  update_shared(key.substr(pos + 1), value);
+  return updates;
 }
 
 void bot::update_shared(std::string const& key, std::string const& value) {
@@ -380,34 +392,27 @@ void bot::update_shared(std::string const& key, std::string const& value) {
     return;
   }
 
-  std::string search = std::string("$") + key;
-  auto module_states = configuration_->module_settings();
-  for (const auto& module : module_states) {
-    for (const auto& setting : module.second) {
-      if (setting.second != search) {
-        continue;
-      }
-
-      std::string setting_name = module.first + "_" + setting.first;
-      update_callback_(identifier_, setting_name, value);
-    }
+  for (auto const& var : get_dependent_variables(key)) {
+    update_callback_(identifier_, var, value);
   }
 }
 
-void bot::update_all_shared() {
-  if (update_callback_ == nullptr) {
-    return;
-  }
+std::map<std::string, std::string> bot::update_all_shared() const {
+  std::map<std::string, std::string> updates;
 
   auto module_settings = configuration_->module_settings();
   auto shared_module_it = module_settings.find("shared");
   if (shared_module_it == module_settings.end()) {
-    return;
+    return updates;
   }
 
-  for (auto& shared_var : shared_module_it->second) {
-    update_shared(shared_var.first, shared_var.second);
+  for (auto const& shared : shared_module_it->second) {
+    for (auto const& dependent_var : get_dependent_variables(shared.first)) {
+      updates[dependent_var] = shared.second;
+    }
   }
+
+  return updates;
 }
 
 void bot::execute(const std::string& command, const std::string& argument) {
