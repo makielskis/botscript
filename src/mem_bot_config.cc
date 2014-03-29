@@ -185,6 +185,10 @@ string mem_bot_config::to_json(bool with_password) const {
     // Initialize module JSON object and add name property.
     rapidjson::Value m(rapidjson::kObjectType);
 
+    if (module.first == "shared") {
+      continue;
+    }
+
     // Add module settings.
     for(const auto& module_config_val : module.second) {
       rapidjson::Value key_attr(module_config_val.first.c_str(), allocator);
