@@ -61,8 +61,8 @@ if (ANDROID OR STATIC_PACKAGES)
 elseif (MINGW)
   add_custom_target(compile_packages
     rm -rf pg && rm -rf kv &&
-    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GC ${luac_location} &&
-    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GC ${luac_location} &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/kv kv GCS ${luac_location} &&
+    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GCS ${luac_location} &&
     cd kv &&
     cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
     make &&

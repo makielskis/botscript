@@ -14,6 +14,7 @@ if len(sys.argv) != 3 and len(sys.argv) != 4 and len(sys.argv) != 5:
   print("FLAGS: H - Generate .h code instead of .cc code")
   print("       G - Use gzip compression")
   print("       C - Compile lua sources using luac")
+  print("       S - Compile using the \"-s\" flag")
   exit(1)
 
 ################
@@ -22,6 +23,7 @@ if len(sys.argv) != 3 and len(sys.argv) != 4 and len(sys.argv) != 5:
 generate_header = False
 use_gzip        = False
 use_luac        = False
+use_s_flag      = False
 
 ##################
 # ABSOLUTE PATHS #
@@ -48,6 +50,8 @@ if len(sys.argv) >= 4:
       use_gzip = True
     elif c == 'C':
       use_luac = True
+    elif c == 'S':
+      use_s_flag = True
     else:
       print("unknown argument " + c)
       exit(1)
@@ -80,9 +84,9 @@ if not generate_header:
     cmake = open(sys.argv[2] + "/CMakeLists.txt", "w")
     cmake.write("\
     cmake_minimum_required (VERSION 2.6)\n\
-    project(" + package_name + ")\n\
-    set(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -s\")\n\
-    add_library(" + package_name + " SHARED " + output_file_abs_path + ")\n\
+    project(" + package_name + ")\n" +
+    ("set(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -s\")\n\"" if use_s_flag else "") +
+    "add_library(" + package_name + " SHARED " + output_file_abs_path + ")\n\
     set(CMAKE_SHARED_LIBRARY_SUFFIX "")\n\
     set(CMAKE_SHARED_LIBRARY_PREFIX "")\n\
     set_target_properties(" + package_name + " PROPERTIES OUTPUT_NAME \"" + package_name + ".package\")")
