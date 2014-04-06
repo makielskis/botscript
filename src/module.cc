@@ -165,7 +165,8 @@ void module::finally(std::shared_ptr<state_wrapper> state_wr) {
     try {
       lua_connection::exec(state, 0, 0, 0);
     } catch(const lua_exception& e) {
-      bot_->log(bot::BS_LOG_ERR, module_name_, "finally error: " + e.what());
+      bot_->log(bot::BS_LOG_ERR, module_name_,
+                std::string("finally error: ") + e.what());
     }
   }
 }
