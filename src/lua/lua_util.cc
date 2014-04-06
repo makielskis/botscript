@@ -242,7 +242,8 @@ int lua_util::set_shared(lua_State* state) {
   }
 
   // Execute set command.
-  b->execute("shared_set_" + key, value);
+  b->config()->set("shared", key, value);
+  b->update_shared(key, value);
   return 0;
 }
 
@@ -260,7 +261,8 @@ int lua_util::get_shared(lua_State* state) {
   }
 
   // Read bot status and push result.
-  auto& base_module = b->config()->module_settings()["shared"];
+  auto module_settings = b->config()->module_settings();
+  auto& base_module = module_settings["shared"];
   auto it = base_module.find(key);
   if (it != base_module.end()) {
     lua_pushstring(state, it->second.c_str());
