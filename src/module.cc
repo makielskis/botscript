@@ -84,6 +84,8 @@ void module::run_cb(std::shared_ptr<module> self,
                     std::shared_ptr<state_wrapper> state_wr,
                     std::string err) {
   if (!err.empty()) {
+    finally(state_wr);
+
     run_callback_ = nullptr;
     run_result_stored_ = false;
 
@@ -120,6 +122,8 @@ void module::run_cb(std::shared_ptr<module> self,
         wait_max_ = lua_isnumber(state, -1) ? luaL_checkint(state, -1) : -1;
       }
     } else {
+      finally(state_wr);
+
       run_callback_ = nullptr;
       run_result_stored_ = false;
 
@@ -149,6 +153,19 @@ void module::run_cb(std::shared_ptr<module> self,
 
       std::string str = boost::lexical_cast<std::string>(sleep);
       bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + str);
+    }
+  }
+}
+
+void module::finally(std::shared_ptr<state_wrapper> state_wr) {
+  lua_State* state = state_wr->get();
+  lua_getglobal(state, ("finally_" + module_name_).c_str());
+  if (lua_isfunction(state, -1)) {
+    // Call function.
+    try {
+      lua_connection::exec(state, 0, 0, 0);
+    } catch(const lua_exception& e) {
+      bot_->log(bot::BS_LOG_ERR, module_name_, "finally error: " + e.what());
     }
   }
 }

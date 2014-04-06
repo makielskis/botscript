@@ -81,6 +81,8 @@ class module : public std::enable_shared_from_this<module> {
               std::shared_ptr<state_wrapper> state_wr,
               std::string err);
 
+  void finally(std::shared_ptr<state_wrapper> state_wr);
+
   boost::asio::io_service* io_service_;
 
   std::shared_ptr<bot> bot_;

@@ -249,17 +249,6 @@ void lua_connection::module_run(const std::string module_name,
         [module_ptr, base_script](lua_State* state) {
           do_buffer(state, base_script, "base");
           module_ptr->set_lua_status(state);
-        },
-        [module_name](lua_State* state) {
-          lua_getglobal(state, ("finally_" + module_name).c_str());
-          if (lua_isfunction(state, -1)) {
-            // Call function.
-            try {
-              exec(state, 0, 0, 0);
-            } catch(const lua_exception& e) {
-              throw e;
-            }
-          }
         });
   } catch(const lua_exception& e) {
     (*cb)(e.what());
