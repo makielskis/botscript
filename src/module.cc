@@ -27,6 +27,7 @@ module::module(const std::string& module_name,
       timer_(*io_service),
       module_state_(OFF),
       run_result_stored_(false),
+      finally_result_stored_(false),
       wait_min_(-1),
       wait_max_(-1),
       load_success_(false) {
@@ -77,36 +78,37 @@ void module::run(std::shared_ptr<module> self, boost::system::error_code) {
   bot_->log(bot::BS_LOG_NFO, module_name_, "starting");
   std::shared_ptr<state_wrapper> state = std::make_shared<state_wrapper>();
   run_callback_ = boost::bind(&module::run_cb, this, self, state, _1);
-  lua_connection::module_run(module_name_, state->get(), this, &run_callback_);
+  lua_connection::module_run(module_name_, lua_run_, state->get(),
+                             this, &run_callback_);
 }
 
 void module::run_cb(std::shared_ptr<module> self,
                     std::shared_ptr<state_wrapper> state_wr,
                     std::string err) {
   if (!err.empty()) {
-    finally(state_wr);
+    finally(self, state_wr, [this, self, err]() {
+      run_callback_ = nullptr;
+      run_result_stored_ = false;
 
-    run_callback_ = nullptr;
-    run_result_stored_ = false;
+      bot_->log(bot::BS_LOG_ERR, module_name_, err);
 
-    bot_->log(bot::BS_LOG_ERR, module_name_, err);
-
-    {
-      boost::lock_guard<boost::mutex> lock(state_mutex_);
-      if (module_state_ == OFF || module_state_ == STOP_RUN) {
-        // Module state is STOP_RUN - stop!
-        bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> run(): OFF");
-        module_state_ = OFF;
-        return;
+      {
+        boost::lock_guard<boost::mutex> lock(state_mutex_);
+        if (module_state_ == OFF || module_state_ == STOP_RUN) {
+          // Module state is STOP_RUN - stop!
+          bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> run(): OFF");
+          module_state_ = OFF;
+          return;
+        }
       }
-    }
 
-    module_state_ = WAIT;
-    int sleep = bot_->random(60, 120);
-    timer_.expires_from_now(boost::posix_time::seconds(sleep));
-    timer_.async_wait(boost::bind(&module::run, this, self, _1));
-    std::string s_str = boost::lexical_cast<std::string>(sleep);
-    bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + s_str);
+      module_state_ = WAIT;
+      int sleep = bot_->random(60, 120);
+      timer_.expires_from_now(boost::posix_time::seconds(sleep));
+      timer_.async_wait(boost::bind(&module::run, this, self, _1));
+      std::string s_str = boost::lexical_cast<std::string>(sleep);
+      bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + s_str);
+    });
   } else {
     if (!run_result_stored_) {
       run_result_stored_ = true;
@@ -122,51 +124,77 @@ void module::run_cb(std::shared_ptr<module> self,
         wait_max_ = lua_isnumber(state, -1) ? luaL_checkint(state, -1) : -1;
       }
     } else {
-      finally(state_wr);
+      finally(self, state_wr, [this, self]() {
+        run_callback_ = nullptr;
+        run_result_stored_ = false;
 
-      run_callback_ = nullptr;
-      run_result_stored_ = false;
-
-      {
-        boost::lock_guard<boost::mutex> lock(state_mutex_);
-        if (module_state_ == OFF || module_state_ == STOP_RUN) {
-          // Module state is STOP_RUN - stop!
-          bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> run(): OFF");
-          module_state_ = OFF;
-          return;
+        {
+          boost::lock_guard<boost::mutex> lock(state_mutex_);
+          if (module_state_ == OFF || module_state_ == STOP_RUN) {
+            // Module state is STOP_RUN - stop!
+            bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> run(): OFF");
+            module_state_ = OFF;
+            return;
+          }
         }
-      }
 
-      module_state_ = WAIT;
+        module_state_ = WAIT;
 
-      int sleep;
-      if (wait_min_ >= 0 && wait_max_ >= 0) {
-        sleep = bot_->random(wait_min_, wait_max_);
-      } else if (wait_min_ >= 0) {
-        sleep = wait_min_;
-      } else {
-        sleep = bot_->random(60, 120);
-      }
+        int sleep;
+        if (wait_min_ >= 0 && wait_max_ >= 0) {
+          sleep = bot_->random(wait_min_, wait_max_);
+        } else if (wait_min_ >= 0) {
+          sleep = wait_min_;
+        } else {
+          sleep = bot_->random(60, 120);
+        }
 
-      timer_.expires_from_now(boost::posix_time::seconds(sleep));
-      timer_.async_wait(boost::bind(&module::run, this, self, _1));
+        timer_.expires_from_now(boost::posix_time::seconds(sleep));
+        timer_.async_wait(boost::bind(&module::run, this, self, _1));
 
-      std::string str = boost::lexical_cast<std::string>(sleep);
-      bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + str);
+        std::string str = boost::lexical_cast<std::string>(sleep);
+        bot_->log(bot::BS_LOG_NFO, module_name_, std::string("sleeping ") + str);
+      });
     }
   }
 }
 
-void module::finally(std::shared_ptr<state_wrapper> state_wr) {
+void module::finally(std::shared_ptr<module> self,
+                     std::shared_ptr<state_wrapper> state_wr,
+                     std::function<void()> callback) {
+  std::string fun_name = "finally_" + module_name_;
+
   lua_State* state = state_wr->get();
-  lua_getglobal(state, ("finally_" + module_name_).c_str());
+  lua_getglobal(state, fun_name.c_str());
   if (lua_isfunction(state, -1)) {
-    // Call function.
-    try {
-      lua_connection::exec(state, 0, 0, 0);
-    } catch(const lua_exception& e) {
-      bot_->log(bot::BS_LOG_ERR, module_name_,
-                std::string("finally error: ") + e.what());
+    bot_->log(bot::BS_LOG_DBG, module_name_, "executing finally function");
+    finally_callback_ = boost::bind(&module::finally_cb, this, self,
+                                    state_wr, callback, _1);
+    lua_connection::module_finally(fun_name, state, &finally_callback_);
+  } else {
+    bot_->log(bot::BS_LOG_DBG, module_name_, "skipping finally function");
+    callback();
+  }
+}
+
+void module::finally_cb(std::shared_ptr<module>,
+                        std::shared_ptr<state_wrapper>,
+                        std::function<void()> callback,
+                        std::string err) {
+  if (!err.empty()) {
+    bot_->log(bot::BS_LOG_ERR, module_name_, "finally error: " + err);
+
+    finally_callback_ = nullptr;
+    finally_result_stored_ = false;
+
+    callback();
+  } else {
+    if (!finally_result_stored_) {
+      finally_result_stored_ = true;
+    } else {
+      finally_callback_ = nullptr;
+      finally_result_stored_ = false;
+      callback();
     }
   }
 }
@@ -211,6 +239,7 @@ void module::execute(const std::string& command, const std::string& argument) {
           bot_->log(bot::BS_LOG_DBG, module_name_, "STOP_RUN -> start: RUN");
           module_state_ = RUN;
           bot_->status(lua_active_status_, "1");
+          break;
         }
 
         default: {

@@ -81,7 +81,23 @@ class module : public std::enable_shared_from_this<module> {
               std::shared_ptr<state_wrapper> state_wr,
               std::string err);
 
-  void finally(std::shared_ptr<state_wrapper> state_wr);
+  /// Calls the finally function (if defined)
+  /// Lua function name: ${module_name}_finally()
+  ///
+  /// \param state_wr   the RAII wrapped lua state to use
+  /// \param callback   the callback to call after the finally function
+  void finally(std::shared_ptr<module> self,
+               std::shared_ptr<state_wrapper> state_wr,
+               std::function<void()> callback);
+
+  /// The finally callback function.
+  ///
+  /// \param self      keep alive pointer to self
+  /// \param state_wr  the state wrapper (keep alive)
+  void finally_cb(std::shared_ptr<module> self,
+                  std::shared_ptr<state_wrapper> state_wr,
+                  std::function<void()> callback,
+                  std::string error);
 
   boost::asio::io_service* io_service_;
 
@@ -99,9 +115,9 @@ class module : public std::enable_shared_from_this<module> {
   boost::mutex state_mutex_;
   char module_state_;
 
-  std::function<void(std::string)> run_callback_;
+  std::function<void(std::string)> run_callback_, finally_callback_;
+  bool run_result_stored_, finally_result_stored_;
 
-  bool run_result_stored_;
   int wait_min_, wait_max_;
 
   bool load_success_;
