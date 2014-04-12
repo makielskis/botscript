@@ -261,6 +261,10 @@ void lua_connection::module_finally(std::string const& function,
                                     on_finish_cb* cb) {
   // Call function.
   try {
+    // Mark state as un-finished.
+    lua_pushboolean(state, static_cast<int>(false));
+    lua_setglobal(state, BOT_FINISH);
+
     // Set login callback.
     lua_pushlightuserdata(state, static_cast<void*>(cb));
     lua_setglobal(state, BOT_LOGIN_CB);
