@@ -372,11 +372,12 @@ std::vector<std::string> bot::get_dependent_variables(
     std::string const& key) const {
   std::vector<std::string> updates;
 
-  std::string search = std::string("$") + key;
+  std::string s1 = std::string("$") + key;
+  std::string s2 = std::string("^") + key;
   auto module_states = configuration_->module_settings();
   for (auto const& module : module_states) {
     for (const auto& setting : module.second) {
-      if (setting.second != search) {
+      if (setting.second != s1 && setting.second != s2) {
         continue;
       }
 
@@ -415,9 +416,20 @@ std::map<std::string, std::string> bot::update_all_shared() const {
   return updates;
 }
 
-void bot::execute(const std::string& command, const std::string& argument) {
+void bot::execute(std::string command, const std::string& argument) {
   auto self = shared_from_this();
-  io_service_->post([=]() {
+  io_service_->post([=]() mutable {
+    // Handle shared value replacement.
+    auto pos = command.find("_set_");
+    if (pos != std::string::npos) {
+      std::string module = command.substr(0, pos);
+      std::string setting = command.substr(pos + 5);
+      std::string old_val = configuration_->module_settings()[module][setting];
+      if (old_val.length() != 0 && old_val[0] == '^') {
+        command = "shared_set_" + old_val.substr(1);
+      }
+    }
+
     // Handle wait time factor command.
     if (command == "base_set_wait_time_factor") {
       std::string new_wait_time_factor = argument;

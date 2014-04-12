@@ -169,7 +169,7 @@ class bot : boost::noncopyable, public std::enable_shared_from_this<bot> {
 
   /// \param command   command to execute
   /// \param argument  command argument
-  void execute(const std::string& command, const std::string& argument);
+  void execute(std::string command, const std::string& argument);
 
   /// This is the update/status change callback.
   upd_cb update_callback_;
