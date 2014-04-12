@@ -173,17 +173,17 @@ throw(lua_exception) {
   }
 
   // Call function.
-  try {
-    exec(state, nargs, nresults, errfunc);
-  } catch(const lua_exception& e) {
-    throw e;
-  }
+  exec(state, nargs, nresults, errfunc);
 
   // Execute hook function.
   if (post_exec != nullptr) {
     post_exec(state);
   }
 
+  finalize_if_last_async(state);
+}
+
+void lua_connection::finalize_if_last_async(lua_State* state) {
   // Check whether an asynchronous action was startet (BOT_CALLBACK set).
   // If this is NOT the case: call terminated - call on_finish cb the 2nd time.
   // Otherwise (BOT_CALLBACK is set), the asynchronous function will do this.
@@ -233,23 +233,49 @@ void lua_connection::login(lua_State* state,
   }
 }
 
-void lua_connection::module_run(const std::string module_name,
+void lua_connection::module_run(std::string const& module_name,
+                                std::string const& function_name,
                                 lua_State* state, module* module_ptr,
                                 on_finish_cb* cb) {
   // Gather run information.
   std::shared_ptr<bot> bot = module_ptr->get_bot();
   const std::string& script = module_ptr->script();
   const std::string& base_script = module_ptr->base_script();
-  std::string run_fun = module_ptr->lua_run();
 
   try {
     // Execute login function.
-    run(state, cb, bot->config()->identifier(), module_name, script, run_fun,
+    run(state, cb, bot->config()->identifier(), module_name, script,
+        function_name,
         0, 0, 0,
         [module_ptr, base_script](lua_State* state) {
           do_buffer(state, base_script, "base");
           module_ptr->set_lua_status(state);
         });
+  } catch(const lua_exception& e) {
+    (*cb)(e.what());
+  }
+}
+
+void lua_connection::module_finally(std::string const& function,
+                                    lua_State* state,
+                                    on_finish_cb* cb) {
+  // Call function.
+  try {
+    // Set login callback.
+    lua_pushlightuserdata(state, static_cast<void*>(cb));
+    lua_setglobal(state, BOT_LOGIN_CB);
+
+    // Check function.
+    lua_getglobal(state, function.c_str());
+    if (!lua_isfunction(state, -1)) {
+      throw lua_exception(std::string("function ") + function + " not defined");
+    }
+
+    // Execute function.
+    exec(state, 0, 0, 0);
+
+    // Check if no async call was started.
+    finalize_if_last_async(state);
   } catch(const lua_exception& e) {
     (*cb)(e.what());
   }
@@ -299,7 +325,7 @@ bool lua_connection::get_status(const std::string& script,
   // Execute script.
   try {
     do_buffer(state, script, var);
-  } catch (lua_exception) {
+  } catch (lua_exception const&) {
     lua_close(state);
     return false;
   }

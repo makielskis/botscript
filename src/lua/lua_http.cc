@@ -55,29 +55,7 @@ void lua_http::on_req_finish(lua_State* state, std::string response,
     return lua_connection::on_error(state, e.what());
   }
 
-  // Check whether an asynchronous action was startet (BOT_CALLBACK set).
-  // If this is NOT the case: call terminated - call on_finish cb the 2nd time.
-  // Otherwise (BOT_CALLBACK is set), the asynchronous function will do this.
-  lua_getglobal(state, BOT_CALLBACK);
-  if (!lua_isfunction(state, -1)) {
-    // Check if callback is set.
-    lua_getglobal(state, BOT_LOGIN_CB);
-    if (!lua_isuserdata(state, -1)) {
-      assert(false);
-    }
-
-    // Get callback.
-    void* p = lua_touserdata(state, -1);
-    on_finish_cb* cb = static_cast<on_finish_cb*>(p);
-    lua_pop(state, 1);
-
-    // Unset login callback
-    lua_pushnil(state);
-    lua_setglobal(state, BOT_LOGIN_CB);
-
-    // Call callback function.
-    (*cb)("");
-  }
+  lua_connection::finalize_if_last_async(state);
 }
 
 int lua_http::get(lua_State* state, bool path) {

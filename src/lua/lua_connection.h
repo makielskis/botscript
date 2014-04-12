@@ -148,6 +148,11 @@ class lua_connection {
                   execution_hook post_exec = nullptr)
   throw(lua_exception);
 
+  /// Calls the login callback if no further async call was made.
+  ///
+  /// \param state  the state to work with
+  static void finalize_if_last_async(lua_State* state);
+
   /// Performs an asynchronous login.
   /// Calls the callback function with an empty string on success and with an
   /// errro message if the login failed.
@@ -162,15 +167,23 @@ class lua_connection {
   /// and -1, -1 if an error occurs. Otherwise (if on_finish got called), the
   /// callback will be called with the parameters provided to on_finish.
   ///
-  /// \param state       the lua state to run the module on
-  /// \param module_ptr  pointer to the module which asks to launch the script
-  /// \param cb          the callack to call on error / on_finish(...) call
-  static void module_run(const std::string module_name,
+  /// \param state          the lua state to run the module on
+  /// \param function_name  the function to execute
+  /// \param module_ptr     pointer to the module
+  /// \param cb             the callack to call on error / on_finish(...) call
+  static void module_run(std::string const& module_name,
+                         std::string const& function_name,
                          lua_State* state, module* module_ptr,
                          on_finish_cb* cb);
 
   /// On finish function (lua_Cfunction).
   static int on_finish(lua_State* state);
+
+  /// Calls the given function name without doing the script buffer again.
+  ///
+  /// Calls the callback function.
+  static void module_finally(std::string const& function, lua_State* state,
+                             on_finish_cb* cb);
 
   /// Reads the lua table var from the lua script state to the given status.
   ///
