@@ -227,10 +227,12 @@ void webclient::store_cookies(const std::string& new_cookies) {
     return;
   }
 
-  // Store new cookies.
+  // Store all cookies.
   {
     boost::lock_guard<boost::mutex> lock(cookies_mutex_);
-    cookies_.insert(cookies.begin(), cookies.end());
+    for (auto const& cookie : cookies) {
+      cookies_[cookie.first] = cookie.second;
+    }
 
     // Build and set new cookies string.
     std::stringstream cookies_str;

@@ -86,11 +86,11 @@ void module::run_cb(std::shared_ptr<module> self,
                     std::shared_ptr<state_wrapper> state_wr,
                     std::string err) {
   if (!err.empty()) {
-    finally(self, state_wr, [this, self, err]() {
+    bot_->log(bot::BS_LOG_ERR, module_name_, err);
+
+    finally(self, state_wr, [this, self]() {
       run_callback_ = nullptr;
       run_result_stored_ = false;
-
-      bot_->log(bot::BS_LOG_ERR, module_name_, err);
 
       {
         boost::lock_guard<boost::mutex> lock(state_mutex_);
