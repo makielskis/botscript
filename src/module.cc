@@ -140,6 +140,13 @@ void module::run_cb(std::shared_ptr<module> self,
 
         module_state_ = WAIT;
 
+        if (wait_min_ == -1) {
+          bot_->log(bot::BS_LOG_DBG, module_name_, "shutdown requested -> OFF");
+          bot_->status(lua_active_status_, "0");
+          module_state_ = OFF;
+          return;
+        }
+
         int sleep;
         if (wait_min_ >= 0 && wait_max_ >= 0) {
           sleep = bot_->random(wait_min_, wait_max_);
@@ -300,7 +307,7 @@ void module::set_lua_status(lua_State* lua_state) {
 
     try {
       lua_connection::set_status(lua_state, lua_status_, s.first, s.second);
-    } catch(lua_exception) {
+    } catch(lua_exception const&) {
       std::stringstream msg;
       msg << "could not set status " << s.first << " = " << s.second;
       bot_->log(bot::BS_LOG_NFO, module_name_, msg.str());
