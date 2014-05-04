@@ -40,6 +40,8 @@ class bot_config {
   virtual std::string package() const = 0;
   virtual std::string server() const = 0;
   virtual std::map<std::string, string_map> module_settings() const = 0;
+  virtual std::map<std::string, std::string> cookies() const = 0;
+  virtual void cookies(std::map<std::string, std::string> const&) = 0;
 
   virtual void set(const std::string& module,
                    const std::string& key,

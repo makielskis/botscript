@@ -11,7 +11,6 @@
 
 #include "boost/asio/io_service.hpp"
 #include "boost/system/error_code.hpp"
-#include "boost/thread.hpp"
 
 #include "pugixml.hpp"
 
@@ -95,8 +94,11 @@ class webclient {
   /// \param new_cookies the Set-Cookies header provided by the server
   void store_cookies(const std::string& new_cookies);
 
+  /// Reads and concatenates the cookies_ map and sets it as
+  /// "Cookies" HTTP header field.
+  void set_cookies_header();
+
   // Proxy settings
-  boost::mutex proxy_mutex_;
   std::string proxy_host_;
   std::string proxy_port_;
 
@@ -104,7 +106,6 @@ class webclient {
   std::map<std::string, std::string> headers_;
 
   /// Cookies.
-  boost::mutex cookies_mutex_;
   std::map<std::string, std::string> cookies_;
 
   /// Points to the Asio io_service object to use for requests

@@ -135,8 +135,9 @@ void bot::init(std::shared_ptr<bot_config> configuration, const error_cb& cb) {
   // Add bot to lua connection.
   lua_connection::add(shared_from_this());
 
-  // Instantiate browser.
+  // Instantiate browser with cookies from the configuration.
   browser_ = std::make_shared<bot_browser>(io_service_, self);
+  browser_->cookies(configuration_->cookies());
 
   // Set proxy if available.
   std::string proxy = configuration_->module_settings()["base"]["proxy"];

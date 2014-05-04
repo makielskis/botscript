@@ -20,6 +20,11 @@ bot_browser::bot_browser(boost::asio::io_service* io_service,
 bot_browser::~bot_browser() {
 }
 
+void bot_browser::cookies(std::map<std::string, std::string> const& cookies) {
+  cookies_ = cookies;
+  set_cookies_header();
+}
+
 bool bot_browser::change_proxy() {
   if (good_.empty()) {
     return false;
@@ -137,6 +142,11 @@ void bot_browser::request_cb(std::shared_ptr<bot_browser> /* self */, int tries,
                              std::function<void(int)> retry_fun, callback cb,
                              std::string response,
                              boost::system::error_code ec) {
+  std::shared_ptr<bot> bot_lock = bot_.lock();
+  if (bot_lock) {
+    bot_lock->config()->cookies(cookies_);
+  }
+
   if (!ec || tries <= 0) {
     if (ec) {
       log_error();

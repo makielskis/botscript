@@ -41,6 +41,8 @@ class bot_browser : public std::enable_shared_from_this<bot_browser>,
 
   virtual ~bot_browser();
 
+  void cookies(std::map<std::string, std::string> const& cookies);
+
   bool change_proxy();
 
   void set_proxy_list(const std::string& proxy_list,

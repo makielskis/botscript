@@ -34,6 +34,34 @@ using namespace botscript;
   "	}"\
   "}"
 
+#define CONFIG_WITH_COOKIES \
+    "{"\
+    " \"username\": \"test_user\","\
+    " \"password\": \"test_password\","\
+    " \"package\": \"te\","\
+    " \"server\": \"http://test.example.com\","\
+    " \"cookies\": {"\
+    "   \"cookie1\": \"cookie_value_1\","\
+    "   \"cookie2\": \"cookie_value_2\""\
+    " },"\
+    " \"modules\": {"\
+    "   \"mod1\": {"\
+    "     \"active\": \"0\","\
+    "     \"a\": \"b\","\
+    "     \"c\": \"d\""\
+    "   },"\
+    "   \"mod2\": {"\
+    "     \"active\": \"1\","\
+    "     \"e\": \"f\","\
+    "     \"g\": \"h\""\
+    "   },"\
+    "   \"base\": {"\
+    "     \"wait_time_factor\": \"2.00\","\
+    "     \"proxy\": \"127.0.0.1:9000\""\
+    "   }"\
+    " }"\
+    "}"
+
 TEST(config_test, from_json_test) {
   bot::load_packages("./test/packages");
   mem_bot_config c(TEST_CONFIG);
@@ -124,4 +152,34 @@ TEST(config_test, set_test) {
   c.set("base_test", "123");
 
   EXPECT_EQ("123", c.module_settings()["base"]["test"]);
+}
+
+TEST(config_test, read_proxy_test) {
+  mem_bot_config c(CONFIG_WITH_COOKIES);
+
+  auto const& cookies = c.cookies();
+  EXPECT_EQ(2u, cookies.size());
+  EXPECT_EQ("cookie_value_1", cookies.at("cookie1"));
+  EXPECT_EQ("cookie_value_2", cookies.at("cookie2"));
+}
+
+TEST(config_test, write_empty_cookies_test) {
+  mem_bot_config c0(TEST_CONFIG);
+  mem_bot_config c(c0.to_json(true));
+
+  EXPECT_EQ(0u, c.cookies().size());
+}
+
+TEST(config_test, write_cookies_test) {
+  mem_bot_config c0(TEST_CONFIG);
+  c0.cookies({
+    {"cookie1", "val1"},
+    {"cookie2", "val2"}
+  });
+
+  mem_bot_config c(c0.to_json(true));
+
+  EXPECT_EQ(2u, c.cookies().size());
+  EXPECT_EQ("val1", c.cookies().at("cookie1"));
+  EXPECT_EQ("val2", c.cookies().at("cookie2"));
 }

@@ -29,7 +29,6 @@ webclient::~webclient() {
 }
 
 void webclient::set_proxy(std::string host, std::string port) {
-  boost::lock_guard<boost::mutex> lock(proxy_mutex_);
   proxy_host_ = std::move(host);
   proxy_port_ = std::move(port);
 }
@@ -38,19 +37,11 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
                         int remaining_redirects,
                         boost::posix_time::time_duration timeout) {
   std::map<std::string, std::string> headers;
-  {
-    // Lock because of read access to the cookies map.
-    boost::lock_guard<boost::mutex> lock(cookies_mutex_);
-    headers = headers_;
-  }
+  headers = headers_;
 
   std::string proxy_host, proxy_port;
-  {
-    // Lock because of read access to the proxy info.
-    boost::lock_guard<boost::mutex> lock(proxy_mutex_);
-    proxy_host = proxy_host_;
-    proxy_port = proxy_port_;
-  }
+  proxy_host = proxy_host_;
+  proxy_port = proxy_port_;
 
   // Get host and port to connect to.
   bool use_proxy = !proxy_host_.empty();
@@ -228,21 +219,21 @@ void webclient::store_cookies(const std::string& new_cookies) {
   }
 
   // Store all cookies.
-  {
-    boost::lock_guard<boost::mutex> lock(cookies_mutex_);
-    for (auto const& cookie : cookies) {
-      cookies_[cookie.first] = cookie.second;
-    }
-
-    // Build and set new cookies string.
-    std::stringstream cookies_str;
-    for(auto cookie : cookies_) {
-      cookies_str << cookie.first << "=" << cookie.second << "; ";
-    }
-    std::string cookie = cookies_str.str();
-    cookie = cookie.substr(0, cookie.length() - 2);
-    headers_["Cookie"] = cookie;
+  for (auto const& cookie : cookies) {
+    cookies_[cookie.first] = cookie.second;
   }
+  set_cookies_header();
+}
+
+void webclient::set_cookies_header() {
+  // Build and set new cookies string.
+  std::stringstream cookies_str;
+  for(auto cookie : cookies_) {
+    cookies_str << cookie.first << "=" << cookie.second << "; ";
+  }
+  std::string cookie = cookies_str.str();
+  cookie = cookie.substr(0, cookie.length() - 2);
+  headers_["Cookie"] = cookie;
 }
 
 }  // namespace http

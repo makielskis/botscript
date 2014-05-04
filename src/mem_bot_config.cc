@@ -65,6 +65,16 @@ mem_bot_config::mem_bot_config(const string& json_config) {
     inactive_ = false;
   }
 
+  // Check if cookies are available.
+  if (document.HasMember("cookies") && document["cookies"].IsObject()) {
+    // Iterate cookies.
+    json::Value const& cookies = document["cookies"];
+    json::Value::ConstMemberIterator it = cookies.MemberBegin();
+    for (; it != cookies.MemberEnd(); ++it) {
+      cookies_[it->name.GetString()] = it->value.GetString();
+    }
+  }
+
   // Read and set wait time factor.
   string wtf = document["modules"]["base"]["wait_time_factor"].GetString();
   wtf = wtf.empty() ? "1.00" : wtf;
@@ -179,6 +189,15 @@ string mem_bot_config::to_json(bool with_password) const {
   document.AddMember("server", server_.c_str(), allocator);
   document.AddMember("inactive", inactive_  ? "1" : "0", allocator);
 
+  // Write cookies.
+  rapidjson::Value cookies(rapidjson::kObjectType);
+  for (auto const& cookie : cookies_) {
+    rapidjson::Value key_attr(cookie.first.c_str(), allocator);
+    rapidjson::Value val_attr(cookie.second.c_str(), allocator);
+    cookies.AddMember(key_attr, val_attr, allocator);
+  }
+  document.AddMember("cookies", cookies, allocator);
+
   // Write module configuration values.
   rapidjson::Value modules(rapidjson::kObjectType);
   for(const auto& module : module_settings_) {
@@ -260,6 +279,13 @@ map<string, string_map> mem_bot_config::module_settings() const {
   return module_settings_;
 }
 
+std::map<std::string, std::string> mem_bot_config::cookies() const {
+  return cookies_;
+}
+
+void mem_bot_config::cookies(std::map<std::string, std::string> const& cookies) {
+  cookies_ = cookies;
+}
 
 void mem_bot_config::set(const string& module, const string& key, const string& value) {
   module_settings_[module][key] = value;

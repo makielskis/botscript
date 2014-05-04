@@ -39,6 +39,9 @@ class mem_bot_config : public bot_config {
   virtual std::string server() const override;
   virtual std::map<std::string, string_map> module_settings() const override;
 
+  virtual std::map<std::string, std::string> cookies() const override;
+  virtual void cookies(std::map<std::string, std::string> const&) override;
+
   virtual void set(const std::string& module,
                    const std::string& key,
                    const std::string& value) override;
@@ -49,6 +52,7 @@ class mem_bot_config : public bot_config {
   bool inactive_;
   std::string identifier_, username_, password_, package_, server_;
   std::map<std::string, string_map> module_settings_;
+  std::map<std::string, std::string> cookies_;
 };
 
 }  // namespace botscript
