@@ -213,21 +213,10 @@ void lua_connection::login(lua_State* state,
                            std::shared_ptr<bot> bot,
                            const std::string& script,
                            on_finish_cb* cb) {
-  // Gather login information.
-  const auto config = bot->config();
-  std::string username = config->username();
-  std::string password = config->password();
-  std::string package = config->package();
-
   try {
     // Execute login function.
-    run(state, cb, config->identifier(), "base", script,
-        "login", 2, 0, 0,
-        [&username, &password](lua_State* state) {
-          // Push login function arguments.
-          lua_pushstring(state, username.c_str());
-          lua_pushstring(state, password.c_str());
-        });
+    run(state, cb, bot->config()->identifier(), "base", script,
+        "login", 2, 0, 0);
   } catch(const lua_exception& e) {
     (*cb)(e.what());
   }

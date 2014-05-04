@@ -29,6 +29,8 @@ class lua_util {
   static int set_status(lua_State* state);
   static int set_shared(lua_State* state);
   static int get_shared(lua_State* state);
+  static int username(lua_State* state);
+  static int password(lua_State* state);
 };
 
 static const luaL_Reg utillib[] = {
@@ -42,6 +44,8 @@ static const luaL_Reg utillib[] = {
   {"set_status",       lua_util::set_status},
   {"set_shared",       lua_util::set_shared},
   {"get_shared",       lua_util::get_shared},
+  {"username",         lua_util::username},
+  {"password",         lua_util::password},
   {NULL, NULL}
 };
 

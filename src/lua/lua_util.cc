@@ -273,4 +273,28 @@ int lua_util::get_shared(lua_State* state) {
   return 1;
 }
 
+int username(lua_State* state) {
+  // Get the calling bot.
+  std::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (std::shared_ptr<bot>() == b) {
+    return luaL_error(state, "no bot for state");
+  }
+
+  // Return username.
+  lua_pushstring(state, b->config()->username().c_str());
+  return 1;
+}
+
+int password(lua_State* state) {
+  // Get the calling bot.
+  std::shared_ptr<bot> b = lua_connection::get_bot(state);
+  if (std::shared_ptr<bot>() == b) {
+    return luaL_error(state, "no bot for state");
+  }
+
+  // Return password.
+  lua_pushstring(state, b->config()->password().c_str());
+  return 1;
+}
+
 }  // namespace botscript
