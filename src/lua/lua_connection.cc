@@ -216,7 +216,7 @@ void lua_connection::login(lua_State* state,
   try {
     // Execute login function.
     run(state, cb, bot->config()->identifier(), "base", script,
-        "login", 2, 0, 0);
+        "login", 0, 0, 0);
   } catch(const lua_exception& e) {
     (*cb)(e.what());
   }
