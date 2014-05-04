@@ -273,7 +273,7 @@ int lua_util::get_shared(lua_State* state) {
   return 1;
 }
 
-int username(lua_State* state) {
+int lua_util::username(lua_State* state) {
   // Get the calling bot.
   std::shared_ptr<bot> b = lua_connection::get_bot(state);
   if (std::shared_ptr<bot>() == b) {
@@ -285,7 +285,7 @@ int username(lua_State* state) {
   return 1;
 }
 
-int password(lua_State* state) {
+int lua_util::password(lua_State* state) {
   // Get the calling bot.
   std::shared_ptr<bot> b = lua_connection::get_bot(state);
   if (std::shared_ptr<bot>() == b) {
