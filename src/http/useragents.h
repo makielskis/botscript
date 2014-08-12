@@ -13,7 +13,7 @@ namespace http {
 /// Class providing random useragent identification headers.
 class useragents {
  public:
-  enum { CHROME_OSX, CHROME_WIN7, FF_WIN7, NUMBER_OF_UAS };
+  enum { CHROME_OSX, CHROME_WIN7, NUMBER_OF_UAS };
 
   /// Convenience alias for header key value map.
   typedef std::map<std::string, std::string> header;
@@ -49,7 +49,6 @@ class useragents {
         h["Cache-Control"] = "max-age=0";
         h["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
         h["User-Agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36";
-        h["Referer"] = "https://www.google.de/";
         h["Accept-Encoding"] = "gzip,deflate,sdch";
         h["Accept-Language"] = "en-US,en;q=0.8,de;q=0.6";
         break;
@@ -59,17 +58,8 @@ class useragents {
         h["Cache-Control"] = "max-age=0";
         h["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,/;q=0.8";
         h["User-Agent"] = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36";
-        h["DNT"] = "1";
         h["Accept-Encoding"] = "gzip,deflate,sdch";
         h["Accept-Language"] = "de-DE,de;q=0.8,en-US;q=0.6,en;q=0.4";
-
-      case FF_WIN7:
-        h["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-        h["Accept-Encoding"] = "gzip, deflate";
-        h["Accept-Language"]	= "de,en-US;q=0.7,en;q=0.3";
-        h["Cache-Control"] = "max-age=0";
-        h["Connection"] = "keep-alive";
-        h["User-Agent"] = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:28.0) Gecko/20100101 Firefox/28.0";
     }
 
     return h;
