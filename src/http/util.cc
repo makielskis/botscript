@@ -52,6 +52,12 @@ std::string build_request(const url& u, const int method,
     request_stream << "Content-Length: " + len_str + "\r\n";
   }
 
+  // Dirtyhack to trick knastvoegel servers.
+  // TODO(felix) find a generic solution.
+  if (u.host().find("knastvoegel.de") != std::string::npos) {
+    request_stream << "Referer: http://www.knastvoegel.de/overview/profile.html\r\n";
+  }
+
   // Finish headers.
   request_stream << "\r\n";
 
