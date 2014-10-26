@@ -5,11 +5,17 @@
 
 #include "boost/regex.hpp"
 
+#include "http/useragents.h"
+
 namespace botscript {
 
 bot_browser::bot_browser(boost::asio::io_service* io_service,
                          const std::shared_ptr<bot>& b)
-    : http::webclient(io_service),
+    : http::webclient(io_service,
+                      http::useragents::random_ua(
+                        b->config()->package() == "pg"
+                          ? http::useragents::ua_type::PG
+                          : http::useragents::ua_type::KV)),
       bot_(b),
       current_proxy_(-1),
       server_(b->config()->server()) {

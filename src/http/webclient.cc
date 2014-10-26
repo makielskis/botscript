@@ -20,8 +20,9 @@ namespace http {
 
 error::http_category webclient::cat_;
 
-webclient::webclient(boost::asio::io_service* io_service)
-    : headers_(useragents::random_ua()),
+webclient::webclient(boost::asio::io_service* io_service,
+                     std::map<std::string, std::string> headers)
+    : headers_(std::move(headers)),
       io_service_(io_service) {
 }
 

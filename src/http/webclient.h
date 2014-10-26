@@ -32,7 +32,8 @@ class webclient {
                        > callback;
 
   /// \param io_service points to the Asio io_service object to use for requests
-  webclient(boost::asio::io_service* io_service);
+  webclient(boost::asio::io_service* io_service,
+            std::map<std::string, std::string> headers);
 
   virtual ~webclient();
 
