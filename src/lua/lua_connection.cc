@@ -91,6 +91,9 @@ void lua_connection::on_error(lua_State* state, const std::string& error_msg) {
     return;
   }
 
+  // Clear our BOT_CALLBACK.
+  lua_pushnil(state);
+  lua_setglobal(state, BOT_CALLBACK);
   void* p = lua_touserdata(state, -1);
   on_finish_cb* cb = static_cast<on_finish_cb*>(p);
   lua_pop(state, 1);
