@@ -25,6 +25,7 @@ class lua_http {
   static int post(lua_State* state);
   static int post_path(lua_State* state);
   static int submit_form(lua_State* state);
+  static int url_encode(lua_State* state);
 
  private:
   static void on_req_finish(lua_State* state, std::string response,
@@ -37,6 +38,7 @@ static const luaL_Reg httplib[] = {
   {"post",             lua_http::post},
   {"post_path",        lua_http::post_path},
   {"submit_form",      lua_http::submit_form},
+  {"url_encode",       lua_http::url_encode},
   {NULL, NULL}
 };
 

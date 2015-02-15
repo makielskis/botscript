@@ -204,4 +204,19 @@ int lua_http::submit_form(lua_State* state) {
   return 0;
 }
 
+int lua_http::url_encode(lua_State* state) {
+  // Get arguments from stack.
+  std::string str = luaL_checkstring(state, 1);
+
+  // Arguments read. Pop them.
+  lua_pop(state, 2);
+
+  // Encode string.
+  std::string encoded = http::util::url_encode(str);
+
+  // Return result.
+  lua_pushstring(state, encoded.c_str());
+  return 1;
+}
+
 }  // namespace botscript
