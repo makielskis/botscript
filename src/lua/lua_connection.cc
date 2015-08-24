@@ -45,12 +45,12 @@ throw(lua_exception) {
   lua_getglobal(state, (std::string("interface_") + name).c_str());
 
   // Read interface description as rapid-json value.
-  jsonval_ptr interface = to_json(state, -1, allocator);
+  jsonval_ptr iface = to_json(state, -1, allocator);
 
   // Free lua script resources.
   lua_close(state);
 
-  return interface;
+  return iface;
 }
 
 std::map<std::string, std::string> lua_connection::server_list(const std::string& script) {

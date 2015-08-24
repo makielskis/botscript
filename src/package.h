@@ -37,7 +37,7 @@ class package {
   const std::map<std::string, std::string>& modules() const;
 
   /// \return the interface description
-  const std::string& interface() const;
+  const std::string& interface_desc() const;
 
   /// Loads all module files ("*.lua") from the specified folder.
   /// Excludes hidden files (starting with a ".").

@@ -62,7 +62,7 @@ const std::map<std::string, std::string>& package::modules() const {
   return modules_;
 }
 
-const std::string& package::interface() const {
+const std::string& package::interface_desc() const {
   return interface_;
 }
 
