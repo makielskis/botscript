@@ -72,7 +72,7 @@ class http_source : coroutine,
   std::size_t copy_content(std::size_t buffer_size);
 
   /// Parsed the content length header.
-  void read_content_length() throw(std::bad_cast);
+  void read_content_length();
 
   /// Regular expression to detect a chunk size declaration.
   static boost::regex chunk_size_rx_;

@@ -43,6 +43,7 @@ include_directories("./src")
 ################################
 # Static packages
 ################################
+option(STATIC_PACKAGES "STATIC_PACKAGES" OFF)
 if (STATIC_PACKAGES)
   add_definitions(-DSTATIC_PACKAGES)
 endif()

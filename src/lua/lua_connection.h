@@ -97,8 +97,7 @@ class lua_connection {
   /// \return the interface description in JSON format
   static jsonval_ptr iface(const std::string& script,
                            const std::string& name,
-                           rapidjson::Document::AllocatorType* allocator)
-  throw(lua_exception);
+                           rapidjson::Document::AllocatorType* allocator);
 
   /// Loads the servers table contained in the script.
   ///
@@ -121,8 +120,7 @@ class lua_connection {
   /// \param nargs the argument count
   /// \param nresults the result count
   /// \param errfunc the error function
-  static void exec(lua_State* state, int nargs, int nresults, int errfunc)
-  throw(lua_exception);
+  static void exec(lua_State* state, int nargs, int nresults, int errfunc);
 
   /// Calls the function previously pushed to the stack of the lua state.
   ///
@@ -145,8 +143,7 @@ class lua_connection {
                   const std::string& function,
                   int nargs, int nresults, int errfunc,
                   execution_hook pre_exec = nullptr,
-                  execution_hook post_exec = nullptr)
-  throw(lua_exception);
+                  execution_hook post_exec = nullptr);
 
   /// Calls the login callback if no further async call was made.
   ///
@@ -248,8 +245,7 @@ class lua_connection {
   /// \param name    the name of the script (for error messages etc.)
   static void do_buffer(lua_State* state,
                         const std::string& script,
-                        const std::string& name)
-  throw(lua_exception);
+                        const std::string& name);
 
   /// Recursive toJSON.
   ///

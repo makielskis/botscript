@@ -27,7 +27,7 @@ class url {
   /// Takes the URL string and splits it into three parts: host, port and path.
   ///
   /// \param url the url to split
-  explicit url(const std::string& url) throw(std::invalid_argument);
+  explicit url(const std::string& url);
 
   /// Returns the input URL:
   ///

@@ -203,7 +203,7 @@ void bot::handle_login(std::shared_ptr<bot> self,
     if (!login_result_stored_) {
       assert(lua_isboolean(state, -1));
       login_result_stored_ = true;
-      login_result_ = static_cast<bool>(lua_toboolean(state, -1));
+      login_result_ = lua_toboolean(state, -1) == 0 ? false : true;
       lua_pop(state, 1);
     } else {
       login_result_stored_ = false;
@@ -452,7 +452,7 @@ void bot::execute(std::string command, const std::string& argument) {
         status("base_wait_time_factor", ss.str());
         log(BS_LOG_NFO, "base", std::string("set wait time factor to ") + wtf);
         return;
-      } catch(const boost::bad_lexical_cast& e) {
+      } catch(const boost::bad_lexical_cast&) {
         log(BS_LOG_ERR, "base", std::string("could not read wait time factor"));
         status("base_wait_time_factor",
             boost::lexical_cast<std::string>(wait_time_factor_));
