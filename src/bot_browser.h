@@ -72,6 +72,8 @@ class bot_browser : public std::enable_shared_from_this<bot_browser>,
 
   bool check_proxy_response(const std::string& page);
 
+  void update_bot_proxy_status();
+
   void log(int level, const std::string& message);
 
   std::weak_ptr<bot> bot_;

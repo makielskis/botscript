@@ -19,6 +19,8 @@ namespace botscript {
 
 class proxy {
  public:
+  proxy() = default;
+
   explicit proxy(const std::string& proxy)
     : str_(proxy) {
     std::vector<std::string> split;
@@ -38,13 +40,8 @@ class proxy {
   std::string host() const { return host_; }
   std::string port() const { return port_; }
 
-  bool operator==(const proxy& p) {
-    return p.str() == str_;
-  }
-
-  bool operator<(const proxy& p) {
-    return p.str() < str_;
-  }
+  bool operator==(const proxy& p) const { return str_ == p.str(); }
+  bool operator<(const proxy& p) const { return str_ < p.str(); }
 
  private:
   std::string host_, port_, str_;

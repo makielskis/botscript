@@ -128,10 +128,10 @@ else()
   else()
     target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
   endif()
-  
-  if(STATIC_PACKAGES)
-    add_dependencies(bs compile_packages)
-  endif()
+endif()
+
+if(STATIC_PACKAGES)
+  add_dependencies(bs compile_packages)
 endif()
 
 
