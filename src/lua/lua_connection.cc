@@ -23,8 +23,7 @@ namespace json = rapidjson;
 
 jsonval_ptr lua_connection::iface(const std::string& script,
                                   const std::string& name,
-                                  json::Document::AllocatorType* allocator)
-throw(lua_exception) {
+                                  json::Document::AllocatorType* allocator) {
   // Initialize lua_State.
   lua_State* state = luaL_newstate();
   if (nullptr == state) {
@@ -101,8 +100,7 @@ void lua_connection::on_error(lua_State* state, const std::string& error_msg) {
 }
 
 void lua_connection::exec(lua_State* state,
-                          int nargs, int nresults, int errfunc)
-throw(lua_exception) {
+                          int nargs, int nresults, int errfunc) {
   int ret = 0;
   if (0 != (ret = lua_pcall(state, nargs, nresults, errfunc))) {
     std::string error;
@@ -132,8 +130,7 @@ void lua_connection::run(lua_State* state, on_finish_cb* cb,
                          const std::string& script,
                          const std::string& function,
                          int nargs, int nresults, int errfunc,
-                         execution_hook pre_exec, execution_hook post_exec)
-throw(lua_exception) {
+                         execution_hook pre_exec, execution_hook post_exec) {
   // Create new script state.
   if (nullptr == state) {
     throw lua_exception("script initialisation: out of memory");
@@ -437,7 +434,7 @@ bool lua_connection::contains(const std::string& identifier) {
 
 void lua_connection::do_buffer(lua_State* state,
                                const std::string& script,
-                               const std::string& name) throw(lua_exception) {
+                               const std::string& name) {
   // Load buffer to state.
   int ret = luaL_loadbuffer(state,
                             script.c_str(), script.length(), name.c_str());

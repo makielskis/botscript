@@ -18,8 +18,7 @@ url::url(std::string host, std::string port, std::string path)
     path_(std::move(path)) {
 }
 
-url::url(const std::string& url) throw(std::invalid_argument)
-    : str_(url) {
+url::url(const std::string& url) : str_(url) {
   // Extract protocol, port, host address and path from the URL.
   boost::match_results<std::string::const_iterator> what;
   bool matches = boost::regex_search(url, what, url_regex_);

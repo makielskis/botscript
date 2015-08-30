@@ -168,7 +168,7 @@ std::size_t http_source::copy_content(std::size_t buffer_size) {
   return buffer_size;
 }
 
-void http_source::read_content_length() throw(std::bad_cast) {
+void http_source::read_content_length() {
   int l = boost::lexical_cast<int>(header_["content-length"]);
   // Check parse result: not negativ and <= 2MB
   if (l < 0 || l >= 0x200000) {
