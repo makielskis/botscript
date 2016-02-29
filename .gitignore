@@ -1,4 +1,3 @@
 build
 configs
-src/kv.h
 src/pg.h
