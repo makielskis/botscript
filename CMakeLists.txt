@@ -24,7 +24,7 @@ find_package(Boost COMPONENTS
   iostreams
 REQUIRED)
 if(Boost_FOUND)
-  include_directories(${Boost_INCLUDE_DIR})
+  include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 else(Boost_FOUND)
   message("No Boost found.")
 endif(Boost_FOUND)
@@ -33,10 +33,10 @@ endif(Boost_FOUND)
 ################################
 # Include Paths
 ################################
-include_directories("external_lib/lua-5.2/src")
-include_directories("external_lib/rapidjson/include")
-include_directories("external_lib/tidy/include")
-include_directories("external_lib/pugixml-1.2/src")
+include_directories(SYSTEM "external_lib/lua-5.2/src")
+include_directories(SYSTEM "external_lib/rapidjson/include")
+include_directories(SYSTEM "external_lib/tidy/include")
+include_directories(SYSTEM "external_lib/pugixml-1.2/src")
 include_directories("./src")
 
 
@@ -140,7 +140,7 @@ endif()
 ################################
 add_subdirectory(test/gtest-1.7.0)
 enable_testing()
-include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+include_directories(SYSTEM ${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 add_executable(botscript-tests EXCLUDE_FROM_ALL test/config_test.cpp)
 set_target_properties(botscript-tests PROPERTIES COMPILE_FLAGS "-std=c++11")
