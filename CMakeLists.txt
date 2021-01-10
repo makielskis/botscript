@@ -109,10 +109,6 @@ configure_file(
 add_library(test-dir INTERFACE)
 target_include_directories(test-dir INTERFACE ${CMAKE_BINARY_DIR}/generated)
 
-add_subdirectory(test/gtest-1.7.0)
-enable_testing()
-include_directories(SYSTEM ${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
-
 add_executable(botscript-tests EXCLUDE_FROM_ALL test/config_test.cpp)
 set_target_properties(botscript-tests PROPERTIES COMPILE_FLAGS "-std=c++11")
 target_link_libraries(botscript-tests test-dir boost-filesystem gtest gtest_main bs ${bs-boost-libs} tidy pugixml lua z dl -pthread)
