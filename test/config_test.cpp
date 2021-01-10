@@ -4,8 +4,12 @@
 #include <map>
 #include <vector>
 
+#include "boost/filesystem.hpp"
+
 #include "../src/mem_bot_config.h"
 #include "../src/bot.h"
+
+#include "test_dir.h"
 
 using namespace std;
 using namespace botscript;
@@ -63,6 +67,7 @@ using namespace botscript;
     "}"
 
 TEST(config_test, from_json_test) {
+  boost::filesystem::current_path(TEST_EXECUTION_DIR);
   bot::load_packages("./test/packages");
   mem_bot_config c(TEST_CONFIG);
 

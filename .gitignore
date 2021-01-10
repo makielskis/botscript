@@ -1,3 +1,5 @@
-build
+/*build*
+/.idea
+/deps
 configs
 src/pg.h

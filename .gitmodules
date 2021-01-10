@@ -1,6 +1,3 @@
 [submodule "packages/pg"]
 	path = packages/pg
 	url = git@bitbucket.org:makielski/pg_botscript.git
-[submodule "external_lib/lua-5.2"]
-	path = external_lib/lua-5.2
-	url = git@bitbucket.org:makielski/lua.git

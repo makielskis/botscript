@@ -1,44 +1,7 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.17)
 project(botscript)
 
-
-################################
-# Dependencies
-################################
-if (NOT TARGET lua)
-  add_subdirectory(external_lib/lua-5.2)
-endif()
-add_subdirectory(external_lib/pugixml-1.2/scripts)
-add_subdirectory(external_lib/tidy)
-
-
-################################
-# Boost
-################################
-set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost COMPONENTS
-  system
-  thread
-  filesystem
-  regex
-  iostreams
-REQUIRED)
-if(Boost_FOUND)
-  include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-else(Boost_FOUND)
-  message("No Boost found.")
-endif(Boost_FOUND)
-
-
-################################
-# Include Paths
-################################
-include_directories(SYSTEM "external_lib/lua-5.2/src")
-include_directories(SYSTEM "external_lib/rapidjson/include")
-include_directories(SYSTEM "external_lib/tidy/include")
-include_directories(SYSTEM "external_lib/pugixml-1.2/src")
-include_directories("./src")
-
+include(cmake/pkg.cmake)
 
 ################################
 # Static packages
@@ -81,19 +44,20 @@ add_dependencies(compile_packages luac)
 ################################
 # Static library
 ################################
+set(bs-boost-libs boost)
 file(GLOB exe_files "src/main.cc")
 file(GLOB_RECURSE bs_files "src/*.cc")
 list(REMOVE_ITEM  bs_files ${exe_files})
 add_library(bs STATIC EXCLUDE_FROM_ALL ${bs_files})
 if(MSVC)
-  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua)
+  target_link_libraries(bs rapidjson tidy boost-filesystem boost-regex boost-iostreams ${bs-boost-libs} tidy pugixml lua)
   set(_def
     _VARIADIC_MAX=10
     _WIN32_WINNT=0x0501
   )
   set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
 elseif(MINGW)
-  target_link_libraries(bs -Wl,-Bstatic z ${Boost_LIBRARIES} tidy pugixml lua ws2_32 mswsock)
+  target_link_libraries(bs rapidjson tidy boost-filesystem boost-regex boost-iostreams -Wl,-Bstatic z ${bs-boost-libs} tidy pugixml lua ws2_32 mswsock)
   set_target_properties(bs PROPERTIES COMPILE_FLAGS "-std=c++11 -s")
   set(_def
     BOOST_THREAD_USE_LIB
@@ -103,7 +67,7 @@ elseif(MINGW)
   )
   set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
 elseif(ANDROID)
-  target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+  target_link_libraries(bs rapidjson tidy boost-filesystem boost-regex boost-iostreams ${bs-boost-libs} tidy pugixml lua z dl -pthread)
   set_target_properties(bs PROPERTIES COMPILE_FLAGS "-std=c++11 -fPIC")
   set(_def ANDROID)
   set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
@@ -111,9 +75,9 @@ elseif(ANDROID)
 else()
   set_target_properties(bs PROPERTIES COMPILE_FLAGS "-Wall -Wextra -std=c++11")
   if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z)
+    target_link_libraries(bs rapidjson tidy boost-filesystem boost-regex boost-iostreams ${bs-boost-libs} tidy pugixml lua z)
   else()
-    target_link_libraries(bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+    target_link_libraries(bs rapidjson tidy boost-filesystem boost-regex boost-iostreams ${bs-boost-libs} tidy pugixml lua z dl -pthread)
   endif()
 endif()
 
@@ -127,23 +91,29 @@ endif()
 ################################
 #add_executable(botscript ${exe_files})
 #if(MSVC)
-#  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua)
+#  target_link_libraries(botscript bs ${bs-boost-libs} tidy pugixml lua)
 #elseif(MINGW)
-#  target_link_libraries(botscript -Wl,-Bstatic ${Boost_LIBRARIES} tidy pugixml lua z ws2_32 mswsock)
+#  target_link_libraries(botscript -Wl,-Bstatic ${bs-boost-libs} tidy pugixml lua z ws2_32 mswsock)
 #else()
-#  target_link_libraries(botscript bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+#  target_link_libraries(botscript bs ${bs-boost-libs} tidy pugixml lua z dl -pthread)
 #endif()
 
 
 ################################
 # Unit Tests
 ################################
+configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_dir.h.in
+        ${CMAKE_BINARY_DIR}/generated/test_dir.h
+)
+add_library(test-dir INTERFACE)
+target_include_directories(test-dir INTERFACE ${CMAKE_BINARY_DIR}/generated)
+
 add_subdirectory(test/gtest-1.7.0)
 enable_testing()
 include_directories(SYSTEM ${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 add_executable(botscript-tests EXCLUDE_FROM_ALL test/config_test.cpp)
 set_target_properties(botscript-tests PROPERTIES COMPILE_FLAGS "-std=c++11")
-
-target_link_libraries(botscript-tests gtest gtest_main bs ${Boost_LIBRARIES} tidy pugixml lua z dl -pthread)
+target_link_libraries(botscript-tests test-dir boost-filesystem gtest gtest_main bs ${bs-boost-libs} tidy pugixml lua z dl -pthread)
 add_test(botscript-tests botscript-tests)
