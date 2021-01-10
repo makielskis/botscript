@@ -9,11 +9,11 @@
 [lua]
   url=git@github.com:makielskis/lua.git
   branch=master
-  commit=5a51141d6bbf34e2c2f8a7dd0120773791dbe7e8
+  commit=f333a142fb531713a2be0756cc0b8adeee6ad3db
 [tidy]
   url=git@github.com:makielskis/tidy.git
   branch=master
-  commit=0fb18f8db9e1fce23071c49bd3d17f07efe9a0a0
+  commit=49a86fd24df6d17fa280af2d472cb4e89bdcb15d
 [boost]
   url=git@github.com:motis-project/boost.git
   branch=master
