@@ -5,12 +5,13 @@
 #ifndef HTTP_SOURCE_H_
 #define HTTP_SOURCE_H_
 
-#include <vector>
-#include <memory>
 #include <functional>
+#include <memory>
 #include <stdexcept>
+#include <vector>
 
 #include "boost/asio.hpp"
+#include "boost/asio/ssl.hpp"
 #include "boost/iostreams/stream.hpp"
 
 #include "./coroutine/coroutine.hpp"
@@ -27,18 +28,19 @@ namespace http {
 /// asynchronous operations.
 class http_source : coroutine,
                     public std::enable_shared_from_this<http_source> {
- public:
+public:
   typedef char char_type;
   typedef boost::iostreams::source_tag category;
 
   /// Callback function to be called on request finish.
-  typedef std::function<void (std::shared_ptr<http_source>, /// self
-                              boost::system::error_code)    /// the error code
-                       > callback;
+  typedef std::function<void(std::shared_ptr<http_source>,  /// self
+                             boost::system::error_code)     /// the error code
+  >
+      callback;
 
   /// \param socket the socket to use for requests.
   ///        This needs to be already connected to the remote host.
-  http_source(boost::asio::ip::tcp::socket* socket);
+  http_source(boost::asio::ssl::stream<boost::asio::ip::tcp::socket>* socket);
 
   /// Starts the asynchronous operation.
   ///
@@ -54,10 +56,10 @@ class http_source : coroutine,
 
   /// \return the header with the specified key
   std::string header(const std::string& h) const {
-    return (header_.find(h) != header_.end()) ?  header_.at(h) : "";
+    return (header_.find(h) != header_.end()) ? header_.at(h) : "";
   }
 
- private:
+private:
   /// Reentrant transfer function.
   ///
   /// \param ec  error code produced by the last operation
@@ -78,7 +80,7 @@ class http_source : coroutine,
   static boost::regex chunk_size_rx_;
 
   /// Points to the socket to use for the communication.
-  boost::asio::ip::tcp::socket* socket_;
+  boost::asio::ssl::stream<boost::asio::ip::tcp::socket>* socket_;
 
   /// Request buffer that will be sent.
   std::string request_;

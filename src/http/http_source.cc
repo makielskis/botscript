@@ -6,10 +6,10 @@
 
 #include <iomanip>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <string>
-#include <algorithm>
 
 #include "boost/lexical_cast.hpp"
 #include "boost/regex.hpp"
@@ -20,12 +20,9 @@ namespace http {
 
 boost::regex http_source::chunk_size_rx_("\r?\n?[0-9a-fA-F]+\r\n");
 
-http_source::http_source(boost::asio::ip::tcp::socket* socket)
-    : socket_(socket),
-      response_stream_(&buf_),
-      status_code_(0),
-      length_(0) {
-}
+http_source::http_source(
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket>* socket)
+    : socket_(socket), response_stream_(&buf_), status_code_(0), length_(0) {}
 
 std::streamsize http_source::read(char_type* s, std::streamsize n) {
   std::size_t ret = std::min(static_cast<std::size_t>(n), response_.size());
@@ -66,60 +63,60 @@ void http_source::transfer(boost::system::error_code ec,
     std::size_t read, chunk_size, chunk_bytes, to_transfer, original;
 
     reenter(this) {
-      yield asio::async_write(*socket_, asio::buffer(request_), re);
-      yield asio::async_read_until(*socket_, buf_, "\r\n\r\n", re);
+            yield asio::async_write(*socket_, asio::buffer(request_), re);
+            yield asio::async_read_until(*socket_, buf_, "\r\n\r\n", re);
 
-      read_header();
+            read_header();
 
-      if (header_.find("content-length") != header_.end()) {
-        read = copy_content(buf_.size());
+            if (header_.find("content-length") != header_.end()) {
+              read = copy_content(buf_.size());
 
-        try {
-          read_content_length();
-        } catch(std::bad_cast) {
-          using namespace boost::system;
-          return cb(error_code(errc::illegal_byte_sequence, system_category()));
-        }
-        response_.resize(length_);
+              try {
+                read_content_length();
+              } catch (std::bad_cast) {
+                using namespace boost::system;
+                return cb(error_code(errc::illegal_byte_sequence, system_category()));
+              }
+              response_.resize(length_);
 
-        if (length_ > read) {
-          yield asio::async_read(*socket_,
-                                 asio::buffer(&(response_[read]),
-                                              length_ - read),
-                                 asio::transfer_at_least(length_ - read), re);
-        }
-      } else if (header_.find("transfer-encoding") != header_.end()) {
-        while(true) {
-          yield asio::async_read_until(*socket_, buf_, chunk_size_rx_, re);
+              if (length_ > read) {
+                yield asio::async_read(
+                                        *socket_, asio::buffer(&(response_[read]), length_ - read),
+                                        asio::transfer_at_least(length_ - read), re);
+              }
+            } else if (header_.find("transfer-encoding") != header_.end()) {
+              while (true) {
+                yield asio::async_read_until(*socket_, buf_, chunk_size_rx_, re);
 
-          chunk_size = 0;
-          response_stream_ >> std::hex >> chunk_size;
-          buf_.consume(2);
+                chunk_size = 0;
+                response_stream_ >> std::hex >> chunk_size;
+                buf_.consume(2);
 
-          if (chunk_size == 0) {
-            break;
+                if (chunk_size == 0) {
+                  break;
+                }
+
+                chunk_bytes = std::min(buf_.size(), chunk_size);
+                copy_content(chunk_bytes);
+
+                if (chunk_size > chunk_bytes) {
+                  to_transfer = chunk_size - chunk_bytes;
+                  original = response_.size();
+                  response_.resize(original + to_transfer);
+                  yield asio::async_read(
+                                          *socket_, asio::buffer(&(response_[original]), to_transfer),
+                                          asio::transfer_at_least(to_transfer), re);
+                }
+              }
+            } else {
+              while (true) {
+                copy_content(buf_.size());
+                yield asio::async_read(*socket_, buf_, asio::transfer_at_least(1),
+                                       re);
+              }
+            }
+            return cb(ec);
           }
-
-          chunk_bytes = std::min(buf_.size(), chunk_size);
-          copy_content(chunk_bytes);
-
-          if (chunk_size > chunk_bytes) {
-            to_transfer = chunk_size - chunk_bytes;
-            original = response_.size();
-            response_.resize(original + to_transfer);
-            yield asio::async_read(*socket_,
-                asio::buffer(&(response_[original]), to_transfer),
-                asio::transfer_at_least(to_transfer), re);
-          }
-        }
-      } else {
-        while (true) {
-          copy_content(buf_.size());
-          yield asio::async_read(*socket_, buf_, asio::transfer_at_least(1), re);
-        }
-      }
-      return cb(ec);
-    }
   } else {
     return cb(ec);
   }

@@ -4,17 +4,17 @@
 
 #include "webclient.h"
 
-#include <utility>
 #include <sstream>
+#include <utility>
 
-#include "boost/regex.hpp"
 #include "boost/algorithm/string/predicate.hpp"
 #include "boost/bind.hpp"
+#include "boost/regex.hpp"
 
-#include "./url.h"
-#include "./util.h"
-#include "./useragents.h"
 #include "./http_con.h"
+#include "./url.h"
+#include "./useragents.h"
+#include "./util.h"
 
 namespace http {
 
@@ -22,12 +22,9 @@ error::http_category webclient::cat_;
 
 webclient::webclient(boost::asio::io_service* io_service,
                      std::map<std::string, std::string> headers)
-    : headers_(std::move(headers)),
-      io_service_(io_service) {
-}
+    : headers_(std::move(headers)), io_service_(io_service) {}
 
-webclient::~webclient() {
-}
+webclient::~webclient() {}
 
 void webclient::set_proxy(std::string host, std::string port) {
   proxy_host_ = std::move(host);
@@ -49,17 +46,18 @@ void webclient::request(const url& u, int method, std::string body, callback cb,
   std::string host = use_proxy ? proxy_host_ : u.host();
   std::string port = use_proxy ? proxy_port_ : u.port();
 
-  if (port == "http") {
-    port = "80";
+  // TODO: support non-SSL connections
+  if (port == "http" || port == "https") {
+    port = "443";
   }
 
   // Start request.
   typedef std::shared_ptr<http_con> http_ptr;
   http_ptr c = std::make_shared<http_con>(io_service_, host, port, timeout);
   std::string req = util::build_request(u, method, body, headers_, use_proxy);
-  c->operator()(req, boost::bind(&webclient::request_finish, this,
-                                 u, timeout, remaining_redirects, cb,
-                                 _1, _2, _3));
+
+  c->operator()(req, boost::bind(&webclient::request_finish, this, u, timeout,
+                                 remaining_redirects, cb, _1, _2, _3));
 }
 
 void webclient::request_finish(const url& request_url,
@@ -83,8 +81,9 @@ void webclient::request_finish(const url& request_url,
     }
 
     // Fix relative location declaration.
-    if (!boost::starts_with(u, "http:")) {
-      u = "http://" + request_url.host() + u;
+    if (!boost::starts_with(u, "http:") && !boost::starts_with(u, "https:")) {
+      // TODO: support non-SSL connections
+      u = "https://" + request_url.host() + u;
     }
 
     // Redirect with HTTP GET
@@ -96,8 +95,8 @@ void webclient::request_finish(const url& request_url,
 
 void webclient::submit(const std::string& xpath, const std::string& page,
                        std::map<std::string, std::string> input_params,
-                       const std::string& action,
-                       callback cb, boost::posix_time::time_duration timeout,
+                       const std::string& action, callback cb,
+                       boost::posix_time::time_duration timeout,
                        boost::system::error_code& ec) {
   // Load document.
   pugi::xml_document doc;
@@ -111,7 +110,7 @@ void webclient::submit(const std::string& xpath, const std::string& page,
       ec = boost::system::error_code(error::NO_FORM_OR_SUBMIT, cat_);
       return;
     }
-  } catch(pugi::xpath_exception) {
+  } catch (pugi::xpath_exception) {
     ec = boost::system::error_code(error::INVALID_XPATH, cat_);
     return;
   }
@@ -229,7 +228,7 @@ void webclient::store_cookies(const std::string& new_cookies) {
 void webclient::set_cookies_header() {
   // Build and set new cookies string.
   std::stringstream cookies_str;
-  for(auto cookie : cookies_) {
+  for (auto cookie : cookies_) {
     cookies_str << cookie.first << "=" << cookie.second << "; ";
   }
   std::string cookie = cookies_str.str();

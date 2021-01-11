@@ -22,3 +22,7 @@
   url=git@github.com:motis-project/googletest.git
   branch=master
   commit=7b1897f1e728c8d160b53ce969c6c6850d1fda3a
+[libressl]
+  url=git@github.com:motis-project/libressl.git
+  branch=master
+  commit=faa48d99b721dfa85fa9cc9695b2eae9dcbda503
