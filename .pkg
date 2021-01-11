@@ -9,7 +9,7 @@
 [lua]
   url=git@github.com:makielskis/lua.git
   branch=master
-  commit=f333a142fb531713a2be0756cc0b8adeee6ad3db
+  commit=c63ffcb44088134068a28a643435ae2517751579
 [tidy]
   url=git@github.com:makielskis/tidy.git
   branch=master
