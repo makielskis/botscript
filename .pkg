@@ -13,8 +13,12 @@
 [tidy]
   url=git@github.com:makielskis/tidy.git
   branch=master
-  commit=49a86fd24df6d17fa280af2d472cb4e89bdcb15d
+  commit=2426606b9910c28d5bd3e6724df90db27ab33899
 [boost]
   url=git@github.com:motis-project/boost.git
   branch=master
   commit=03a2fc17e1104524da91e3a8a55ca6e09190b4c9
+[googletest]
+  url=git@github.com:motis-project/googletest.git
+  branch=master
+  commit=7b1897f1e728c8d160b53ce969c6c6850d1fda3a
