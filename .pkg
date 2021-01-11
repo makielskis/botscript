@@ -3,9 +3,9 @@
   branch=master
   commit=60175e80e2f5e97e027ac78f7e14c5acc009ce50
 [rapidjson]
-  url=git@github.com:makielskis/rapidjson.git
+  url=git@github.com:motis-project/rapidjson.git
   branch=master
-  commit=5b13fac45f840b49e79429e860d29be748e5c300
+  commit=d00b1ceed14d146944ac3ad4f956396141f86f48
 [lua]
   url=git@github.com:makielskis/lua.git
   branch=master

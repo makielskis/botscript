@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <algorithm>
 
-#include "./rapidjson_with_exception.h"
+#include "rapidjson/rapidjson.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
@@ -181,13 +181,13 @@ string mem_bot_config::to_json(bool with_password) const {
   rapidjson::Document document;
   document.SetObject();
   rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
-  document.AddMember("username", username_.c_str(), allocator);
+  document.AddMember(rapidjson::StringRef("username"), rapidjson::StringRef(username_.c_str()), allocator);
   if (with_password) {
-    document.AddMember("password", password_.c_str(), allocator);
+    document.AddMember(rapidjson::StringRef("password"), rapidjson::StringRef(password_.c_str()), allocator);
   }
-  document.AddMember("package", package_.c_str(), allocator);
-  document.AddMember("server", server_.c_str(), allocator);
-  document.AddMember("inactive", inactive_  ? "1" : "0", allocator);
+  document.AddMember(rapidjson::StringRef("package"), rapidjson::StringRef(package_.c_str()), allocator);
+  document.AddMember(rapidjson::StringRef("server"), rapidjson::StringRef(server_.c_str()), allocator);
+  document.AddMember(rapidjson::StringRef("inactive"), rapidjson::StringRef(inactive_  ? "1" : "0"), allocator);
 
   // Write cookies.
   rapidjson::Value cookies(rapidjson::kObjectType);
