@@ -1,3 +1,0 @@
-[submodule "packages/pg"]
-	path = packages/pg
-	url = git@github.com:makielskis/pg.git

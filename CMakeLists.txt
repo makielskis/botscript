@@ -15,13 +15,6 @@ endif()
 
 
 ################################
-# Package compilation
-################################
-file(GLOB_RECURSE resources ${CMAKE_CURRENT_SOURCE_DIR}/packages/pg/*.lua)
-create_resource(${CMAKE_CURRENT_SOURCE_DIR} "${resources}" pg)
-
-
-################################
 # Static library
 ################################
 set(bs-boost-libs boost)
@@ -53,7 +46,6 @@ elseif(ANDROID)
   set_target_properties(bs PROPERTIES COMPILE_FLAGS "-std=c++11 -fPIC")
   set(_def ANDROID)
   set_target_properties(bs PROPERTIES COMPILE_DEFINITIONS "${_def}")
-  add_dependencies(bs compile_packages)
 else()
   set_target_properties(bs PROPERTIES COMPILE_FLAGS "-Wall -Wextra -std=c++11")
   if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
