@@ -8,7 +8,7 @@ include(cmake/pkg.cmake)
 ################################
 # Static packages
 ################################
-option(STATIC_PACKAGES "STATIC_PACKAGES" OFF)
+option(STATIC_PACKAGES "STATIC_PACKAGES" ON)
 if (STATIC_PACKAGES)
   add_definitions(-DSTATIC_PACKAGES)
 endif()
@@ -17,30 +17,8 @@ endif()
 ################################
 # Package compilation
 ################################
-if (ANDROID OR STATIC_PACKAGES)
-  add_custom_target(compile_packages
-    rm -rf ${CMAKE_CURRENT_LIST_DIR}/src/pg.h &&
-    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg ${CMAKE_CURRENT_LIST_DIR}/src/pg.h HGC ${luac_location}
-  )
-elseif (MINGW)
-  add_custom_target(compile_packages
-    rm -rf pg &&
-    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GCS ${luac_location} &&
-    cd pg &&
-    cmake -DCMAKE_TOOLCHAIN_FILE=~/mxe/usr/i686-pc-mingw32/share/cmake/mxe-conf.cmake -DBoost_THREADAPI=win32 . &&
-    make &&
-    ~/mxe/usr/bin/i686-pc-mingw32-strip pg.package
-  )
-else()
-  add_custom_target(compile_packages
-    rm -rf pg &&
-    python ${CMAKE_CURRENT_LIST_DIR}/generate_package.py ${CMAKE_CURRENT_LIST_DIR}/packages/pg pg GC ${luac_location} &&
-    cd pg &&
-    cmake -DCMAKE_BUILD_TYPE=MinSizeRel . &&
-    make
-  )
-endif()
-add_dependencies(compile_packages luac)
+file(GLOB_RECURSE resources ${CMAKE_CURRENT_SOURCE_DIR}/packages/pg/*.lua)
+create_resource(${CMAKE_CURRENT_SOURCE_DIR} "${resources}" pg)
 
 
 ################################
@@ -86,7 +64,7 @@ else()
 endif()
 
 if(STATIC_PACKAGES)
-  add_dependencies(bs compile_packages)
+  target_link_libraries(bs pg pg-res)
 endif()
 
 

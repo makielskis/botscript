@@ -55,7 +55,7 @@ void bot::shutdown() {
   configuration_ = std::make_shared<mem_bot_config>();
 
   lua_connection::remove(identifier_);
-  for (const auto m : modules_) {
+  for (const auto& m : modules_) {
     m->execute("global_set_active", "0");
   }
   modules_.clear();
@@ -72,10 +72,17 @@ std::shared_ptr<bot_config> bot::config() { return configuration_; }
 bot_browser* bot::browser() { return browser_.get(); }
 
 void bot::load_packages(const std::string& p) {
+  (void) p;
 #if defined(ANDROID) || defined(STATIC_PACKAGES)
-  typedef std::map<std::string, std::string> mod_map;
-  std::unique_ptr<mod_map> pg(static_cast<mod_map*>(load_pg()));
-  packages_["pg"] = std::make_shared<package>("pg", *pg.get());
+  packages_["pg"] = std::make_shared<package>("pg", []() {
+      std::map<std::string, std::string> modules;
+      for (auto const& [name, id] : pg::get_resource_ids()) {
+          auto const res = pg::make_resource(id);
+          auto const cleaned_name = boost::filesystem::path{name}.stem().generic_string();
+          modules.emplace(cleaned_name, std::string{static_cast<char const*>(res.ptr_), res.size_});
+      }
+      return modules;
+  }(), false);
 #else
   // Check that the specified path is a directory.
   if (!boost::filesystem::is_directory(p)) {

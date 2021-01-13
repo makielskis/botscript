@@ -26,3 +26,7 @@
   url=git@github.com:motis-project/libressl.git
   branch=master
   commit=faa48d99b721dfa85fa9cc9695b2eae9dcbda503
+[res]
+  url=git@github.com:motis-project/res.git
+  branch=master
+  commit=3fe0dd79b5f60fc68fdb5746d2875b9b9022a464

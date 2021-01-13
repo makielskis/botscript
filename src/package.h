@@ -16,7 +16,8 @@ class package {
  public:
   /// \param name     the package name
   /// \param modules  the modules
-  package(std::string name, std::map<std::string, std::string> modules);
+  /// \param zipped   whether the value of modules is gzip compressed or not
+  package(std::string name, std::map<std::string, std::string> modules, bool zipped = true);
 
   /// \param package_name        the name of the package
   /// \param modules             a mapping from module name (base, server, etc.)
