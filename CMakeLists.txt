@@ -69,19 +69,6 @@ endif()
 
 
 ################################
-# Main executable (currently not supported)
-################################
-#add_executable(botscript ${exe_files})
-#if(MSVC)
-#  target_link_libraries(botscript bs ${bs-boost-libs} tidy pugixml lua)
-#elseif(MINGW)
-#  target_link_libraries(botscript -Wl,-Bstatic ${bs-boost-libs} tidy pugixml lua ws2_32 mswsock)
-#else()
-#  target_link_libraries(botscript bs ${bs-boost-libs} tidy pugixml lua dl -pthread)
-#endif()
-
-
-################################
 # Unit Tests
 ################################
 configure_file(
