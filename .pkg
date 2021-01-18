@@ -29,4 +29,4 @@
 [pg]
   url=git@github.com:makielskis/pg.git
   branch=master
-  commit=e5f7ffa352f138e45351e2d16cead0c80e147b22
+  commit=42da864dffaa5e33d2686a0a88108adea8c5abd9
